@@ -594,3 +594,22 @@ function IdeaDetail({ ideaId }: { ideaId: string }) {
 9. **Graph API scoping.** Use an Exchange application access policy to restrict `Mail.Send` to the ThoughtBox shared mailbox only. This is a one-time admin command, not app code.
 
 10. **Fallback form.** When the AI provider fails to initialize, show a traditional form (title, description, category dropdown) so submissions aren't blocked. The form is hidden by default and only surfaces on AI failure.
+
+## Cloudflare Workers deployment (branch: feat/cloudflare-workers)
+
+If you are working on the `feat/cloudflare-workers` branch, read `docs/cloudflare-poc-session-brief.md` before starting. It contains Cloudflare-specific architecture guidance, code patterns, and a step-by-step implementation plan.
+
+The session brief **overrides** the following sections of this file when working on the Cloudflare branch:
+
+- **Auth:** OIDC middleware (arctic library) replaces Easy Auth header parsing. New auth routes at `/auth/login`, `/auth/callback`, `/auth/logout`.
+- **Database connection:** Hyperdrive binding + Neon PostgreSQL replaces direct Azure PostgreSQL connection. Same Drizzle schema, different connection init (`maxUses: 1` required).
+- **Environment variables:** Request-bound (`env` parameter in handlers) replaces global `process.env`. No top-level env access.
+- **Graph API client:** Client credentials flow replaces managed identity. Manual token exchange via fetch.
+- **Object storage:** Cloudflare R2 bindings for avatar photo cache.
+- **Deployment:** `wrangler.toml` + `wrangler deploy` replaces Bicep + App Service deployment.
+- **Monitoring:** Cloudflare Workers Logs replaces Application Insights. Update error handling to log to console (Workers captures structured logs automatically) instead of App Insights SDK.
+- **GitHub Actions:** Use `.github/workflows/deploy-cloudflare.yml` (separate from the Azure workflow).
+
+Everything else in this file (TanStack Start patterns, coding standards, React patterns, testing, naming conventions, Drizzle schema, AI integration, email templates, engagement patterns, commit cadence) applies unchanged.
+
+**Do not modify Azure-specific files** (Bicep templates, Azure GitHub Actions workflow, Easy Auth middleware). The Azure path stays intact. Create new Cloudflare-specific files alongside existing ones.

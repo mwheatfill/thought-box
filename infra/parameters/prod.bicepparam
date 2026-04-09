@@ -5,8 +5,8 @@ param environmentName = 'prod'
 param appServicePlanSku = 'B1'
 
 // Entra ID — fill in after app registration
-param azureTenantId = ''
-param azureClientId = ''
+param azureTenantId = 'cd551af0-e42b-4a17-a193-1748738a72d7'
+param azureClientId = '8f876f3f-82c1-46c0-abb7-73aaafde8248'
 
 // Graph API — fill in after app registration
 param graphClientId = ''
