@@ -102,7 +102,6 @@ function LandingPage() {
 				animate={{
 					maxWidth: "42rem",
 					height: hasStarted ? "min(calc(100vh - 8rem), 700px)" : "auto",
-					minHeight: hasStarted ? "400px" : "0",
 				}}
 				transition={{ duration: 0.4, ease: "easeInOut" }}
 			>

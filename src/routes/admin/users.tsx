@@ -96,6 +96,7 @@ function UsersPage() {
 			queryClient.invalidateQueries({ queryKey: ["admin-users"] });
 			toast.success("User updated");
 		},
+		onError: (err) => toast.error(err.message || "Failed to update user"),
 	});
 
 	return (
