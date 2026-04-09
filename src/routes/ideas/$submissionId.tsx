@@ -228,8 +228,12 @@ function IdeaDetailPage() {
 							onReassign={async (newLeaderId) => {
 								await reassignMutation.mutateAsync(newLeaderId);
 							}}
+							onCommunicate={async (message) => {
+								await messageMutation.mutateAsync(message);
+							}}
 							isSaving={updateMutation.isPending}
 							isReassigning={reassignMutation.isPending}
+							isCommunicating={messageMutation.isPending}
 						/>
 					</div>
 				)}

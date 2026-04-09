@@ -1,4 +1,4 @@
-import { ChevronsUpDown, Lock, RefreshCw } from "lucide-react";
+import { ChevronsUpDown, Lock, Mail, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { SlaIndicator } from "#/components/dashboard/sla-indicator";
 import { StatusBadge } from "#/components/dashboard/status-badge";
@@ -12,6 +12,13 @@ import {
 	CommandItem,
 	CommandList,
 } from "#/components/ui/command";
+import {
+	Dialog,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "#/components/ui/dialog";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
@@ -51,8 +58,10 @@ interface LeaderActionsProps {
 		actionTaken?: string | null;
 	}) => Promise<void>;
 	onReassign: (newLeaderId: string) => Promise<void>;
+	onCommunicate: (message: string) => Promise<void>;
 	isSaving: boolean;
 	isReassigning: boolean;
+	isCommunicating: boolean;
 }
 
 export function LeaderActions({
@@ -68,8 +77,10 @@ export function LeaderActions({
 	leaders,
 	onSave,
 	onReassign,
+	onCommunicate,
 	isSaving,
 	isReassigning,
+	isCommunicating,
 }: LeaderActionsProps) {
 	const closedStatuses = ["accepted", "implemented", "declined"];
 	const isClosed = closedStatuses.includes(currentStatus);
@@ -79,6 +90,8 @@ export function LeaderActions({
 	const [leaderNotes, setLeaderNotes] = useState(currentLeaderNotes ?? "");
 	const [actionTaken, setActionTaken] = useState(currentActionTaken ?? "");
 	const [reassignOpen, setReassignOpen] = useState(false);
+	const [communicateOpen, setCommunicateOpen] = useState(false);
+	const [communicateMessage, setCommunicateMessage] = useState("");
 
 	const hasChanges =
 		status !== currentStatus ||
@@ -273,6 +286,62 @@ export function LeaderActions({
 					</CardContent>
 				</Card>
 			)}
+
+			{/* Communicate to Employee */}
+			<Button
+				variant="outline"
+				className="w-full"
+				onClick={() => {
+					const statusLabel =
+						currentStatus === "accepted"
+							? "accepted"
+							: currentStatus === "declined"
+								? "declined"
+								: currentStatus === "under_review"
+									? "under review"
+									: currentStatus;
+					const template = currentLeaderNotes
+						? `Your idea is currently ${statusLabel}.\n\n${currentLeaderNotes}`
+						: `Your idea is currently ${statusLabel}. We'll keep you posted on any updates.`;
+					setCommunicateMessage(template);
+					setCommunicateOpen(true);
+				}}
+			>
+				<Mail className="mr-2 size-4" />
+				Communicate to Employee
+			</Button>
+
+			{/* Communicate Dialog */}
+			<Dialog open={communicateOpen} onOpenChange={setCommunicateOpen}>
+				<DialogContent className="max-w-lg">
+					<DialogHeader>
+						<DialogTitle>Communicate to Employee</DialogTitle>
+					</DialogHeader>
+					<p className="text-sm text-muted-foreground">
+						Review and edit the message below before sending. The employee will receive this as a
+						message on their idea.
+					</p>
+					<Textarea
+						value={communicateMessage}
+						onChange={(e) => setCommunicateMessage(e.target.value)}
+						className="min-h-[120px]"
+					/>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setCommunicateOpen(false)}>
+							Cancel
+						</Button>
+						<Button
+							disabled={!communicateMessage.trim() || isCommunicating}
+							onClick={async () => {
+								await onCommunicate(communicateMessage.trim());
+								setCommunicateOpen(false);
+							}}
+						>
+							{isCommunicating ? "Sending..." : "Send Message"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }
