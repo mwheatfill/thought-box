@@ -1,12 +1,16 @@
 import { anthropic } from "@ai-sdk/anthropic";
-import { streamText, tool } from "ai";
+import { convertToModelMessages, streamText, tool } from "ai";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/server/db";
 import { categories, settings, users } from "#/server/db/schema";
 
 export async function handleChatRequest(request: Request): Promise<Response> {
-	const { messages, userId } = await request.json();
+	const body = await request.json();
+	const userId = body.userId;
+
+	// Convert UI messages to model messages for streamText
+	const messages = await convertToModelMessages(body.messages);
 
 	// Load system prompt and category taxonomy
 	const [promptSetting, allCategories] = await Promise.all([
