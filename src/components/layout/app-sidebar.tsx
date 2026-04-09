@@ -3,16 +3,13 @@ import {
 	LayoutDashboard,
 	Lightbulb,
 	type LucideIcon,
-	Moon,
 	Settings,
 	Shield,
-	Sun,
 	Tags,
 	Users,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ThemeToggle } from "#/components/layout/theme-toggle";
 import { Avatar, AvatarFallback } from "#/components/ui/avatar";
-import { Button } from "#/components/ui/button";
 import { Separator } from "#/components/ui/separator";
 import {
 	Sidebar,
@@ -47,34 +44,6 @@ const adminNav: NavItem[] = [
 	{ label: "Users", href: "/admin/users", icon: Users },
 	{ label: "Settings", href: "/admin/settings", icon: Settings },
 ];
-
-// ── Theme toggle ───────────────────────────────────────────────────────────
-
-function ThemeToggle() {
-	const [theme, setTheme] = useState<"light" | "dark">("light");
-
-	useEffect(() => {
-		const root = document.documentElement;
-		const isDark = root.classList.contains("dark");
-		setTheme(isDark ? "dark" : "light");
-	}, []);
-
-	function toggle() {
-		const next = theme === "light" ? "dark" : "light";
-		setTheme(next);
-		const root = document.documentElement;
-		root.classList.remove("light", "dark");
-		root.classList.add(next);
-		root.style.colorScheme = next;
-		localStorage.setItem("theme", next);
-	}
-
-	return (
-		<Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
-			{theme === "light" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-		</Button>
-	);
-}
 
 // ── Initials helper ────────────────────────────────────────────────────────
 

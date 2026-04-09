@@ -1,8 +1,9 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { LayoutDashboard, Lightbulb, Moon, Settings, Sun, Tags, Users } from "lucide-react";
+import { LayoutDashboard, Lightbulb, Settings, Tags, Users } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ChatInterface } from "#/components/chat/chat-interface";
+import { ThemeToggle } from "#/components/layout/theme-toggle";
 import { Avatar, AvatarFallback } from "#/components/ui/avatar";
 import { Button } from "#/components/ui/button";
 import {
@@ -203,31 +204,5 @@ function PromptCard({ prompt, onClick }: { prompt: string; onClick: () => void }
 		>
 			<span className="text-muted-foreground group-hover:text-foreground">{prompt}</span>
 		</button>
-	);
-}
-
-function ThemeToggle() {
-	const [theme, setTheme] = useState<"light" | "dark">("light");
-
-	useEffect(() => {
-		const root = document.documentElement;
-		const isDark = root.classList.contains("dark");
-		setTheme(isDark ? "dark" : "light");
-	}, []);
-
-	function toggle() {
-		const next = theme === "light" ? "dark" : "light";
-		setTheme(next);
-		const root = document.documentElement;
-		root.classList.remove("light", "dark");
-		root.classList.add(next);
-		root.style.colorScheme = next;
-		localStorage.setItem("theme", next);
-	}
-
-	return (
-		<Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
-			{theme === "light" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-		</Button>
 	);
 }
