@@ -39,11 +39,8 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Prune dev dependencies
-        run: pnpm prune --prod
-
       - name: Create deployment package
-        run: zip -r deploy.zip dist/ node_modules/ package.json drizzle/
+        run: zip -r deploy.zip dist/ server-adapter.js package.json drizzle/
 
       - uses: actions/upload-artifact@v4
         with:
@@ -72,10 +69,3 @@ jobs:
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           package: deploy.zip
-
-      - name: Run database migrations
-        run: |
-          az webapp ssh --name ${{ env.AZURE_WEBAPP_NAME }} \
-            --resource-group ${{ env.AZURE_RG }} \
-            --timeout 30 \
-            --command "cd /home/site/wwwroot && npx drizzle-kit migrate"

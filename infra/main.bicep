@@ -198,7 +198,7 @@ resource appService 'Microsoft.Web/sites@2024-04-01' = {
     httpsOnly: true
     siteConfig: {
       linuxFxVersion: 'NODE|22-lts'
-      appCommandLine: 'npx srvx --prod --static dist/client dist/server/server.js'
+      appCommandLine: 'node server-adapter.js'
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       http20Enabled: true

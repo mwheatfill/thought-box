@@ -19,30 +19,23 @@ async function seed() {
 		.insert(users)
 		.values([
 			{
-				entraId: "seed-nubia-ruiz",
+				entraId: "5aeec5b3-c840-47fc-9385-2afcb578b458",
+				email: "michael.wheatfill@desertfinancial.com",
+				displayName: "Michael Wheatfill",
+				role: "admin",
+				source: "graph",
+			},
+			{
+				entraId: "c7e1618e-388d-40e2-a4cc-735977167947",
 				email: "nubia.ruiz@desertfinancial.com",
 				displayName: "Nubia Ruiz",
 				role: "admin",
 				source: "graph",
 			},
 			{
-				entraId: "seed-eric-konefal",
+				entraId: "b1104614-b916-4380-ab9d-9f6830acb30e",
 				email: "eric.konefal@desertfinancial.com",
 				displayName: "Eric Konefal",
-				role: "admin",
-				source: "graph",
-			},
-			{
-				entraId: "seed-greg-scott",
-				email: "greg.scott@desertfinancial.com",
-				displayName: "Greg Scott",
-				role: "admin",
-				source: "graph",
-			},
-			{
-				entraId: "seed-jaime-carranza",
-				email: "jaime.carranza@desertfinancial.com",
-				displayName: "Jaime Carranza",
 				role: "admin",
 				source: "graph",
 			},

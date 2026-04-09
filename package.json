@@ -8,7 +8,7 @@
 	"scripts": {
 		"dev": "vite dev --port 3000",
 		"build": "vite build",
-		"start": "srvx --prod --static dist/client dist/server/server.js",
+		"start": "node server-adapter.js",
 		"preview": "vite preview",
 		"check": "biome check src/",
 		"check:fix": "biome check --write src/",
@@ -19,7 +19,7 @@
 		"db:seed": "tsx src/server/db/seed.ts",
 		"db:studio": "drizzle-kit studio",
 		"email:preview": "email dev --dir src/emails",
-		"prepare": "husky"
+		"prepare": "node -e \"try{require('husky')}catch(e){process.exit(0)}\" && husky"
 	},
 	"dependencies": {
 		"@ai-sdk/anthropic": "^3.0.68",
@@ -62,6 +62,7 @@
 		"recharts": "^3.8.0",
 		"shadcn": "^4.2.0",
 		"sonner": "^2.0.2",
+		"srvx": "^0.11.15",
 		"tailwind-merge": "^3.3.0",
 		"tailwindcss": "^4.1.18",
 		"tw-animate-css": "^1.4.0",
