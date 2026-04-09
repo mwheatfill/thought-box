@@ -17,6 +17,7 @@ dist/
 
 # TanStack generated
 src/routeTree.gen.ts
+.tanstack/
 
 # Database
 *.db

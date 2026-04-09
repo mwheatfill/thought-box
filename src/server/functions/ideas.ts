@@ -121,10 +121,10 @@ export const createIdea = createServerFn({ method: "POST" })
 
 export const getIdeaDetail = createServerFn()
 	.middleware([authMiddleware])
-	.inputValidator(z.object({ ideaId: z.string() }))
+	.inputValidator(z.object({ submissionId: z.string() }))
 	.handler(async ({ context, data }) => {
 		const idea = await db.query.ideas.findFirst({
-			where: eq(ideas.id, data.ideaId),
+			where: eq(ideas.submissionId, data.submissionId),
 			with: {
 				category: { columns: { name: true } },
 				submitter: {

@@ -94,8 +94,8 @@ export function SubmitterDashboard({ user, ideas, yearlyCount }: SubmitterDashbo
 										<TableCell className="font-mono text-xs">{idea.submissionId}</TableCell>
 										<TableCell>
 											<Link
-												to="/ideas/$ideaId"
-												params={{ ideaId: idea.id }}
+												to="/ideas/$submissionId"
+												params={{ submissionId: idea.submissionId }}
 												className="font-medium hover:underline"
 											>
 												{idea.title}

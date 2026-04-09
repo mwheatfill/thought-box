@@ -18,38 +18,39 @@ import type { IdeaStatus } from "#/lib/constants";
 import { getIdeaDetail, updateIdea } from "#/server/functions/ideas";
 import { addMessage, getIdeaMessages } from "#/server/functions/messages";
 
-export const Route = createFileRoute("/ideas/$ideaId")({
+export const Route = createFileRoute("/ideas/$submissionId")({
 	loader: async ({ params }) => {
-		return getIdeaDetail({ data: { ideaId: params.ideaId } });
+		return getIdeaDetail({ data: { submissionId: params.submissionId } });
 	},
 	component: IdeaDetailPage,
 });
 
 function IdeaDetailPage() {
-	const { ideaId } = Route.useParams();
+	const { submissionId } = Route.useParams();
 	const initialData = Route.useLoaderData();
 	const { user } = Route.useRouteContext();
 	const queryClient = useQueryClient();
 
 	// Keep data fresh with TanStack Query
 	const { data: idea } = useQuery({
-		queryKey: ["idea", ideaId],
-		queryFn: () => getIdeaDetail({ data: { ideaId } }),
+		queryKey: ["idea", submissionId],
+		queryFn: () => getIdeaDetail({ data: { submissionId } }),
 		initialData,
 	});
 
 	// Messages query
 	const { data: messages = [] } = useQuery({
-		queryKey: ["idea-messages", ideaId],
-		queryFn: () => getIdeaMessages({ data: { ideaId } }),
+		queryKey: ["idea-messages", idea.id],
+		queryFn: () => getIdeaMessages({ data: { ideaId: idea.id } }),
 	});
 
 	// Update mutation
 	const updateFn = useServerFn(updateIdea);
 	const updateMutation = useMutation({
-		mutationFn: (updates: Record<string, unknown>) => updateFn({ data: { ideaId, ...updates } }),
+		mutationFn: (updates: Record<string, unknown>) =>
+			updateFn({ data: { ideaId: idea.id, ...updates } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["idea", ideaId] });
+			queryClient.invalidateQueries({ queryKey: ["idea", submissionId] });
 			toast.success("Changes saved");
 		},
 		onError: () => {
@@ -60,10 +61,10 @@ function IdeaDetailPage() {
 	// Message mutation
 	const messageFn = useServerFn(addMessage);
 	const messageMutation = useMutation({
-		mutationFn: (content: string) => messageFn({ data: { ideaId, content } }),
+		mutationFn: (content: string) => messageFn({ data: { ideaId: idea.id, content } }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["idea-messages", ideaId] });
-			queryClient.invalidateQueries({ queryKey: ["idea", ideaId] });
+			queryClient.invalidateQueries({ queryKey: ["idea-messages", idea.id] });
+			queryClient.invalidateQueries({ queryKey: ["idea", submissionId] });
 		},
 		onError: () => {
 			toast.error("Failed to send message");
@@ -195,7 +196,7 @@ function IdeaDetailPage() {
 				{idea.canEdit && (
 					<div className="lg:sticky lg:top-6 lg:self-start">
 						<LeaderActions
-							ideaId={ideaId}
+							ideaId={idea.id}
 							currentStatus={idea.status}
 							currentRejectionReason={idea.rejectionReason}
 							currentLeaderNotes={idea.leaderNotes}
