@@ -30,30 +30,31 @@ export const getUsers = createServerFn()
 		}));
 	});
 
+async function ensureNotLastAdmin(userId: string, action: string) {
+	const target = await db.query.users.findFirst({
+		where: eq(users.id, userId),
+		columns: { role: true },
+	});
+	if (target?.role !== "admin") return;
+
+	const otherAdmin = await db.query.users.findFirst({
+		where: and(eq(users.role, "admin"), eq(users.active, true), ne(users.id, userId)),
+		columns: { id: true },
+	});
+	if (!otherAdmin) {
+		throw new Error(`Cannot ${action} the last active admin.`);
+	}
+}
+
 export const updateUserRole = createServerFn({ method: "POST" })
 	.middleware([adminMiddleware])
 	.inputValidator(z.object({ userId: z.string(), role: z.enum(["submitter", "leader", "admin"]) }))
 	.handler(async ({ data, context }) => {
-		// Prevent demoting yourself
 		if (data.userId === context.user.id && data.role !== "admin") {
 			throw new Error("You cannot change your own role.");
 		}
-
-		// Prevent demoting the last admin
 		if (data.role !== "admin") {
-			const target = await db.query.users.findFirst({
-				where: eq(users.id, data.userId),
-				columns: { role: true },
-			});
-			if (target?.role === "admin") {
-				const otherAdmins = await db.query.users.findMany({
-					where: and(eq(users.role, "admin"), eq(users.active, true), ne(users.id, data.userId)),
-					columns: { id: true },
-				});
-				if (otherAdmins.length === 0) {
-					throw new Error("Cannot demote the last active admin.");
-				}
-			}
+			await ensureNotLastAdmin(data.userId, "demote");
 		}
 
 		await db
@@ -67,26 +68,11 @@ export const toggleUserActive = createServerFn({ method: "POST" })
 	.middleware([adminMiddleware])
 	.inputValidator(z.object({ userId: z.string(), active: z.boolean() }))
 	.handler(async ({ data, context }) => {
-		// Prevent disabling yourself
 		if (data.userId === context.user.id && !data.active) {
 			throw new Error("You cannot deactivate your own account.");
 		}
-
-		// Prevent disabling the last admin
 		if (!data.active) {
-			const target = await db.query.users.findFirst({
-				where: eq(users.id, data.userId),
-				columns: { role: true },
-			});
-			if (target?.role === "admin") {
-				const otherAdmins = await db.query.users.findMany({
-					where: and(eq(users.role, "admin"), eq(users.active, true), ne(users.id, data.userId)),
-					columns: { id: true },
-				});
-				if (otherAdmins.length === 0) {
-					throw new Error("Cannot deactivate the last active admin.");
-				}
-			}
+			await ensureNotLastAdmin(data.userId, "deactivate");
 		}
 
 		await db

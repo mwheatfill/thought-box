@@ -1,23 +1,18 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { createServer } from "node:http";
-import { dirname, join } from "node:path";
+import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Import the TanStack Start server entry
 const serverModule = await import("./dist/server/server.js");
 const { fetch: fetchHandler } = serverModule.default;
-
-// Import the chat handler (built separately by esbuild)
 const { handleChatRequest } = await import("./dist/server/chat-handler.js");
 
 const PORT = process.env.PORT || 3000;
 const CLIENT_DIR = join(__dirname, "dist", "client");
 
-// MIME types for static file serving
 const MIME_TYPES = {
 	".html": "text/html",
 	".js": "application/javascript",
@@ -39,12 +34,13 @@ const MIME_TYPES = {
 	".map": "application/json",
 };
 
-// Serve static files from dist/client/
 async function tryServeStaticFile(req, res) {
 	try {
 		const url = new URL(req.url, `http://${req.headers.host}`);
 		const pathname = url.pathname;
 
+		const ext = extname(pathname);
+		if (!ext || !MIME_TYPES[ext]) return false;
 		if (pathname.includes("..")) return false;
 
 		const filePath = join(CLIENT_DIR, pathname);
@@ -52,13 +48,11 @@ async function tryServeStaticFile(req, res) {
 
 		if (!fileStat.isFile()) return false;
 
-		const ext = pathname.substring(pathname.lastIndexOf("."));
-		const mimeType = MIME_TYPES[ext] || "application/octet-stream";
+		const mimeType = MIME_TYPES[ext];
 
 		res.statusCode = 200;
 		res.setHeader("Content-Type", mimeType);
 		res.setHeader("Content-Length", fileStat.size);
-		// Hashed filenames get aggressive caching
 		if (pathname.startsWith("/assets/")) {
 			res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
 		}
@@ -70,7 +64,6 @@ async function tryServeStaticFile(req, res) {
 	}
 }
 
-// Convert Node.js request to Web Standard Request
 function toWebRequest(req) {
 	const protocol = req.headers["x-forwarded-proto"] || "http";
 	const host = req.headers.host;
@@ -93,58 +86,35 @@ function toWebRequest(req) {
 	return new Request(url, init);
 }
 
-// Create HTTP server
+async function sendWebResponse(webResponse, res) {
+	res.statusCode = webResponse.status;
+	webResponse.headers.forEach((value, key) => res.setHeader(key, value));
+
+	if (webResponse.body) {
+		const reader = webResponse.body.getReader();
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			res.write(value);
+		}
+	}
+	res.end();
+}
+
 const server = createServer(async (req, res) => {
 	try {
-		// Static files first (fast path)
 		if (await tryServeStaticFile(req, res)) return;
 
-		// Chat API route (streaming)
+		const webRequest = toWebRequest(req);
+
+		// Chat API uses a separately-built handler (TanStack Start doesn't bundle custom API routes)
 		if (req.url === "/api/chat" && req.method === "POST") {
-			const webRequest = toWebRequest(req);
-			const webResponse = await handleChatRequest(webRequest);
-			res.statusCode = webResponse.status;
-			webResponse.headers.forEach((value, key) => res.setHeader(key, value));
-			if (webResponse.body) {
-				const reader = webResponse.body.getReader();
-				const pump = async () => {
-					const { done, value } = await reader.read();
-					if (done) {
-						res.end();
-						return;
-					}
-					res.write(value);
-					await pump();
-				};
-				await pump();
-			} else {
-				res.end();
-			}
+			await sendWebResponse(await handleChatRequest(webRequest), res);
 			return;
 		}
 
-		// Everything else goes through TanStack Start (SSR, server functions, API routes)
-		const webRequest = toWebRequest(req);
-		const webResponse = await fetchHandler(webRequest);
-
-		res.statusCode = webResponse.status;
-		webResponse.headers.forEach((value, key) => res.setHeader(key, value));
-
-		if (webResponse.body) {
-			const reader = webResponse.body.getReader();
-			const pump = async () => {
-				const { done, value } = await reader.read();
-				if (done) {
-					res.end();
-					return;
-				}
-				res.write(value);
-				await pump();
-			};
-			await pump();
-		} else {
-			res.end();
-		}
+		// Everything else: SSR, server functions, API routes
+		await sendWebResponse(await fetchHandler(webRequest), res);
 	} catch (error) {
 		console.error("Server error:", error);
 		if (!res.headersSent) {
@@ -160,7 +130,6 @@ server.listen(PORT, () => {
 	console.log(`Static files: ${CLIENT_DIR}`);
 });
 
-// Graceful shutdown
 process.on("SIGTERM", () => {
 	console.log("SIGTERM received, shutting down...");
 	server.close(() => console.log("Server closed"));

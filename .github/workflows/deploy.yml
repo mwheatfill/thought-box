@@ -39,8 +39,11 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Install production dependencies
+        run: npm install --omit=dev --ignore-scripts
+
       - name: Create deployment package
-        run: zip -r deploy.zip dist/ server-adapter.js package.json drizzle/
+        run: zip -rq deploy.zip dist/ node_modules/ server-adapter.js package.json drizzle/
 
       - uses: actions/upload-artifact@v4
         with:
