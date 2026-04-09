@@ -1,0 +1,81 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AZURE_WEBAPP_NAME: app-df-thoughtbox-prod
+  AZURE_RG: rg-df-thoughtbox-prod
+  NODE_VERSION: "22"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint & format
+        run: pnpm check
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Prune dev dependencies
+        run: pnpm prune --prod
+
+      - name: Create deployment package
+        run: zip -r deploy.zip dist/ node_modules/ package.json drizzle/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deploy-package
+          path: deploy.zip
+          retention-days: 3
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: deploy-package
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: deploy.zip
+
+      - name: Run database migrations
+        run: |
+          az webapp ssh --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RG }} \
+            --timeout 30 \
+            --command "cd /home/site/wwwroot && npx drizzle-kit migrate"

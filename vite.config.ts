@@ -10,7 +10,11 @@ const config = defineConfig({
 		devtools(),
 		tsconfigPaths({ projects: ["./tsconfig.json"] }),
 		tailwindcss(),
-		tanstackStart(),
+		tanstackStart({
+			server: {
+				entry: "./src/entry.server.ts",
+			},
+		}),
 		viteReact(),
 		// Custom API middleware plugin for /api/chat
 		{
