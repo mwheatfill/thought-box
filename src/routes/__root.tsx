@@ -1,6 +1,8 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+import { useState } from "react";
 import { AppSidebar } from "#/components/layout/app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "#/components/ui/sidebar";
 import { Toaster } from "#/components/ui/sonner";
@@ -50,28 +52,31 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
 	const { user } = Route.useRouteContext();
+	const [queryClient] = useState(() => new QueryClient());
 
 	return (
-		<TooltipProvider>
-			<SidebarProvider>
-				<AppSidebar user={user} />
-				<SidebarInset>
-					<header className="flex h-12 items-center gap-2 border-b px-4">
-						<SidebarTrigger />
-					</header>
-					<Outlet />
-				</SidebarInset>
-			</SidebarProvider>
-			<Toaster position="bottom-right" richColors />
-			<TanStackDevtools
-				config={{ position: "bottom-right" }}
-				plugins={[
-					{
-						name: "TanStack Router",
-						render: <TanStackRouterDevtoolsPanel />,
-					},
-				]}
-			/>
-		</TooltipProvider>
+		<QueryClientProvider client={queryClient}>
+			<TooltipProvider>
+				<SidebarProvider>
+					<AppSidebar user={user} />
+					<SidebarInset>
+						<header className="flex h-12 items-center gap-2 border-b px-4">
+							<SidebarTrigger />
+						</header>
+						<Outlet />
+					</SidebarInset>
+				</SidebarProvider>
+				<Toaster position="bottom-right" richColors />
+				<TanStackDevtools
+					config={{ position: "bottom-right" }}
+					plugins={[
+						{
+							name: "TanStack Router",
+							render: <TanStackRouterDevtoolsPanel />,
+						},
+					]}
+				/>
+			</TooltipProvider>
+		</QueryClientProvider>
 	);
 }
