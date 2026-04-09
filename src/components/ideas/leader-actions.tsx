@@ -198,12 +198,30 @@ export function LeaderActions({
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="new">New</SelectItem>
-									<SelectItem value="under_review">Under Review</SelectItem>
-									<SelectItem value="accepted">Accepted</SelectItem>
-									<SelectItem value="in_progress">In Progress</SelectItem>
-									<SelectItem value="implemented">Implemented</SelectItem>
-									<SelectItem value="declined">Declined</SelectItem>
+									<SelectItem value="new">
+										<span>New</span>
+										<span className="ml-1 text-xs text-muted-foreground">— Untouched</span>
+									</SelectItem>
+									<SelectItem value="under_review">
+										<span>Under Review</span>
+										<span className="ml-1 text-xs text-muted-foreground">— Researching</span>
+									</SelectItem>
+									<SelectItem value="accepted">
+										<span>Accepted</span>
+										<span className="ml-1 text-xs text-muted-foreground">— Moving forward</span>
+									</SelectItem>
+									<SelectItem value="in_progress">
+										<span>In Progress</span>
+										<span className="ml-1 text-xs text-muted-foreground">— Being implemented</span>
+									</SelectItem>
+									<SelectItem value="implemented">
+										<span>Implemented</span>
+										<span className="ml-1 text-xs text-muted-foreground">— Done</span>
+									</SelectItem>
+									<SelectItem value="declined">
+										<span>Declined</span>
+										<span className="ml-1 text-xs text-muted-foreground">— Not moving forward</span>
+									</SelectItem>
 								</SelectContent>
 							</Select>
 						</div>
