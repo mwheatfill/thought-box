@@ -1,5 +1,14 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { Settings } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { Save } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Button } from "#/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "#/components/ui/card";
+import { Input } from "#/components/ui/input";
+import { Textarea } from "#/components/ui/textarea";
+import { getSettings, updateSetting } from "#/server/functions/settings";
 
 export const Route = createFileRoute("/admin/settings")({
 	beforeLoad: ({ context }) => {
@@ -7,29 +16,193 @@ export const Route = createFileRoute("/admin/settings")({
 			throw redirect({ to: "/dashboard" });
 		}
 	},
+	loader: () => getSettings(),
 	component: SettingsPage,
 });
 
 function SettingsPage() {
+	const initialSettings = Route.useLoaderData();
+	const queryClient = useQueryClient();
+
+	const { data: settings = initialSettings } = useQuery({
+		queryKey: ["admin-settings"],
+		queryFn: () => getSettings(),
+		initialData: initialSettings,
+	});
+
 	return (
 		<main className="flex-1 p-6">
-			<div className="mb-8">
+			<div className="mb-6">
 				<h1 className="text-2xl font-bold tracking-tight">Settings</h1>
 				<p className="text-muted-foreground">
-					Configure application settings, AI behavior, and email preferences.
+					Configure AI behavior, SLA thresholds, and display settings.
 				</p>
 			</div>
 
-			<div className="flex flex-col items-center justify-center rounded-xl border border-dashed p-12 text-center">
-				<div className="mb-4 rounded-full bg-muted p-4">
-					<Settings className="size-8 text-muted-foreground" />
-				</div>
-				<h2 className="mb-2 text-lg font-semibold">Settings coming soon</h2>
-				<p className="max-w-sm text-sm text-muted-foreground">
-					Manage the AI system prompt, suggested prompts, SLA thresholds, social proof settings, and
-					email configuration.
-				</p>
+			<div className="space-y-6">
+				<SystemPromptSetting value={settings.system_prompt ?? ""} queryClient={queryClient} />
+				<SuggestedPromptsSetting
+					value={settings.suggested_prompts ?? "[]"}
+					queryClient={queryClient}
+				/>
+				<NumberSetting
+					settingKey="sla_business_days"
+					title="SLA Business Days"
+					description="Number of business days for the initial review SLA deadline."
+					value={settings.sla_business_days ?? "15"}
+					queryClient={queryClient}
+				/>
+				<NumberSetting
+					settingKey="social_proof_min_threshold"
+					title="Social Proof Threshold"
+					description="Minimum number of ideas this month before showing the social proof strip on the landing page."
+					value={settings.social_proof_min_threshold ?? "5"}
+					queryClient={queryClient}
+				/>
 			</div>
 		</main>
+	);
+}
+
+function SystemPromptSetting({
+	value,
+	queryClient,
+}: { value: string; queryClient: ReturnType<typeof useQueryClient> }) {
+	const [draft, setDraft] = useState(value);
+	const saveFn = useServerFn(updateSetting);
+
+	const mutation = useMutation({
+		mutationFn: () => saveFn({ data: { key: "system_prompt", value: draft } }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+			toast.success("System prompt saved");
+		},
+		onError: () => toast.error("Failed to save"),
+	});
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>System Prompt</CardTitle>
+				<CardDescription>
+					The AI assistant's instructions. Changes take effect on the next conversation.
+				</CardDescription>
+			</CardHeader>
+			<CardContent className="space-y-3">
+				<Textarea
+					value={draft}
+					onChange={(e) => setDraft(e.target.value)}
+					className="min-h-[200px] font-mono text-sm"
+				/>
+				<Button onClick={() => mutation.mutate()} disabled={draft === value || mutation.isPending}>
+					<Save className="mr-2 size-4" />
+					{mutation.isPending ? "Saving..." : "Save Prompt"}
+				</Button>
+			</CardContent>
+		</Card>
+	);
+}
+
+function SuggestedPromptsSetting({
+	value,
+	queryClient,
+}: { value: string; queryClient: ReturnType<typeof useQueryClient> }) {
+	let prompts: string[] = [];
+	try {
+		prompts = JSON.parse(value);
+	} catch {
+		prompts = [];
+	}
+
+	const [draft, setDraft] = useState(prompts.join("\n"));
+	const saveFn = useServerFn(updateSetting);
+
+	const mutation = useMutation({
+		mutationFn: () => {
+			const lines = draft
+				.split("\n")
+				.map((l) => l.trim())
+				.filter(Boolean);
+			return saveFn({ data: { key: "suggested_prompts", value: JSON.stringify(lines) } });
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+			toast.success("Suggested prompts saved");
+		},
+		onError: () => toast.error("Failed to save"),
+	});
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Suggested Prompts</CardTitle>
+				<CardDescription>Prompt pills shown below the chat input. One per line.</CardDescription>
+			</CardHeader>
+			<CardContent className="space-y-3">
+				<Textarea
+					value={draft}
+					onChange={(e) => setDraft(e.target.value)}
+					className="min-h-[100px]"
+					placeholder="I have an idea to save time on..."
+				/>
+				<Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+					<Save className="mr-2 size-4" />
+					{mutation.isPending ? "Saving..." : "Save Prompts"}
+				</Button>
+			</CardContent>
+		</Card>
+	);
+}
+
+function NumberSetting({
+	settingKey,
+	title,
+	description,
+	value,
+	queryClient,
+}: {
+	settingKey: string;
+	title: string;
+	description: string;
+	value: string;
+	queryClient: ReturnType<typeof useQueryClient>;
+}) {
+	const [draft, setDraft] = useState(value);
+	const saveFn = useServerFn(updateSetting);
+
+	const mutation = useMutation({
+		mutationFn: () => saveFn({ data: { key: settingKey, value: draft } }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+			toast.success(`${title} saved`);
+		},
+		onError: () => toast.error("Failed to save"),
+	});
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>{title}</CardTitle>
+				<CardDescription>{description}</CardDescription>
+			</CardHeader>
+			<CardContent className="space-y-3">
+				<div className="flex items-center gap-3">
+					<Input
+						type="number"
+						value={draft}
+						onChange={(e) => setDraft(e.target.value)}
+						className="w-[120px]"
+					/>
+					<Button
+						onClick={() => mutation.mutate()}
+						disabled={draft === value || mutation.isPending}
+						size="sm"
+					>
+						<Save className="mr-2 size-4" />
+						{mutation.isPending ? "Saving..." : "Save"}
+					</Button>
+				</div>
+			</CardContent>
+		</Card>
 	);
 }

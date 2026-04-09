@@ -9,7 +9,6 @@ import {
 	Sun,
 	Tags,
 	Users,
-	Waypoints,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback } from "#/components/ui/avatar";
@@ -45,7 +44,6 @@ const mainNav: NavItem[] = [
 
 const adminNav: NavItem[] = [
 	{ label: "Categories", href: "/admin/categories", icon: Tags },
-	{ label: "Routing", href: "/admin/routing", icon: Waypoints },
 	{ label: "Users", href: "/admin/users", icon: Users },
 	{ label: "Settings", href: "/admin/settings", icon: Settings },
 ];
