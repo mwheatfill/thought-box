@@ -97,23 +97,59 @@ async function seed() {
 				sortOrder: 6,
 			},
 			{
-				name: "Keystone System Revision",
+				name: "Building",
+				description:
+					"Facilities, building maintenance, or physical workspace changes. These go through a dedicated intake process.",
+				routingType: "redirect",
+				redirectUrl: "https://example.com/building-intake",
+				redirectLabel: "Submit a Building Request",
+				sortOrder: 80,
+			},
+			{
+				name: "Community",
+				description:
+					"Community involvement, sponsorships, or outreach initiatives. These go through a dedicated intake process.",
+				routingType: "redirect",
+				redirectUrl: "https://example.com/community-intake",
+				redirectLabel: "Submit a Community Request",
+				sortOrder: 81,
+			},
+			{
+				name: "Procedure New",
+				description:
+					"Requests for new procedures or policies. These go through a dedicated intake process.",
+				routingType: "redirect",
+				redirectUrl: "https://example.com/procedure-new-intake",
+				redirectLabel: "Submit a New Procedure Request",
+				sortOrder: 82,
+			},
+			{
+				name: "Procedure Revise",
+				description:
+					"Revisions to existing procedures or policies. These go through a dedicated intake process.",
+				routingType: "redirect",
+				redirectUrl: "https://example.com/procedure-revise-intake",
+				redirectLabel: "Submit a Procedure Revision Request",
+				sortOrder: 83,
+			},
+			{
+				name: "System Keystone",
 				description:
 					"Changes to the Keystone core banking system. These go through a dedicated intake process.",
 				routingType: "redirect",
 				redirectUrl: "https://example.com/keystone-intake",
-				redirectLabel: "Submit a Keystone Revision Request",
+				redirectLabel: "Submit a Keystone Change Request",
 				keystoneFields: true,
-				sortOrder: 90,
+				sortOrder: 84,
 			},
 			{
-				name: "Desertforce Change",
+				name: "System OnBase",
 				description:
-					"Changes to Desertforce (Salesforce). These go through a dedicated intake process.",
+					"Changes to the OnBase document management system. These go through a dedicated intake process.",
 				routingType: "redirect",
-				redirectUrl: "https://example.com/desertforce-intake",
-				redirectLabel: "Submit a Desertforce Change Request",
-				sortOrder: 91,
+				redirectUrl: "https://example.com/onbase-intake",
+				redirectLabel: "Submit an OnBase Change Request",
+				sortOrder: 85,
 			},
 		])
 		.onConflictDoNothing();
