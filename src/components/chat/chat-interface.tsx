@@ -113,9 +113,18 @@ const RedirectToolUI: ToolCallMessagePartComponent = ({ args }) => {
 function ChatThread({
 	suggestedPrompts,
 	firstName,
-}: { suggestedPrompts: string[]; firstName: string }) {
+	onFirstMessage,
+}: { suggestedPrompts: string[]; firstName: string; onFirstMessage?: () => void }) {
 	const thread = useThread();
 	const showGreeting = thread.messages.length === 0;
+	const firedRef = useRef(false);
+
+	useEffect(() => {
+		if (thread.messages.length > 0 && !firedRef.current && onFirstMessage) {
+			firedRef.current = true;
+			onFirstMessage();
+		}
+	}, [thread.messages.length, onFirstMessage]);
 
 	return (
 		<div className="flex h-full flex-col">
@@ -301,9 +310,10 @@ function parseInline(text: string): React.ReactNode[] {
 interface ChatInterfaceProps {
 	user: AuthUser;
 	suggestedPrompts: string[];
+	onFirstMessage?: () => void;
 }
 
-export function ChatInterface({ user, suggestedPrompts }: ChatInterfaceProps) {
+export function ChatInterface({ user, suggestedPrompts, onFirstMessage }: ChatInterfaceProps) {
 	const transport = useMemo(
 		() =>
 			new AssistantChatTransport({
@@ -317,7 +327,11 @@ export function ChatInterface({ user, suggestedPrompts }: ChatInterfaceProps) {
 
 	return (
 		<AssistantRuntimeProvider runtime={runtime}>
-			<ChatThread suggestedPrompts={suggestedPrompts} firstName={user.displayName.split(" ")[0]} />
+			<ChatThread
+				suggestedPrompts={suggestedPrompts}
+				firstName={user.displayName.split(" ")[0]}
+				onFirstMessage={onFirstMessage}
+			/>
 		</AssistantRuntimeProvider>
 	);
 }
