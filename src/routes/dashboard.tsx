@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { AdminDashboard } from "#/components/dashboard/admin-dashboard";
@@ -62,7 +62,7 @@ export const Route = createFileRoute("/dashboard")({
 function DashboardPage() {
 	const { user } = Route.useRouteContext();
 	const data = Route.useLoaderData();
-	const router = Route.useRouter();
+	const router = useRouter();
 
 	const bulkFn = useServerFn(bulkUpdateStatus);
 	const bulkMutation = useMutation({
