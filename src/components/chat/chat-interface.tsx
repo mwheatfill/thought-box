@@ -169,7 +169,7 @@ function AssistantMessage() {
 			<div className="max-w-[85%] space-y-2 rounded-2xl bg-muted px-4 py-2.5 text-sm">
 				<MessagePrimitive.Content
 					components={{
-						Text: ({ text }) => <p className="whitespace-pre-wrap">{text}</p>,
+						Text: ({ text }) => <div className="whitespace-pre-wrap">{parseMarkdown(text)}</div>,
 						tools: {
 							by_name: {
 								submit_idea: SubmitIdeaToolUI,
@@ -208,6 +208,85 @@ function SuggestedPrompts({ prompts }: { prompts: string[] }) {
 			))}
 		</div>
 	);
+}
+
+// ── Simple markdown parser ─────────────────────────────────────────────────
+
+function parseMarkdown(text: string): React.ReactNode[] {
+	// Split into lines, then process inline formatting
+	return text.split("\n").flatMap((line, lineIdx, lines) => {
+		const nodes: React.ReactNode[] = [];
+		const key = `l-${lineIdx}-${line.slice(0, 20)}`;
+
+		// Headings (### text)
+		const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+		if (headingMatch) {
+			nodes.push(
+				<p key={key} className="font-semibold">
+					{parseInline(headingMatch[2])}
+				</p>,
+			);
+		}
+		// Bullet points (- text or * text)
+		else if (/^[-*]\s+/.test(line)) {
+			nodes.push(
+				<p key={key} className="ml-3">
+					{"• "}
+					{parseInline(line.replace(/^[-*]\s+/, ""))}
+				</p>,
+			);
+		}
+		// Numbered lists (1. text)
+		else if (/^\d+\.\s+/.test(line)) {
+			const num = line.match(/^(\d+)\.\s+/);
+			nodes.push(
+				<p key={key} className="ml-3">
+					{num?.[1]}. {parseInline(line.replace(/^\d+\.\s+/, ""))}
+				</p>,
+			);
+		}
+		// Regular text
+		else {
+			nodes.push(<span key={key}>{parseInline(line)}</span>);
+		}
+
+		// Add newline between lines (except last)
+		if (lineIdx < lines.length - 1) {
+			nodes.push("\n");
+		}
+
+		return nodes;
+	});
+}
+
+function parseInline(text: string): React.ReactNode[] {
+	const parts: React.ReactNode[] = [];
+	// Match **bold** and *italic*
+	const regex = /(\*\*(.+?)\*\*|\*(.+?)\*)/g;
+	let lastIndex = 0;
+	let match: RegExpExecArray | null;
+
+	match = regex.exec(text);
+	while (match !== null) {
+		if (match.index > lastIndex) {
+			parts.push(text.slice(lastIndex, match.index));
+		}
+		if (match[2]) {
+			// Bold
+			parts.push(<strong key={match.index}>{match[2]}</strong>);
+		} else if (match[3]) {
+			// Italic
+			parts.push(<em key={match.index}>{match[3]}</em>);
+		}
+		lastIndex = match.index + match[0].length;
+		match = regex.exec(text);
+	}
+
+	if (lastIndex < text.length) {
+		parts.push(text.slice(lastIndex));
+	}
+
+	return parts.length > 0 ? parts : [text];
 }
 
 // ── Main export ────────────────────────────────────────────────────────────
