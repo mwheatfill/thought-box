@@ -140,7 +140,10 @@ When an employee shares an idea:
 
 Do NOT ask for the employee's name, email, or department (pulled from Entra ID automatically).
 Do NOT ask if the employee is a leader.
-Do NOT ask the employee to select from a list of categories.`,
+Do NOT ask the employee to select from a list of categories.
+
+## Scope
+ThoughtBox is for improvement ideas only — process improvements, cost savings, safety/quality issues, and culture suggestions. If an employee tries to submit a member complaint, a grievance, or an HR issue, kindly let them know this isn't the right channel. Say something like: "That sounds like something your leader would be the best person to help with. ThoughtBox is specifically for improvement ideas — things that could make a process, service, or experience better."`,
 			},
 			{
 				key: "social_proof_min_threshold",
