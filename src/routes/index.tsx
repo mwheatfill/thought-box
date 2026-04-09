@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Lightbulb } from "lucide-react";
 import { ChatInterface } from "#/components/chat/chat-interface";
+import { FadeIn } from "#/components/ui/animated";
 import { getLandingData } from "#/server/functions/landing";
 
 export const Route = createFileRoute("/")({
@@ -16,25 +17,35 @@ function LandingPage() {
 		<main className="flex flex-1 flex-col">
 			{/* Hero section */}
 			<div className="flex flex-col items-center px-4 pt-8 pb-4 text-center">
-				<div className="mb-4 rounded-full bg-primary/10 p-3">
-					<Lightbulb className="size-8 text-primary" />
-				</div>
+				<FadeIn>
+					<div className="mb-4 flex justify-center">
+						<div className="rounded-full bg-primary/10 p-3">
+							<Lightbulb className="size-8 text-primary" />
+						</div>
+					</div>
+				</FadeIn>
 
 				{yearlyCount > 0 && (
-					<p className="mb-2 text-3xl font-bold tracking-tight">
-						{yearlyCount} {yearlyCount === 1 ? "idea" : "ideas"} shared in{" "}
-						{new Date().getFullYear()}
-					</p>
+					<FadeIn delay={0.1}>
+						<p className="mb-2 text-3xl font-bold tracking-tight">
+							{yearlyCount} {yearlyCount === 1 ? "idea" : "ideas"} shared in{" "}
+							{new Date().getFullYear()}
+						</p>
+					</FadeIn>
 				)}
 
-				<p className="max-w-md text-sm text-muted-foreground">
-					Share an idea to make things better for our team and our members.
-				</p>
+				<FadeIn delay={0.15}>
+					<p className="max-w-md text-sm text-muted-foreground">
+						Share an idea to make things better for our team and our members.
+					</p>
+				</FadeIn>
 
 				{showSocialProof && monthlyCount > 0 && (
-					<p className="mt-2 text-xs text-muted-foreground">
-						{monthlyCount} {monthlyCount === 1 ? "idea" : "ideas"} shared this month
-					</p>
+					<FadeIn delay={0.2}>
+						<p className="mt-2 text-xs text-muted-foreground">
+							{monthlyCount} {monthlyCount === 1 ? "idea" : "ideas"} shared this month
+						</p>
+					</FadeIn>
 				)}
 			</div>
 

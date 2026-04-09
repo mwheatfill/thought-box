@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
 import { AlertTriangle, CheckCircle, Clock, Inbox } from "lucide-react";
 import { useState } from "react";
+import { FadeIn } from "#/components/ui/animated";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import {
@@ -81,23 +82,31 @@ export function LeaderDashboard({
 		<div className="space-y-6">
 			{/* KPI row */}
 			<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-				<KpiCard icon={Inbox} label="My Open" value={stats.openCount} />
-				<KpiCard
-					icon={AlertTriangle}
-					label="Overdue"
-					value={stats.overdueCount}
-					variant={stats.overdueCount > 0 ? "destructive" : "default"}
-				/>
-				<KpiCard icon={CheckCircle} label="Total Assigned" value={stats.totalAssigned} />
-				<KpiCard
-					icon={Clock}
-					label="Open Rate"
-					value={
-						stats.totalAssigned > 0
-							? `${Math.round((stats.openCount / stats.totalAssigned) * 100)}%`
-							: "—"
-					}
-				/>
+				<FadeIn delay={0}>
+					<KpiCard icon={Inbox} label="My Open" value={stats.openCount} />
+				</FadeIn>
+				<FadeIn delay={0.05}>
+					<KpiCard
+						icon={AlertTriangle}
+						label="Overdue"
+						value={stats.overdueCount}
+						variant={stats.overdueCount > 0 ? "destructive" : "default"}
+					/>
+				</FadeIn>
+				<FadeIn delay={0.1}>
+					<KpiCard icon={CheckCircle} label="Total Assigned" value={stats.totalAssigned} />
+				</FadeIn>
+				<FadeIn delay={0.15}>
+					<KpiCard
+						icon={Clock}
+						label="Open Rate"
+						value={
+							stats.totalAssigned > 0
+								? `${Math.round((stats.openCount / stats.totalAssigned) * 100)}%`
+								: "—"
+						}
+					/>
+				</FadeIn>
 			</div>
 
 			{/* Ideas table */}

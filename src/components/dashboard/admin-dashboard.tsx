@@ -22,6 +22,7 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
+import { FadeIn } from "#/components/ui/animated";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import {
@@ -167,39 +168,49 @@ export function AdminDashboard({
 
 			{/* KPI row */}
 			<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-				<KpiCard
-					icon={Lightbulb}
-					label="This Month"
-					value={stats.totalThisMonth}
-					detail={`${stats.totalThisYear} this year`}
-				/>
-				<KpiCard
-					icon={Inbox}
-					label="Open Ideas"
-					value={stats.openCount}
-					detail={stats.overdueCount > 0 ? `${stats.overdueCount} overdue` : "none overdue"}
-					variant={stats.overdueCount > 0 ? "warning" : "default"}
-				/>
-				<KpiCard
-					icon={CheckCircle}
-					label="SLA Compliance"
-					value={stats.slaCompliancePercent !== null ? `${stats.slaCompliancePercent}%` : "—"}
-					variant={
-						stats.slaCompliancePercent === null
-							? "default"
-							: stats.slaCompliancePercent >= 80
-								? "success"
-								: stats.slaCompliancePercent >= 60
-									? "warning"
-									: "destructive"
-					}
-				/>
-				<KpiCard
-					icon={Clock}
-					label="Avg Close Time"
-					value={stats.avgCloseTimeDays !== null ? `${stats.avgCloseTimeDays}d` : "—"}
-				/>
-				<KpiCard icon={TrendingUp} label="Total This Year" value={stats.totalThisYear} />
+				<FadeIn delay={0}>
+					<KpiCard
+						icon={Lightbulb}
+						label="This Month"
+						value={stats.totalThisMonth}
+						detail={`${stats.totalThisYear} this year`}
+					/>
+				</FadeIn>
+				<FadeIn delay={0.05}>
+					<KpiCard
+						icon={Inbox}
+						label="Open Ideas"
+						value={stats.openCount}
+						detail={stats.overdueCount > 0 ? `${stats.overdueCount} overdue` : "none overdue"}
+						variant={stats.overdueCount > 0 ? "warning" : "default"}
+					/>
+				</FadeIn>
+				<FadeIn delay={0.1}>
+					<KpiCard
+						icon={CheckCircle}
+						label="SLA Compliance"
+						value={stats.slaCompliancePercent !== null ? `${stats.slaCompliancePercent}%` : "—"}
+						variant={
+							stats.slaCompliancePercent === null
+								? "default"
+								: stats.slaCompliancePercent >= 80
+									? "success"
+									: stats.slaCompliancePercent >= 60
+										? "warning"
+										: "destructive"
+						}
+					/>
+				</FadeIn>
+				<FadeIn delay={0.15}>
+					<KpiCard
+						icon={Clock}
+						label="Avg Close Time"
+						value={stats.avgCloseTimeDays !== null ? `${stats.avgCloseTimeDays}d` : "—"}
+					/>
+				</FadeIn>
+				<FadeIn delay={0.2}>
+					<KpiCard icon={TrendingUp} label="Total This Year" value={stats.totalThisYear} />
+				</FadeIn>
 			</div>
 
 			{/* Charts row */}
