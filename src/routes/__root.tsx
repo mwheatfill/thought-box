@@ -1,6 +1,6 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HeadContent, Outlet, Scripts, createRootRoute, useRouter } from "@tanstack/react-router";
+import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { useState } from "react";
 import { AppSidebar } from "#/components/layout/app-sidebar";
@@ -53,29 +53,20 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 function RootComponent() {
 	const { user } = Route.useRouteContext();
 	const [queryClient] = useState(() => new QueryClient());
-	const router = useRouter();
-	const isLandingPage = router.state.location.pathname === "/";
 
 	return (
 		<QueryClientProvider client={queryClient}>
 			<TooltipProvider>
-				{isLandingPage ? (
-					// Landing page: full-screen, no sidebar
-					<div className="flex min-h-screen flex-col">
+				<SidebarProvider defaultOpen={false}>
+					<AppSidebar user={user} />
+					<SidebarInset>
+						<header className="relative z-10 flex h-12 shrink-0 items-center gap-2 px-4">
+							<SidebarTrigger className="text-foreground" />
+							<span className="text-base font-semibold text-foreground">ThoughtBox</span>
+						</header>
 						<Outlet />
-					</div>
-				) : (
-					// All other pages: sidebar layout
-					<SidebarProvider>
-						<AppSidebar user={user} />
-						<SidebarInset>
-							<header className="flex h-12 items-center gap-2 border-b px-4">
-								<SidebarTrigger />
-							</header>
-							<Outlet />
-						</SidebarInset>
-					</SidebarProvider>
-				)}
+					</SidebarInset>
+				</SidebarProvider>
 				<Toaster position="bottom-right" richColors />
 				<TanStackDevtools
 					config={{ position: "bottom-right" }}

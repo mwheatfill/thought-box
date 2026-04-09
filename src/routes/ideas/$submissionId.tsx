@@ -96,7 +96,7 @@ function IdeaDetailPage() {
 
 	return (
 		<PageTransition>
-			<main className="flex-1 p-6">
+			<main className="flex-1 bg-background p-6">
 				{/* Header */}
 				<div className="mb-6">
 					<Link

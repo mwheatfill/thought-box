@@ -146,16 +146,20 @@ function ChatThread({
 	}, [hasMessages, onFirstMessage]);
 
 	return (
-		<div className="flex h-full flex-col">
-			<ThreadPrimitive.Root className="flex flex-1 flex-col overflow-hidden">
-				<ThreadPrimitive.Viewport className="flex-1 space-y-4 overflow-y-auto p-4">
-					<ThreadPrimitive.Messages
-						components={{
-							UserMessage,
-							AssistantMessage,
-						}}
-					/>
-				</ThreadPrimitive.Viewport>
+		<div className={compact ? "flex flex-col" : "flex h-full flex-col"}>
+			<ThreadPrimitive.Root
+				className={compact ? "flex flex-col" : "flex flex-1 flex-col overflow-hidden"}
+			>
+				{!compact && (
+					<ThreadPrimitive.Viewport className="flex-1 space-y-4 overflow-y-auto p-4">
+						<ThreadPrimitive.Messages
+							components={{
+								UserMessage,
+								AssistantMessage,
+							}}
+						/>
+					</ThreadPrimitive.Viewport>
+				)}
 
 				{!compact && <SuggestedPrompts prompts={suggestedPrompts} />}
 
@@ -163,7 +167,7 @@ function ChatThread({
 					<ComposerPrimitive.Root className="flex items-end gap-2">
 						<ComposerPrimitive.Input
 							placeholder={compact ? "Describe your idea here..." : "Tell me about your idea..."}
-							className={`flex-1 resize-none rounded-lg border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${compact ? "min-h-[72px]" : ""}`}
+							className={`flex-1 resize-none rounded-lg border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${compact ? "h-[72px] min-h-[72px] max-h-[72px]" : ""}`}
 							autoFocus
 						/>
 						<ComposerPrimitive.Send asChild>

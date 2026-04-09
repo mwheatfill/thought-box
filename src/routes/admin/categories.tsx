@@ -197,7 +197,7 @@ function CategoriesPage() {
 	const selectedLeader = leaders.find((l) => l.id === form.defaultLeaderId);
 
 	return (
-		<main className="flex-1 p-6">
+		<main className="flex-1 bg-background p-6">
 			<div className="mb-6 flex items-center justify-between">
 				<div>
 					<h1 className="text-2xl font-bold tracking-tight">Categories</h1>

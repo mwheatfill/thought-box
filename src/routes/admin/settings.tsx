@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Save } from "lucide-react";
+import { Check } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "#/components/ui/button";
@@ -31,7 +31,7 @@ function SettingsPage() {
 	});
 
 	return (
-		<main className="flex-1 p-6">
+		<main className="flex-1 bg-background p-6">
 			<div className="mb-6">
 				<h1 className="text-2xl font-bold tracking-tight">Settings</h1>
 				<p className="text-muted-foreground">
@@ -94,9 +94,13 @@ function SystemPromptSetting({
 					onChange={(e) => setDraft(e.target.value)}
 					className="min-h-[200px] font-mono text-sm"
 				/>
-				<Button onClick={() => mutation.mutate()} disabled={draft === value || mutation.isPending}>
-					<Save className="mr-2 size-4" />
-					{mutation.isPending ? "Saving..." : "Save Prompt"}
+				<Button
+					onClick={() => mutation.mutate()}
+					disabled={draft === value || mutation.isPending}
+					variant="outline"
+				>
+					<Check className="mr-2 size-4" />
+					{mutation.isPending ? "Saving..." : "Save System Prompt"}
 				</Button>
 			</CardContent>
 		</Card>
@@ -114,8 +118,10 @@ function SuggestedPromptsSetting({
 		prompts = [];
 	}
 
-	const [draft, setDraft] = useState(prompts.join("\n"));
+	const originalDraft = prompts.join("\n");
+	const [draft, setDraft] = useState(originalDraft);
 	const saveFn = useServerFn(updateSetting);
+	const isDirty = draft !== originalDraft;
 
 	const mutation = useMutation({
 		mutationFn: () => {
@@ -145,8 +151,12 @@ function SuggestedPromptsSetting({
 					className="min-h-[100px]"
 					placeholder="I have an idea to save time on..."
 				/>
-				<Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-					<Save className="mr-2 size-4" />
+				<Button
+					onClick={() => mutation.mutate()}
+					disabled={!isDirty || mutation.isPending}
+					variant="outline"
+				>
+					<Check className="mr-2 size-4" />
 					{mutation.isPending ? "Saving..." : "Save Prompts"}
 				</Button>
 			</CardContent>
@@ -196,9 +206,10 @@ function NumberSetting({
 					<Button
 						onClick={() => mutation.mutate()}
 						disabled={draft === value || mutation.isPending}
+						variant="outline"
 						size="sm"
 					>
-						<Save className="mr-2 size-4" />
+						<Check className="mr-2 size-4" />
 						{mutation.isPending ? "Saving..." : "Save"}
 					</Button>
 				</div>

@@ -18,7 +18,6 @@ import {
 	SidebarGroup,
 	SidebarGroupContent,
 	SidebarGroupLabel,
-	SidebarHeader,
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
@@ -70,17 +69,7 @@ export function AppSidebar({ user }: AppSidebarProps) {
 
 	return (
 		<Sidebar>
-			<SidebarHeader className="p-4">
-				<div className="flex items-center justify-between">
-					<Link to="/" className="flex items-center gap-2 font-semibold">
-						<Lightbulb className="size-5 text-primary" />
-						<span className="text-lg">ThoughtBox</span>
-					</Link>
-					<ThemeToggle />
-				</div>
-			</SidebarHeader>
-
-			<SidebarContent>
+			<SidebarContent className="pt-2">
 				<SidebarGroup>
 					<SidebarGroupContent>
 						<SidebarMenu>
@@ -131,14 +120,17 @@ export function AppSidebar({ user }: AppSidebarProps) {
 			</SidebarContent>
 
 			<SidebarFooter className="p-4">
-				<div className="flex items-center gap-3">
-					<Avatar className="size-8">
-						<AvatarFallback className="text-xs">{getInitials(user.displayName)}</AvatarFallback>
-					</Avatar>
-					<div className="flex flex-col">
-						<span className="text-sm font-medium leading-none">{user.displayName}</span>
-						<span className="text-xs text-muted-foreground capitalize">{user.role}</span>
+				<div className="flex items-center justify-between">
+					<div className="flex items-center gap-3">
+						<Avatar className="size-8">
+							<AvatarFallback className="text-xs">{getInitials(user.displayName)}</AvatarFallback>
+						</Avatar>
+						<div className="flex flex-col">
+							<span className="text-sm font-medium leading-none">{user.displayName}</span>
+							<span className="text-xs text-muted-foreground capitalize">{user.role}</span>
+						</div>
 					</div>
+					<ThemeToggle />
 				</div>
 			</SidebarFooter>
 
