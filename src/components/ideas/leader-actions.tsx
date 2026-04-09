@@ -131,7 +131,7 @@ export function LeaderActions({
 								>
 									<span className="flex items-center gap-2">
 										<RefreshCw className={cn("size-3.5", isReassigning && "animate-spin")} />
-										{isReassigning ? "Reassigning..." : "Reassign"}
+										{isReassigning ? "Assigning..." : assignedLeaderId ? "Reassign" : "Assign"}
 									</span>
 									<ChevronsUpDown className="size-3.5 opacity-50" />
 								</Button>
