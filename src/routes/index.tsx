@@ -41,6 +41,7 @@ function LandingPage() {
 	const { user } = Route.useRouteContext();
 	const { yearlyCount, suggestedPrompts } = Route.useLoaderData();
 	const [hasStarted, setHasStarted] = useState(false);
+	const [initialPrompt, setInitialPrompt] = useState<string | null>(null);
 	const isAdmin = user.role === "admin";
 	const firstName = user.displayName.split(" ")[0];
 
@@ -164,8 +165,7 @@ function LandingPage() {
 								key={prompt}
 								prompt={prompt}
 								onClick={() => {
-									// The ChatInterface handles appending the message
-									// We just need to trigger the expansion
+									setInitialPrompt(prompt);
 									setHasStarted(true);
 								}}
 							/>
@@ -188,6 +188,7 @@ function LandingPage() {
 						suggestedPrompts={suggestedPrompts}
 						onFirstMessage={() => setHasStarted(true)}
 						compact={!hasStarted}
+						initialPrompt={initialPrompt}
 					/>
 				</motion.div>
 			</div>

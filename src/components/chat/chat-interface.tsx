@@ -115,15 +115,30 @@ function ChatThread({
 	firstName,
 	onFirstMessage,
 	compact,
+	initialPrompt,
 }: {
 	suggestedPrompts: string[];
 	firstName: string;
 	onFirstMessage?: () => void;
 	compact?: boolean;
+	initialPrompt?: string | null;
 }) {
 	const thread = useThread();
+	const threadRuntime = useThreadRuntime();
 	const hasMessages = thread.messages.length > 0;
 	const firedRef = useRef(false);
+	const promptSentRef = useRef(false);
+
+	// Send initial prompt from landing page card click
+	useEffect(() => {
+		if (initialPrompt && !promptSentRef.current) {
+			promptSentRef.current = true;
+			threadRuntime.append({
+				role: "user",
+				content: [{ type: "text", text: initialPrompt }],
+			});
+		}
+	}, [initialPrompt, threadRuntime]);
 
 	useEffect(() => {
 		if (hasMessages && !firedRef.current && onFirstMessage) {
@@ -318,6 +333,7 @@ interface ChatInterfaceProps {
 	suggestedPrompts: string[];
 	onFirstMessage?: () => void;
 	compact?: boolean;
+	initialPrompt?: string | null;
 }
 
 export function ChatInterface({
@@ -325,6 +341,7 @@ export function ChatInterface({
 	suggestedPrompts,
 	onFirstMessage,
 	compact,
+	initialPrompt,
 }: ChatInterfaceProps) {
 	const transport = useMemo(
 		() =>
@@ -344,6 +361,7 @@ export function ChatInterface({
 				firstName={user.displayName.split(" ")[0]}
 				onFirstMessage={onFirstMessage}
 				compact={compact}
+				initialPrompt={initialPrompt}
 			/>
 		</AssistantRuntimeProvider>
 	);
