@@ -44,7 +44,7 @@ function LandingPage() {
 	const firstName = user.displayName.split(" ")[0];
 
 	return (
-		<main className="relative flex min-h-screen flex-col bg-gradient-to-b from-blue-50/50 via-background to-background dark:from-blue-950/20">
+		<main className="relative flex min-h-screen flex-col bg-gradient-to-b from-blue-100/60 via-indigo-50/30 to-background dark:from-blue-950/40 dark:via-indigo-950/20 dark:to-background">
 			{/* Corner nav */}
 			<header className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between px-6 py-4">
 				<div className="flex items-center gap-2 text-sm font-semibold">
@@ -176,8 +176,8 @@ function LandingPage() {
 				<motion.div
 					className="w-full overflow-hidden rounded-2xl border bg-card shadow-lg"
 					animate={{
-						maxWidth: hasStarted ? "42rem" : "42rem",
-						height: hasStarted ? "calc(100vh - 8rem)" : "auto",
+						maxWidth: "42rem",
+						height: hasStarted ? "min(calc(100vh - 8rem), 700px)" : "auto",
 						minHeight: hasStarted ? "400px" : "0",
 					}}
 					transition={{ duration: 0.4, ease: "easeInOut" }}
