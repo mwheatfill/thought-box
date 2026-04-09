@@ -112,7 +112,6 @@ export const ideas = pgTable("ideas", {
 	assignedLeaderId: varchar("assigned_leader_id", { length: 128 }),
 	leaderNotes: text("leader_notes"),
 	actionTaken: varchar("action_taken", { length: 255 }),
-	jiraTicketNumber: varchar("jira_ticket_number", { length: 50 }),
 	slaDueDate: timestamp("sla_due_date", { withTimezone: true }),
 	closedAt: timestamp("closed_at", { withTimezone: true }),
 	submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull(),

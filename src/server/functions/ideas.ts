@@ -183,7 +183,6 @@ export const getIdeaDetail = createServerFn()
 			rejectionReason: idea.rejectionReason,
 			leaderNotes: idea.leaderNotes,
 			actionTaken: idea.actionTaken,
-			jiraTicketNumber: idea.jiraTicketNumber,
 			submittedAt: idea.submittedAt.toISOString(),
 			slaDueDate: idea.slaDueDate?.toISOString() ?? null,
 			slaDaysRemaining: daysRemaining,
@@ -225,7 +224,6 @@ const UpdateIdeaSchema = z.object({
 		.optional(),
 	leaderNotes: z.string().nullable().optional(),
 	actionTaken: z.string().nullable().optional(),
-	jiraTicketNumber: z.string().nullable().optional(),
 });
 
 export const updateIdea = createServerFn({ method: "POST" })
@@ -250,8 +248,6 @@ export const updateIdea = createServerFn({ method: "POST" })
 		if (data.rejectionReason !== undefined) updates.rejectionReason = data.rejectionReason;
 		if (data.leaderNotes !== undefined) updates.leaderNotes = data.leaderNotes;
 		if (data.actionTaken !== undefined) updates.actionTaken = data.actionTaken;
-		if (data.jiraTicketNumber !== undefined) updates.jiraTicketNumber = data.jiraTicketNumber;
-
 		// Track closure
 		if (data.status && ["accepted", "implemented", "declined"].includes(data.status)) {
 			updates.closedAt = new Date();

@@ -144,13 +144,6 @@ function IdeaDetailPage() {
 									</div>
 								</>
 							)}
-
-							{idea.jiraTicketNumber && (
-								<div>
-									<span className="text-sm text-muted-foreground">Jira: </span>
-									<span className="font-mono text-sm">{idea.jiraTicketNumber}</span>
-								</div>
-							)}
 						</CardContent>
 					</Card>
 
@@ -201,7 +194,6 @@ function IdeaDetailPage() {
 							currentRejectionReason={idea.rejectionReason}
 							currentLeaderNotes={idea.leaderNotes}
 							currentActionTaken={idea.actionTaken}
-							currentJiraTicket={idea.jiraTicketNumber}
 							slaStatus={idea.slaStatus}
 							slaDaysRemaining={idea.slaDaysRemaining}
 							slaDueDate={idea.slaDueDate}

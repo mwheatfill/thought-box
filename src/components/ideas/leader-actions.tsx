@@ -21,7 +21,6 @@ interface LeaderActionsProps {
 	currentRejectionReason: string | null;
 	currentLeaderNotes: string | null;
 	currentActionTaken: string | null;
-	currentJiraTicket: string | null;
 	slaStatus: "on_track" | "approaching" | "overdue" | "none";
 	slaDaysRemaining: number | null;
 	slaDueDate: string | null;
@@ -31,7 +30,6 @@ interface LeaderActionsProps {
 		rejectionReason?: string | null;
 		leaderNotes?: string | null;
 		actionTaken?: string | null;
-		jiraTicketNumber?: string | null;
 	}) => Promise<void>;
 	isSaving: boolean;
 }
@@ -41,7 +39,6 @@ export function LeaderActions({
 	currentRejectionReason,
 	currentLeaderNotes,
 	currentActionTaken,
-	currentJiraTicket,
 	slaStatus,
 	slaDaysRemaining,
 	slaDueDate,
@@ -53,13 +50,10 @@ export function LeaderActions({
 	const [rejectionReason, setRejectionReason] = useState(currentRejectionReason ?? "");
 	const [leaderNotes, setLeaderNotes] = useState(currentLeaderNotes ?? "");
 	const [actionTaken, setActionTaken] = useState(currentActionTaken ?? "");
-	const [jiraTicket, setJiraTicket] = useState(currentJiraTicket ?? "");
-
 	const hasChanges =
 		status !== currentStatus ||
 		leaderNotes !== (currentLeaderNotes ?? "") ||
 		actionTaken !== (currentActionTaken ?? "") ||
-		jiraTicket !== (currentJiraTicket ?? "") ||
 		(status === "declined" && rejectionReason !== (currentRejectionReason ?? ""));
 
 	const handleSave = async () => {
@@ -68,7 +62,6 @@ export function LeaderActions({
 		if (status !== currentStatus) updates.status = status;
 		if (leaderNotes !== (currentLeaderNotes ?? "")) updates.leaderNotes = leaderNotes || null;
 		if (actionTaken !== (currentActionTaken ?? "")) updates.actionTaken = actionTaken || null;
-		if (jiraTicket !== (currentJiraTicket ?? "")) updates.jiraTicketNumber = jiraTicket || null;
 		if (status === "declined") {
 			updates.rejectionReason = rejectionReason || null;
 		}
@@ -166,17 +159,6 @@ export function LeaderActions({
 							value={actionTaken}
 							onChange={(e) => setActionTaken(e.target.value)}
 							placeholder="What was done..."
-						/>
-					</div>
-
-					{/* Jira ticket */}
-					<div className="space-y-1.5">
-						<Label htmlFor="jira-ticket">Jira Ticket</Label>
-						<Input
-							id="jira-ticket"
-							value={jiraTicket}
-							onChange={(e) => setJiraTicket(e.target.value)}
-							placeholder="PROJ-1234"
 						/>
 					</div>
 

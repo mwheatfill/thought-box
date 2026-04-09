@@ -1,0 +1,1 @@
+ALTER TABLE "ideas" DROP COLUMN "jira_ticket_number";
