@@ -1,16 +1,63 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LayoutDashboard } from "lucide-react";
+import { AdminDashboard } from "#/components/dashboard/admin-dashboard";
+import { LeaderDashboard } from "#/components/dashboard/leader-dashboard";
+import { SubmitterDashboard } from "#/components/dashboard/submitter-dashboard";
+import { getUserSubmissionCount } from "#/server/functions/ai";
+import {
+	getAllIdeas,
+	getAssignedIdeas,
+	getDashboardStats,
+	getLeaderStats,
+	getMyIdeas,
+	getOutcomeDistribution,
+	getRecentProgramActivity,
+	getSubmissionsByCategory,
+} from "#/server/functions/dashboard";
 
 export const Route = createFileRoute("/dashboard")({
+	loader: async ({ context }) => {
+		const { user } = context;
+
+		if (user.role === "admin") {
+			const [stats, ideas, byCategory, outcomeDistribution, recentActivity] = await Promise.all([
+				getDashboardStats(),
+				getAllIdeas(),
+				getSubmissionsByCategory(),
+				getOutcomeDistribution(),
+				getRecentProgramActivity(),
+			]);
+			return {
+				role: "admin" as const,
+				stats,
+				ideas,
+				byCategory,
+				outcomeDistribution,
+				recentActivity,
+			};
+		}
+
+		if (user.role === "leader") {
+			const [ideas, stats] = await Promise.all([getAssignedIdeas(), getLeaderStats()]);
+			return { role: "leader" as const, ideas, stats };
+		}
+
+		// Submitter
+		const [ideas, yearlyCount] = await Promise.all([
+			getMyIdeas(),
+			getUserSubmissionCount({ data: user.id }),
+		]);
+		return { role: "submitter" as const, ideas, yearlyCount };
+	},
 	component: DashboardPage,
 });
 
 function DashboardPage() {
 	const { user } = Route.useRouteContext();
+	const data = Route.useLoaderData();
 
 	return (
 		<main className="flex-1 p-6">
-			<div className="mb-8">
+			<div className="mb-6">
 				<h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
 				<p className="text-muted-foreground">
 					{user.role === "admin"
@@ -21,19 +68,21 @@ function DashboardPage() {
 				</p>
 			</div>
 
-			<div className="flex flex-col items-center justify-center rounded-xl border border-dashed p-12 text-center">
-				<div className="mb-4 rounded-full bg-muted p-4">
-					<LayoutDashboard className="size-8 text-muted-foreground" />
-				</div>
-				<h2 className="mb-2 text-lg font-semibold">
-					{user.role === "submitter" ? "You haven't shared an idea yet" : "No ideas to show yet"}
-				</h2>
-				<p className="max-w-sm text-sm text-muted-foreground">
-					{user.role === "submitter"
-						? "It only takes a minute. Head to the Submit page and tell us what's on your mind."
-						: "Ideas will appear here once they're submitted and assigned."}
-				</p>
-			</div>
+			{data.role === "admin" && (
+				<AdminDashboard
+					stats={data.stats}
+					ideas={data.ideas}
+					byCategory={data.byCategory}
+					outcomeDistribution={data.outcomeDistribution}
+					recentActivity={data.recentActivity}
+				/>
+			)}
+
+			{data.role === "leader" && <LeaderDashboard ideas={data.ideas} stats={data.stats} />}
+
+			{data.role === "submitter" && (
+				<SubmitterDashboard user={user} ideas={data.ideas} yearlyCount={data.yearlyCount} />
+			)}
 		</main>
 	);
 }
