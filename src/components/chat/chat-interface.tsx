@@ -8,8 +8,9 @@ import {
 } from "@assistant-ui/react";
 import type { ToolCallMessagePartComponent } from "@assistant-ui/react";
 import { AssistantChatTransport, useChatRuntime } from "@assistant-ui/react-ai-sdk";
+import { Link } from "@tanstack/react-router";
 import confetti from "canvas-confetti";
-import { ArrowUp, ExternalLink, Lightbulb, Loader2 } from "lucide-react";
+import { ArrowRight, ArrowUp, ExternalLink, Lightbulb, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
@@ -74,6 +75,12 @@ const SubmitIdeaToolUI: ToolCallMessagePartComponent = ({ result }) => {
 						<span className="font-medium">Reviewer:</span> {data.assignedLeaderName}
 					</p>
 				)}
+				<Button asChild variant="outline" size="sm" className="mt-2 w-full">
+					<Link to="/ideas/$submissionId" params={{ submissionId: data.submissionId }}>
+						View Idea
+						<ArrowRight className="ml-2 size-3.5" />
+					</Link>
+				</Button>
 			</CardContent>
 		</Card>
 	);
