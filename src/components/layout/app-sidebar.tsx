@@ -9,7 +9,7 @@ import {
 	Users,
 } from "lucide-react";
 import { ThemeToggle } from "#/components/layout/theme-toggle";
-import { Avatar, AvatarFallback } from "#/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Separator } from "#/components/ui/separator";
 import {
 	Sidebar,
@@ -123,6 +123,7 @@ export function AppSidebar({ user }: AppSidebarProps) {
 				<div className="flex items-center justify-between">
 					<div className="flex items-center gap-3">
 						<Avatar className="size-8">
+							{user.photoUrl && <AvatarImage src={user.photoUrl} alt={user.displayName} />}
 							<AvatarFallback className="text-xs">{getInitials(user.displayName)}</AvatarFallback>
 						</Avatar>
 						<div className="flex flex-col">

@@ -2,6 +2,7 @@ import { createMiddleware } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
 import { db } from "#/server/db";
 import { users } from "#/server/db/schema";
+import { enrichUserProfile } from "#/server/lib/enrichment";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -13,6 +14,8 @@ export interface AuthUser {
 	department: string | null;
 	jobTitle: string | null;
 	officeLocation: string | null;
+	photoUrl: string | null;
+	managerDisplayName: string | null;
 	role: "submitter" | "leader" | "admin";
 	active: boolean;
 }
@@ -123,6 +126,11 @@ export const authMiddleware = createMiddleware().server(async ({ next, request }
 		throw new Error("Account deactivated");
 	}
 
+	// Fire-and-forget Graph API enrichment (respects 24hr TTL internally)
+	enrichUserProfile(user.id).catch((err) =>
+		console.error("[enrichment] Failed for user", user.id, err),
+	);
+
 	const authUser: AuthUser = {
 		id: user.id,
 		entraId: user.entraId,
@@ -131,6 +139,8 @@ export const authMiddleware = createMiddleware().server(async ({ next, request }
 		department: user.department,
 		jobTitle: user.jobTitle,
 		officeLocation: user.officeLocation,
+		photoUrl: user.photoUrl,
+		managerDisplayName: user.managerDisplayName,
 		role: user.role,
 		active: user.active,
 	};
