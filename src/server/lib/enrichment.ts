@@ -7,7 +7,12 @@ import { getUserManager, getUserPhoto, getUserProfile } from "#/server/lib/graph
 
 const ENRICHMENT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const PHOTO_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-const PHOTOS_DIR = join(process.cwd(), "photos");
+
+// Azure App Service with WEBSITE_RUN_FROM_PACKAGE=1 has a read-only app dir.
+// /home/ is persistent and writable. Locally, use ./photos/.
+const PHOTOS_DIR = process.env.HOME?.startsWith("/home")
+	? "/home/photos"
+	: join(process.cwd(), "photos");
 
 /**
  * Enrich a user's profile via Graph API if stale (>24 hours).
