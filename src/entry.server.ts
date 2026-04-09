@@ -1,9 +1,10 @@
 import { createStartHandler, defaultStreamHandler } from "@tanstack/react-start/server";
 import { handleChatRequest } from "#/server/api/chat";
+import { handlePhotoRequest } from "#/server/api/photo";
 
 const startHandler = createStartHandler(defaultStreamHandler);
 
-// In production, server-adapter.js intercepts /api/chat before it reaches here.
+// In production, server-adapter.js intercepts custom API routes before they reach here.
 // This routing is only active in dev mode (vite dev).
 export default {
 	async fetch(request: Request, opts?: unknown): Promise<Response> {
@@ -11,6 +12,10 @@ export default {
 
 		if (url.pathname === "/api/chat" && request.method === "POST") {
 			return handleChatRequest(request);
+		}
+
+		if (url.pathname.startsWith("/api/users/") && url.pathname.endsWith("/photo")) {
+			return handlePhotoRequest(request);
 		}
 
 		return startHandler(request, opts);

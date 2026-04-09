@@ -75,6 +75,70 @@ function getGraphClient(): Client | null {
 	return Client.initWithMiddleware({ authProvider });
 }
 
+// ── Profile enrichment ───────────────────────────────────────────────────
+
+export interface UserProfile {
+	displayName: string;
+	email: string;
+	jobTitle: string | null;
+	department: string | null;
+	officeLocation: string | null;
+}
+
+export interface UserManager {
+	entraId: string;
+	displayName: string;
+}
+
+/** Fetch a user's profile fields from Graph API. Returns null in dev mode. */
+export async function getUserProfile(entraId: string): Promise<UserProfile | null> {
+	const client = getGraphClient();
+	if (!client) return null;
+
+	const u = await client
+		.api(`/users/${entraId}`)
+		.select("displayName,mail,jobTitle,department,officeLocation")
+		.get();
+
+	return {
+		displayName: u.displayName,
+		email: u.mail,
+		jobTitle: u.jobTitle ?? null,
+		department: u.department ?? null,
+		officeLocation: u.officeLocation ?? null,
+	};
+}
+
+/** Fetch a user's manager from Graph API. Returns null if no manager or dev mode. */
+export async function getUserManager(entraId: string): Promise<UserManager | null> {
+	const client = getGraphClient();
+	if (!client) return null;
+
+	try {
+		const m = await client.api(`/users/${entraId}/manager`).select("id,displayName").get();
+
+		return { entraId: m.id, displayName: m.displayName };
+	} catch {
+		// 404 if user has no manager set in Entra ID
+		return null;
+	}
+}
+
+/** Fetch a user's profile photo as a Buffer. Returns null if no photo or dev mode. */
+export async function getUserPhoto(entraId: string): Promise<Buffer | null> {
+	const client = getGraphClient();
+	if (!client) return null;
+
+	try {
+		const photoBlob = await client.api(`/users/${entraId}/photo/$value`).get();
+		// Graph SDK returns an ArrayBuffer
+		return Buffer.from(photoBlob);
+	} catch {
+		// 404 if no photo uploaded
+		return null;
+	}
+}
+
 // ── Search directory ──────────────────────────────────────────────────────
 
 export async function searchDirectory(query: string): Promise<DirectoryUser[]> {
