@@ -19,37 +19,57 @@ export interface AuthUser {
 
 // ── Header parsing ─────────────────────────────────────────────────────────
 
+interface EasyAuthClaims {
+	entraId: string;
+	email: string;
+	displayName: string;
+}
+
 /**
- * Extract the Entra ID (object ID) from Easy Auth headers.
+ * Parse Easy Auth headers into identity claims.
  *
  * Azure App Service Easy Auth sets these headers on every authenticated request:
  * - `x-ms-client-principal-id`: The user's Entra ID object ID
  * - `x-ms-client-principal-name`: The user's email/UPN
+ * - `x-ms-client-principal`: Base64-encoded JSON with token claims (includes `name`)
  *
- * In development, we fall back to the DEV_USER_ENTRA_ID env var.
+ * In development, falls back to DEV_USER_ENTRA_ID env var.
  */
-function getEntraIdFromHeaders(request: Request): string | null {
-	// Production: read from Easy Auth headers
+function parseEasyAuthHeaders(request: Request): EasyAuthClaims | null {
 	const entraId = request.headers.get("x-ms-client-principal-id");
-	if (entraId) return entraId;
+
+	if (entraId) {
+		const email = request.headers.get("x-ms-client-principal-name") ?? "unknown@localhost";
+		let displayName = email.split("@")[0] ?? "Unknown";
+
+		// Parse x-ms-client-principal for the `name` claim (display name from the ID token)
+		const principalHeader = request.headers.get("x-ms-client-principal");
+		if (principalHeader) {
+			try {
+				const decoded = JSON.parse(atob(principalHeader));
+				const nameClaim = decoded.claims?.find(
+					(c: { typ: string; val: string }) =>
+						c.typ === "name" ||
+						c.typ === "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname",
+				);
+				if (nameClaim?.val) {
+					displayName = nameClaim.val;
+				}
+			} catch {
+				// Fall through to email-derived displayName
+			}
+		}
+
+		return { entraId, email, displayName };
+	}
 
 	// Development: use mock user
 	if (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") {
-		return process.env.DEV_USER_ENTRA_ID ?? null;
+		const devEntraId = process.env.DEV_USER_ENTRA_ID;
+		if (devEntraId) return { entraId: devEntraId, email: "dev@localhost", displayName: "Dev User" };
 	}
 
 	return null;
-}
-
-/**
- * Extract display name and email from Easy Auth headers.
- * Used when creating a new user record on first login.
- */
-function getUserInfoFromHeaders(request: Request) {
-	return {
-		email: request.headers.get("x-ms-client-principal-name") ?? "unknown@localhost",
-		displayName: request.headers.get("x-ms-client-principal-name")?.split("@")[0] ?? "Unknown",
-	};
 }
 
 // ── Middleware ──────────────────────────────────────────────────────────────
@@ -61,30 +81,42 @@ function getUserInfoFromHeaders(request: Request) {
  * If the user doesn't exist yet, creates a new record with the submitter role.
  */
 export const authMiddleware = createMiddleware().server(async ({ next, request }) => {
-	const entraId = getEntraIdFromHeaders(request);
-	if (!entraId) {
+	const claims = parseEasyAuthHeaders(request);
+	if (!claims) {
 		throw new Error("Unauthorized");
 	}
 
 	let user = await db.query.users.findFirst({
-		where: eq(users.entraId, entraId),
+		where: eq(users.entraId, claims.entraId),
 	});
 
-	// Auto-create user on first login
 	if (!user) {
-		const { email, displayName } = getUserInfoFromHeaders(request);
+		// First login — create user record
 		const [created] = await db
 			.insert(users)
 			.values({
-				entraId,
-				email,
-				displayName,
+				entraId: claims.entraId,
+				email: claims.email,
+				displayName: claims.displayName,
 				role: "submitter",
 				source: "login",
 				firstSeen: new Date(),
 			})
 			.returning();
 		user = created;
+	} else {
+		// Existing user — refresh identity fields from claims if changed,
+		// and set firstSeen for admin-provisioned users on their first login
+		const updates: Record<string, unknown> = {};
+		if (user.displayName !== claims.displayName) updates.displayName = claims.displayName;
+		if (user.email !== claims.email) updates.email = claims.email;
+		if (!user.firstSeen) updates.firstSeen = new Date();
+
+		if (Object.keys(updates).length > 0) {
+			updates.updatedAt = new Date();
+			await db.update(users).set(updates).where(eq(users.id, user.id));
+			Object.assign(user, updates);
+		}
 	}
 
 	if (!user.active) {
