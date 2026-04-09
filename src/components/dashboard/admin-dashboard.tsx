@@ -95,21 +95,21 @@ interface AdminDashboardProps {
 // ── Chart configs ─────────────────────────────────────────────────────────
 
 const categoryChartConfig = {
-	count: { label: "Ideas", color: "var(--color-chart-1)" },
+	count: { label: "Ideas", color: "#3b82f6" },
 } satisfies ChartConfig;
 
 const departmentChartConfig = {
-	count: { label: "Ideas", color: "var(--color-chart-2)" },
+	count: { label: "Ideas", color: "#8b5cf6" },
 } satisfies ChartConfig;
 
 const STATUS_COLORS: Record<string, string> = {
-	new: "var(--color-chart-1)",
-	under_review: "var(--color-chart-2)",
-	accepted: "var(--color-chart-3)",
-	in_progress: "var(--color-chart-4)",
-	implemented: "var(--color-chart-5)",
-	declined: "var(--color-destructive)",
-	redirected: "var(--color-muted-foreground)",
+	new: "#3b82f6",
+	under_review: "#f59e0b",
+	accepted: "#10b981",
+	in_progress: "#8b5cf6",
+	implemented: "#06b6d4",
+	declined: "#ef4444",
+	redirected: "#9ca3af",
 };
 
 // ── Component ─────────────────────────────────────────────────────────────
@@ -286,33 +286,35 @@ export function AdminDashboard({
 						)}
 					</CardContent>
 				</Card>
-			</div>
 
-			{/* Recent Activity */}
-			{recentActivity.length > 0 && (
+				{/* Recent Activity */}
 				<Card>
 					<CardHeader>
 						<CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<div className="space-y-3">
-							{recentActivity.slice(0, 10).map((event) => (
-								<div key={event.id} className="flex items-start gap-3 text-sm">
-									<div className="mt-0.5 size-2 shrink-0 rounded-full bg-muted-foreground" />
-									<div className="flex-1">
-										<span className="font-medium">{event.actorName}</span>{" "}
-										{formatEventDescription(event)}{" "}
-										<span className="font-medium">{event.ideaSubmissionId}</span>
+						{recentActivity.length > 0 ? (
+							<div className="space-y-3">
+								{recentActivity.slice(0, 10).map((event) => (
+									<div key={event.id} className="flex items-start gap-3 text-sm">
+										<div className="mt-0.5 size-2 shrink-0 rounded-full bg-muted-foreground" />
+										<div className="flex-1">
+											<span className="font-medium">{event.actorName}</span>{" "}
+											{formatEventDescription(event)}{" "}
+											<span className="font-medium">{event.ideaSubmissionId}</span>
+										</div>
+										<span className="shrink-0 text-xs text-muted-foreground">
+											{formatDistanceToNow(new Date(event.createdAt), { addSuffix: true })}
+										</span>
 									</div>
-									<span className="shrink-0 text-xs text-muted-foreground">
-										{formatDistanceToNow(new Date(event.createdAt), { addSuffix: true })}
-									</span>
-								</div>
-							))}
-						</div>
+								))}
+							</div>
+						) : (
+							<p className="py-8 text-center text-sm text-muted-foreground">No activity yet</p>
+						)}
 					</CardContent>
 				</Card>
-			)}
+			</div>
 
 			{/* Full ideas table */}
 			<Card>
