@@ -1,7 +1,16 @@
 import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
-import { BarChart3, CheckCircle, Clock, Inbox, Lightbulb, TrendingUp } from "lucide-react";
+import {
+	BarChart3,
+	CheckCircle,
+	Clock,
+	Download,
+	Inbox,
+	Lightbulb,
+	TrendingUp,
+} from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
+import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import {
 	type ChartConfig,
@@ -254,8 +263,14 @@ export function AdminDashboard({
 
 			{/* Full ideas table */}
 			<Card>
-				<CardHeader>
+				<CardHeader className="flex-row items-center justify-between space-y-0">
 					<CardTitle>All Ideas</CardTitle>
+					{ideas.length > 0 && (
+						<Button variant="outline" size="sm" onClick={() => exportIdeasCsv(ideas)}>
+							<Download className="mr-2 size-3.5" />
+							Export CSV
+						</Button>
+					)}
 				</CardHeader>
 				<CardContent>
 					{ideas.length === 0 ? (
@@ -333,6 +348,38 @@ export function AdminDashboard({
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
+
+function exportIdeasCsv(ideas: AdminIdea[]) {
+	const headers = [
+		"ID",
+		"Title",
+		"Submitter",
+		"Assigned To",
+		"Category",
+		"Status",
+		"SLA Status",
+		"Submitted",
+	];
+	const rows = ideas.map((i) => [
+		i.submissionId,
+		`"${i.title.replace(/"/g, '""')}"`,
+		i.submitterName,
+		i.assignedLeaderName ?? "",
+		i.categoryName,
+		STATUS_LABELS[i.status as keyof typeof STATUS_LABELS] ?? i.status,
+		i.slaStatus,
+		new Date(i.submittedAt).toLocaleDateString(),
+	]);
+
+	const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+	const blob = new Blob([csv], { type: "text/csv" });
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement("a");
+	a.href = url;
+	a.download = `thoughtbox-ideas-${new Date().toISOString().slice(0, 10)}.csv`;
+	a.click();
+	URL.revokeObjectURL(url);
+}
 
 function formatEventDescription(event: ActivityEvent): string {
 	switch (event.eventType) {
