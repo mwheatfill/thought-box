@@ -157,11 +157,12 @@ export async function searchDirectory(query: string): Promise<DirectoryUser[]> {
 		);
 	}
 
-	// Production: search Entra ID directory (members only, not guests)
+	// Production: search Entra ID directory (members only, not guests, not disabled)
+	const safeQuery = query.replace(/'/g, "''");
 	const response = await client
 		.api("/users")
 		.filter(
-			`userType eq 'Member' and (startsWith(displayName,'${query}') or startsWith(mail,'${query}'))`,
+			`userType eq 'Member' and accountEnabled eq true and (startsWith(displayName,'${safeQuery}') or startsWith(mail,'${safeQuery}'))`,
 		)
 		.select("id,displayName,mail,jobTitle,department,officeLocation")
 		.top(10)
