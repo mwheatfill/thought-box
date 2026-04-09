@@ -1,11 +1,31 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Power, Shield, ShieldCheck, User } from "lucide-react";
+import {
+	Building2,
+	Loader2,
+	Plus,
+	Power,
+	Search,
+	Shield,
+	ShieldCheck,
+	User,
+	UserPlus,
+} from "lucide-react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent } from "#/components/ui/card";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from "#/components/ui/dialog";
+import { Input } from "#/components/ui/input";
+import { Label } from "#/components/ui/label";
 import {
 	Select,
 	SelectContent,
@@ -22,7 +42,13 @@ import {
 	TableRow,
 } from "#/components/ui/table";
 import { cn } from "#/lib/utils";
-import { getUsers, toggleUserActive, updateUserRole } from "#/server/functions/admin-users";
+import {
+	getUsers,
+	searchDirectory,
+	toggleUserActive,
+	updateUserRole,
+	upsertUser,
+} from "#/server/functions/admin-users";
 
 export const Route = createFileRoute("/admin/users")({
 	beforeLoad: ({ context }) => {
@@ -43,6 +69,7 @@ const ROLE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
 function UsersPage() {
 	const initialUsers = Route.useLoaderData();
 	const queryClient = useQueryClient();
+	const [addDialogOpen, setAddDialogOpen] = useState(false);
 
 	const { data: userList = initialUsers } = useQuery({
 		queryKey: ["admin-users"],
@@ -73,9 +100,15 @@ function UsersPage() {
 
 	return (
 		<main className="flex-1 p-6">
-			<div className="mb-6">
-				<h1 className="text-2xl font-bold tracking-tight">Users</h1>
-				<p className="text-muted-foreground">Manage user roles and account status.</p>
+			<div className="mb-6 flex items-center justify-between">
+				<div>
+					<h1 className="text-2xl font-bold tracking-tight">Users</h1>
+					<p className="text-muted-foreground">Manage user roles and account status.</p>
+				</div>
+				<Button onClick={() => setAddDialogOpen(true)}>
+					<Plus className="mr-2 size-4" />
+					Add User
+				</Button>
 			</div>
 
 			<Card>
@@ -99,7 +132,14 @@ function UsersPage() {
 										<TableCell>
 											<div className="flex items-center gap-2">
 												<RoleIcon className="size-4 text-muted-foreground" />
-												<span className="font-medium">{u.displayName}</span>
+												<div>
+													<span className="font-medium">{u.displayName}</span>
+													{!u.firstSeen && (
+														<Badge variant="outline" className="ml-2 text-[10px]">
+															Not logged in
+														</Badge>
+													)}
+												</div>
 											</div>
 										</TableCell>
 										<TableCell className="text-muted-foreground">{u.email}</TableCell>
@@ -150,6 +190,228 @@ function UsersPage() {
 					</Table>
 				</CardContent>
 			</Card>
+
+			<AddUserDialog
+				open={addDialogOpen}
+				onOpenChange={setAddDialogOpen}
+				onAdded={() => {
+					queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+				}}
+			/>
 		</main>
+	);
+}
+
+// ── Add User Dialog ───────────────────────────────────────────────────────
+
+interface DirectoryResult {
+	entraId: string;
+	displayName: string;
+	email: string;
+	jobTitle: string | null;
+	department: string | null;
+	officeLocation: string | null;
+}
+
+function AddUserDialog({
+	open,
+	onOpenChange,
+	onAdded,
+}: {
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	onAdded: () => void;
+}) {
+	const [query, setQuery] = useState("");
+	const [results, setResults] = useState<DirectoryResult[]>([]);
+	const [searching, setSearching] = useState(false);
+	const [selectedUser, setSelectedUser] = useState<DirectoryResult | null>(null);
+	const [role, setRole] = useState<"submitter" | "leader" | "admin">("leader");
+
+	const searchFn = useServerFn(searchDirectory);
+	const upsertFn = useServerFn(upsertUser);
+
+	const doSearch = useCallback(
+		async (q: string) => {
+			if (q.length < 2) {
+				setResults([]);
+				return;
+			}
+			setSearching(true);
+			try {
+				const data = await searchFn({ data: { query: q } });
+				setResults(data);
+			} finally {
+				setSearching(false);
+			}
+		},
+		[searchFn],
+	);
+
+	const addMutation = useMutation({
+		mutationFn: async () => {
+			if (!selectedUser) return;
+			return upsertFn({
+				data: {
+					entraId: selectedUser.entraId,
+					displayName: selectedUser.displayName,
+					email: selectedUser.email,
+					jobTitle: selectedUser.jobTitle,
+					department: selectedUser.department,
+					officeLocation: selectedUser.officeLocation,
+					role,
+				},
+			});
+		},
+		onSuccess: (result) => {
+			onAdded();
+			onOpenChange(false);
+			setQuery("");
+			setResults([]);
+			setSelectedUser(null);
+			setRole("leader");
+			toast.success(result?.created ? "User added from directory" : "User updated");
+		},
+		onError: () => toast.error("Failed to add user"),
+	});
+
+	// Debounced search on input change
+	const handleQueryChange = (value: string) => {
+		setQuery(value);
+		setSelectedUser(null);
+		// Simple debounce with timeout
+		const timeout = setTimeout(() => doSearch(value), 300);
+		return () => clearTimeout(timeout);
+	};
+
+	return (
+		<Dialog
+			open={open}
+			onOpenChange={(v) => {
+				onOpenChange(v);
+				if (!v) {
+					setQuery("");
+					setResults([]);
+					setSelectedUser(null);
+					setRole("leader");
+				}
+			}}
+		>
+			<DialogContent className="max-w-lg">
+				<DialogHeader>
+					<DialogTitle>Add User from Directory</DialogTitle>
+					<DialogDescription>
+						Search the employee directory to add a user before they log in.
+					</DialogDescription>
+				</DialogHeader>
+
+				<div className="space-y-4">
+					{/* Search input */}
+					<div className="space-y-1.5">
+						<Label>Search Directory</Label>
+						<div className="relative">
+							<Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+							<Input
+								value={query}
+								onChange={(e) => handleQueryChange(e.target.value)}
+								placeholder="Type a name or email..."
+								className="pl-9"
+							/>
+							{searching && (
+								<Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+							)}
+						</div>
+					</div>
+
+					{/* Search results */}
+					{results.length > 0 && !selectedUser && (
+						<div className="max-h-[200px] space-y-1 overflow-y-auto rounded-md border p-1">
+							{results.map((u) => (
+								<button
+									key={u.entraId}
+									type="button"
+									onClick={() => setSelectedUser(u)}
+									className="flex w-full items-start gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-muted"
+								>
+									<UserPlus className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+									<div className="min-w-0">
+										<p className="font-medium">{u.displayName}</p>
+										<p className="text-xs text-muted-foreground">{u.email}</p>
+										{(u.jobTitle || u.department) && (
+											<p className="text-xs text-muted-foreground">
+												{[u.jobTitle, u.department].filter(Boolean).join(" · ")}
+											</p>
+										)}
+									</div>
+								</button>
+							))}
+						</div>
+					)}
+
+					{query.length >= 2 && results.length === 0 && !searching && !selectedUser && (
+						<p className="text-center text-sm text-muted-foreground py-4">
+							No users found matching "{query}"
+						</p>
+					)}
+
+					{/* Selected user preview */}
+					{selectedUser && (
+						<div className="rounded-md border bg-muted/50 p-4">
+							<div className="flex items-start justify-between">
+								<div>
+									<p className="font-medium">{selectedUser.displayName}</p>
+									<p className="text-sm text-muted-foreground">{selectedUser.email}</p>
+									{selectedUser.jobTitle && (
+										<p className="text-xs text-muted-foreground">{selectedUser.jobTitle}</p>
+									)}
+									{selectedUser.department && (
+										<div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+											<Building2 className="size-3" />
+											{selectedUser.department}
+										</div>
+									)}
+								</div>
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={() => {
+										setSelectedUser(null);
+										setResults([]);
+									}}
+								>
+									Change
+								</Button>
+							</div>
+
+							<div className="mt-3 space-y-1.5">
+								<Label>Role</Label>
+								<Select value={role} onValueChange={(v) => setRole(v as typeof role)}>
+									<SelectTrigger>
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="submitter">Submitter</SelectItem>
+										<SelectItem value="leader">Leader</SelectItem>
+										<SelectItem value="admin">Admin</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+						</div>
+					)}
+				</div>
+
+				<div className="flex justify-end gap-2 pt-2">
+					<Button variant="outline" onClick={() => onOpenChange(false)}>
+						Cancel
+					</Button>
+					<Button
+						onClick={() => addMutation.mutate()}
+						disabled={!selectedUser || addMutation.isPending}
+					>
+						{addMutation.isPending ? "Adding..." : "Add User"}
+					</Button>
+				</div>
+			</DialogContent>
+		</Dialog>
 	);
 }

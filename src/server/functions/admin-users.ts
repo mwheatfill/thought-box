@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/server/db";
 import { users } from "#/server/db/schema";
+import { searchDirectory as searchDirectoryApi } from "#/server/lib/graph";
 import { adminMiddleware } from "#/server/middleware/auth";
 
 export const getUsers = createServerFn()
@@ -49,4 +50,70 @@ export const toggleUserActive = createServerFn({ method: "POST" })
 			.set({ active: data.active, updatedAt: new Date() })
 			.where(eq(users.id, data.userId));
 		return { success: true };
+	});
+
+/** Search the Entra ID directory for users to add. */
+export const searchDirectory = createServerFn()
+	.middleware([adminMiddleware])
+	.inputValidator(z.object({ query: z.string() }))
+	.handler(async ({ data }) => {
+		return searchDirectoryApi(data.query);
+	});
+
+/** Add a user from the directory (or update if they already exist). */
+export const upsertUser = createServerFn({ method: "POST" })
+	.middleware([adminMiddleware])
+	.inputValidator(
+		z.object({
+			entraId: z.string(),
+			displayName: z.string(),
+			email: z.string(),
+			jobTitle: z.string().nullable().optional(),
+			department: z.string().nullable().optional(),
+			officeLocation: z.string().nullable().optional(),
+			role: z.enum(["submitter", "leader", "admin"]).optional(),
+		}),
+	)
+	.handler(async ({ data }) => {
+		// Check if user already exists
+		const existing = await db.query.users.findFirst({
+			where: eq(users.entraId, data.entraId),
+			columns: { id: true },
+		});
+
+		if (existing) {
+			// Update role if provided, reactivate if deactivated
+			await db
+				.update(users)
+				.set({
+					role: data.role ?? "submitter",
+					active: true,
+					displayName: data.displayName,
+					email: data.email,
+					jobTitle: data.jobTitle ?? null,
+					department: data.department ?? null,
+					officeLocation: data.officeLocation ?? null,
+					updatedAt: new Date(),
+				})
+				.where(eq(users.id, existing.id));
+			return { id: existing.id, created: false };
+		}
+
+		// Create new user from directory
+		const [created] = await db
+			.insert(users)
+			.values({
+				entraId: data.entraId,
+				displayName: data.displayName,
+				email: data.email,
+				jobTitle: data.jobTitle ?? null,
+				department: data.department ?? null,
+				officeLocation: data.officeLocation ?? null,
+				role: data.role ?? "submitter",
+				source: "graph",
+				// firstSeen stays null — they haven't logged in yet
+			})
+			.returning({ id: users.id });
+
+		return { id: created.id, created: true };
 	});
