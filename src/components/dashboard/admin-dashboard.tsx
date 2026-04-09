@@ -566,8 +566,8 @@ function KpiCard({
 	const colors = colorMap[variant];
 
 	return (
-		<Card>
-			<CardContent className="flex items-center gap-3 p-4">
+		<Card className="h-full">
+			<CardContent className="flex h-full items-center gap-3 p-4">
 				<div className={cn("rounded-full p-2", colors.bg)}>
 					<Icon className={cn("size-4", colors.icon)} />
 				</div>
