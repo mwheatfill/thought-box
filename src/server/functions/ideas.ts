@@ -195,6 +195,8 @@ export const getIdeaDetail = createServerFn()
 						: daysRemaining <= 3
 							? ("approaching" as const)
 							: ("on_track" as const),
+			closureSlaDueDate: idea.closureSlaDueDate?.toISOString() ?? null,
+			closureSlaDaysRemaining: businessDaysRemaining(idea.closureSlaDueDate),
 			submitter: idea.submitter,
 			assignedLeader: idea.assignedLeader,
 			events: events.map((e) => ({
@@ -351,13 +353,15 @@ export const reassignIdea = createServerFn({ method: "POST" })
 
 		// Reset SLA and update assignment
 		const now = new Date();
-		const newSlaDueDate = calculateSlaDueDate(now);
+		const newSlaDueDate = calculateSlaDueDate(now, 15);
+		const newClosureSlaDueDate = calculateSlaDueDate(now, 30);
 
 		await db
 			.update(ideas)
 			.set({
 				assignedLeaderId: data.newLeaderId,
 				slaDueDate: newSlaDueDate,
+				closureSlaDueDate: newClosureSlaDueDate,
 				updatedAt: now,
 			})
 			.where(eq(ideas.id, data.ideaId));

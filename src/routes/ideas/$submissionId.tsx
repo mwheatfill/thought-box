@@ -219,6 +219,8 @@ function IdeaDetailPage() {
 							slaStatus={idea.slaStatus}
 							slaDaysRemaining={idea.slaDaysRemaining}
 							slaDueDate={idea.slaDueDate}
+							closureSlaDueDate={idea.closureSlaDueDate}
+							closureSlaDaysRemaining={idea.closureSlaDaysRemaining}
 							assignedLeaderName={idea.assignedLeader?.displayName ?? null}
 							assignedLeaderId={idea.assignedLeader?.id ?? null}
 							leaders={leaders}

@@ -1,0 +1,1 @@
+ALTER TABLE "ideas" ADD COLUMN "closure_sla_due_date" timestamp with time zone;

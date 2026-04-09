@@ -102,7 +102,8 @@ ${categoryTaxonomy}${userContext}`;
 					}
 
 					const now = new Date();
-					const slaDueDate = calculateSlaDueDate(now);
+					const slaDueDate = calculateSlaDueDate(now, 15);
+					const closureSlaDueDate = calculateSlaDueDate(now, 30);
 
 					// Create the idea
 					const [idea] = await db
@@ -118,6 +119,7 @@ ${categoryTaxonomy}${userContext}`;
 							submitterId: userId,
 							assignedLeaderId: category.defaultLeaderId,
 							slaDueDate,
+							closureSlaDueDate,
 							submittedAt: now,
 						})
 						.returning();

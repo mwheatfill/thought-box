@@ -1,6 +1,6 @@
 import { ChevronsUpDown, Lock, Mail, RefreshCw } from "lucide-react";
 import { useState } from "react";
-import { SlaIndicator } from "#/components/dashboard/sla-indicator";
+import { DualSlaIndicator } from "#/components/dashboard/sla-indicator";
 import { StatusBadge } from "#/components/dashboard/status-badge";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
@@ -48,6 +48,8 @@ interface LeaderActionsProps {
 	slaStatus: "on_track" | "approaching" | "overdue" | "none";
 	slaDaysRemaining: number | null;
 	slaDueDate: string | null;
+	closureSlaDueDate: string | null;
+	closureSlaDaysRemaining: number | null;
 	assignedLeaderName: string | null;
 	assignedLeaderId: string | null;
 	leaders: Leader[];
@@ -72,6 +74,8 @@ export function LeaderActions({
 	slaStatus,
 	slaDaysRemaining,
 	slaDueDate,
+	closureSlaDueDate,
+	closureSlaDaysRemaining,
 	assignedLeaderName,
 	assignedLeaderId,
 	leaders,
@@ -125,10 +129,12 @@ export function LeaderActions({
 						<StatusBadge status={currentStatus as IdeaStatus} />
 					</div>
 
-					<SlaIndicator
-						slaStatus={slaStatus}
-						slaDaysRemaining={slaDaysRemaining}
-						slaDueDate={slaDueDate}
+					<DualSlaIndicator
+						reviewSlaStatus={slaStatus}
+						reviewSlaDaysRemaining={slaDaysRemaining}
+						reviewSlaDueDate={slaDueDate}
+						closureSlaDueDate={closureSlaDueDate}
+						closureSlaDaysRemaining={closureSlaDaysRemaining}
 					/>
 
 					{/* Assigned leader with reassign */}
