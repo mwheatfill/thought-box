@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "#/server/db";
 import { categories, conversations, ideaEvents, ideas, settings, users } from "#/server/db/schema";
 import type { ConversationMessage } from "#/server/db/schema";
+import { sendIdeaAssignedEmail, sendIdeaSubmittedEmail } from "#/server/functions/email";
 import { calculateSlaDueDate } from "#/server/lib/sla";
 import { nextSubmissionId } from "#/server/lib/submission-id";
 
@@ -151,14 +152,52 @@ ${categoryTaxonomy}${userContext}`;
 						});
 					}
 
-					// Look up assigned leader name
+					// Look up submitter and assigned leader for emails
+					const submitter = await db.query.users.findFirst({
+						where: eq(users.id, userId),
+						columns: { email: true, displayName: true, department: true },
+					});
+
 					let assignedLeaderName: string | null = null;
 					if (category.defaultLeaderId) {
 						const leader = await db.query.users.findFirst({
 							where: eq(users.id, category.defaultLeaderId),
-							columns: { displayName: true },
+							columns: { displayName: true, email: true },
 						});
 						assignedLeaderName = leader?.displayName ?? null;
+
+						// Fire-and-forget: notify the leader
+						if (leader) {
+							sendIdeaAssignedEmail({
+								leaderEmail: leader.email,
+								leaderFirstName: leader.displayName.split(" ")[0],
+								submissionId: idea.submissionId,
+								ideaTitle: idea.title,
+								categoryName: category.name,
+								submitterName: submitter?.displayName ?? "An employee",
+								submitterDepartment: submitter?.department ?? null,
+							});
+						}
+					}
+
+					// Fire-and-forget: confirm to submitter
+					if (submitter) {
+						const year = new Date().getFullYear();
+						const startOfYear = new Date(year, 0, 1);
+						const countResult = await db.query.ideas.findMany({
+							where: (i, { and, eq: e, gte }) =>
+								and(e(i.submitterId, userId), gte(i.submittedAt, startOfYear)),
+							columns: { id: true },
+						});
+
+						sendIdeaSubmittedEmail({
+							submitterEmail: submitter.email,
+							submitterFirstName: submitter.displayName.split(" ")[0],
+							submissionId: idea.submissionId,
+							ideaTitle: idea.title,
+							categoryName: category.name,
+							ideaCount: countResult.length,
+						});
 					}
 
 					return {

@@ -2,7 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/server/db";
-import { ideaEvents, ideas } from "#/server/db/schema";
+import { ideaEvents, ideas, users } from "#/server/db/schema";
+import { sendNewMessageEmail } from "#/server/functions/email";
 import { authMiddleware } from "#/server/middleware/auth";
 
 /**
@@ -15,7 +16,13 @@ export const addMessage = createServerFn({ method: "POST" })
 	.handler(async ({ context, data }) => {
 		const idea = await db.query.ideas.findFirst({
 			where: eq(ideas.id, data.ideaId),
-			columns: { id: true, submitterId: true, assignedLeaderId: true },
+			columns: {
+				id: true,
+				submissionId: true,
+				title: true,
+				submitterId: true,
+				assignedLeaderId: true,
+			},
 		});
 
 		if (!idea) throw new Error("Idea not found");
@@ -35,6 +42,28 @@ export const addMessage = createServerFn({ method: "POST" })
 			actorId: context.user.id,
 			note: data.content,
 		});
+
+		// Fire-and-forget: notify the other party
+		const isFromLeader = !isSubmitter;
+		const recipientId = isFromLeader ? idea.submitterId : idea.assignedLeaderId;
+		if (recipientId) {
+			const recipient = await db.query.users.findFirst({
+				where: eq(users.id, recipientId),
+				columns: { email: true, displayName: true },
+			});
+			if (recipient) {
+				sendNewMessageEmail({
+					recipientEmail: recipient.email,
+					recipientFirstName: recipient.displayName.split(" ")[0],
+					senderName: context.user.displayName,
+					submissionId: idea.submissionId,
+					ideaTitle: idea.title,
+					messagePreview:
+						data.content.length > 200 ? `${data.content.slice(0, 200)}...` : data.content,
+					isFromLeader,
+				});
+			}
+		}
 
 		return { success: true };
 	});

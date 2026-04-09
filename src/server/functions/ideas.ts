@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db } from "#/server/db";
 import { categories, conversations, ideaEvents, ideas, users } from "#/server/db/schema";
 import type { ConversationMessage } from "#/server/db/schema";
+import { sendStatusChangedEmail } from "#/server/functions/email";
 import { businessDaysRemaining, calculateSlaDueDate } from "#/server/lib/sla";
 import { nextSubmissionId } from "#/server/lib/submission-id";
 import { authMiddleware, leaderMiddleware } from "#/server/middleware/auth";
@@ -232,7 +233,18 @@ export const updateIdea = createServerFn({ method: "POST" })
 	.handler(async ({ context, data }) => {
 		const idea = await db.query.ideas.findFirst({
 			where: eq(ideas.id, data.ideaId),
-			columns: { id: true, status: true, assignedLeaderId: true },
+			columns: {
+				id: true,
+				submissionId: true,
+				title: true,
+				status: true,
+				submitterId: true,
+				assignedLeaderId: true,
+				leaderNotes: true,
+			},
+			with: {
+				submitter: { columns: { email: true, displayName: true } },
+			},
 		});
 
 		if (!idea) throw new Error("Idea not found");
@@ -255,7 +267,7 @@ export const updateIdea = createServerFn({ method: "POST" })
 
 		await db.update(ideas).set(updates).where(eq(ideas.id, data.ideaId));
 
-		// Log status change event
+		// Log status change event and send email
 		if (data.status && data.status !== idea.status) {
 			await db.insert(ideaEvents).values({
 				ideaId: data.ideaId,
@@ -264,6 +276,21 @@ export const updateIdea = createServerFn({ method: "POST" })
 				oldValue: idea.status,
 				newValue: data.status,
 			});
+
+			// Fire-and-forget: notify submitter of status change
+			const emailStatuses = ["under_review", "accepted", "declined"] as const;
+			if (emailStatuses.includes(data.status as (typeof emailStatuses)[number])) {
+				sendStatusChangedEmail({
+					submitterEmail: idea.submitter.email,
+					submitterFirstName: idea.submitter.displayName.split(" ")[0],
+					submissionId: idea.submissionId,
+					ideaTitle: idea.title,
+					newStatus: data.status as "under_review" | "accepted" | "declined",
+					leaderFirstName: context.user.displayName.split(" ")[0],
+					leaderNotes: data.leaderNotes ?? idea.leaderNotes ?? null,
+					rejectionReason: data.rejectionReason ?? null,
+				});
+			}
 		}
 
 		// Log note event
