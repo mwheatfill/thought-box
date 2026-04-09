@@ -1,9 +1,13 @@
 import { anthropic } from "@ai-sdk/anthropic";
 import { convertToModelMessages, streamText, tool } from "ai";
 import { eq } from "drizzle-orm";
+import postgres from "postgres";
 import { z } from "zod";
 import { db } from "#/server/db";
-import { categories, settings, users } from "#/server/db/schema";
+import { categories, conversations, ideaEvents, ideas, settings, users } from "#/server/db/schema";
+import type { ConversationMessage } from "#/server/db/schema";
+import { calculateSlaDueDate } from "#/server/lib/sla";
+import { nextSubmissionId } from "#/server/lib/submission-id";
 
 export async function handleChatRequest(request: Request): Promise<Response> {
 	const body = await request.json();
@@ -76,6 +80,97 @@ ${categoryTaxonomy}${userContext}`;
 						.optional()
 						.describe("Primary impact area if obvious from the conversation"),
 				}),
+				execute: async ({ title, description, categoryId, expectedBenefit, impactArea }) => {
+					if (!userId) return { error: "User not authenticated" };
+
+					const category = await db.query.categories.findFirst({
+						where: eq(categories.id, categoryId),
+					});
+					if (!category) return { error: "Category not found" };
+
+					// Generate submission ID from PostgreSQL sequence
+					const connectionString = process.env.DATABASE_URL;
+					if (!connectionString) return { error: "Database not configured" };
+					const sql = postgres(connectionString, { max: 1 });
+
+					let submissionId: string;
+					try {
+						submissionId = await nextSubmissionId(sql);
+					} finally {
+						await sql.end();
+					}
+
+					const now = new Date();
+					const slaDueDate = calculateSlaDueDate(now);
+
+					// Create the idea
+					const [idea] = await db
+						.insert(ideas)
+						.values({
+							submissionId,
+							title,
+							description,
+							expectedBenefit: expectedBenefit ?? null,
+							categoryId,
+							impactArea: impactArea ?? null,
+							status: "new",
+							submitterId: userId,
+							assignedLeaderId: category.defaultLeaderId,
+							slaDueDate,
+							submittedAt: now,
+						})
+						.returning();
+
+					// Log the created event
+					await db.insert(ideaEvents).values({
+						ideaId: idea.id,
+						eventType: "created",
+						actorId: userId,
+						newValue: "new",
+					});
+
+					// Save the conversation
+					const conversationMessages: ConversationMessage[] = body.messages
+						?.filter(
+							(m: { role: string; content: unknown }) =>
+								(m.role === "user" || m.role === "assistant") && typeof m.content === "string",
+						)
+						.map((m: { role: string; content: string }) => ({
+							role: m.role as "user" | "assistant",
+							content: m.content,
+							timestamp: now.toISOString(),
+						}));
+
+					if (conversationMessages?.length > 0) {
+						await db.insert(conversations).values({
+							ideaId: idea.id,
+							userId,
+							messages: conversationMessages,
+							classification: category.name,
+							routingOutcome: "submitted",
+						});
+					}
+
+					// Look up assigned leader name
+					let assignedLeaderName: string | null = null;
+					if (category.defaultLeaderId) {
+						const leader = await db.query.users.findFirst({
+							where: eq(users.id, category.defaultLeaderId),
+							columns: { displayName: true },
+						});
+						assignedLeaderName = leader?.displayName ?? null;
+					}
+
+					return {
+						data: {
+							id: idea.id,
+							submissionId: idea.submissionId,
+							title: idea.title,
+							categoryName: category.name,
+							assignedLeaderName,
+						},
+					};
+				},
 			}),
 			redirect_to_form: tool({
 				description:
@@ -85,6 +180,32 @@ ${categoryTaxonomy}${userContext}`;
 					redirectUrl: z.string().describe("URL of the external intake form"),
 					redirectLabel: z.string().describe("Display text for the link button"),
 				}),
+				execute: async ({ categoryName, redirectUrl, redirectLabel }) => {
+					// Save the redirected conversation
+					if (userId) {
+						const conversationMessages: ConversationMessage[] = body.messages
+							?.filter(
+								(m: { role: string; content: unknown }) =>
+									(m.role === "user" || m.role === "assistant") && typeof m.content === "string",
+							)
+							.map((m: { role: string; content: string }) => ({
+								role: m.role as "user" | "assistant",
+								content: m.content,
+								timestamp: new Date().toISOString(),
+							}));
+
+						if (conversationMessages?.length > 0) {
+							await db.insert(conversations).values({
+								userId,
+								messages: conversationMessages,
+								classification: categoryName,
+								routingOutcome: "redirected",
+							});
+						}
+					}
+
+					return { categoryName, redirectUrl, redirectLabel };
+				},
 			}),
 			get_category_details: tool({
 				description:
