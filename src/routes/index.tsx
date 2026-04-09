@@ -47,8 +47,8 @@ function LandingPage() {
 
 	return (
 		<main className="relative flex min-h-screen flex-col bg-gradient-to-b from-blue-100/60 via-indigo-50/30 to-background dark:from-blue-950/40 dark:via-indigo-950/20 dark:to-background">
-			{/* Corner nav */}
-			<header className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between px-6 py-4">
+			{/* Top bar — always visible */}
+			<header className="flex shrink-0 items-center justify-between px-6 py-4">
 				<div className="flex items-center gap-2 text-sm font-semibold">
 					<Lightbulb className="size-5 text-primary" />
 					ThoughtBox
@@ -102,7 +102,7 @@ function LandingPage() {
 			</header>
 
 			{/* Main content */}
-			<div className="flex flex-1 flex-col items-center justify-center px-4 pt-16">
+			<div className="flex flex-1 flex-col items-center justify-center px-4">
 				{/* Hero — greeting + prompts (hides when chat starts) */}
 				<motion.div
 					className="flex w-full max-w-2xl flex-col items-center"
