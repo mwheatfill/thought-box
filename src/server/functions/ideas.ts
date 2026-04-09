@@ -308,6 +308,45 @@ export const updateIdea = createServerFn({ method: "POST" })
 		return { success: true };
 	});
 
+// ── Bulk Update Status ────────────────────────────────────────────────────
+
+export const bulkUpdateStatus = createServerFn({ method: "POST" })
+	.middleware([leaderMiddleware])
+	.inputValidator(
+		z.object({
+			ideaIds: z.array(z.string()).min(1),
+			status: z.enum(["new", "under_review", "accepted", "in_progress", "implemented", "declined"]),
+		}),
+	)
+	.handler(async ({ context, data }) => {
+		for (const ideaId of data.ideaIds) {
+			const idea = await db.query.ideas.findFirst({
+				where: eq(ideas.id, ideaId),
+				columns: { id: true, status: true, assignedLeaderId: true },
+			});
+
+			if (!idea) continue;
+			if (context.user.role === "leader" && idea.assignedLeaderId !== context.user.id) continue;
+			if (idea.status === data.status) continue;
+
+			const updates: Record<string, unknown> = { status: data.status, updatedAt: new Date() };
+			if (["accepted", "implemented", "declined"].includes(data.status)) {
+				updates.closedAt = new Date();
+			}
+
+			await db.update(ideas).set(updates).where(eq(ideas.id, ideaId));
+			await db.insert(ideaEvents).values({
+				ideaId,
+				eventType: "status_changed",
+				actorId: context.user.id,
+				oldValue: idea.status,
+				newValue: data.status,
+			});
+		}
+
+		return { success: true, count: data.ideaIds.length };
+	});
+
 // ── Reassign Idea ─────────────────────────────────────────────────────────
 
 export const reassignIdea = createServerFn({ method: "POST" })

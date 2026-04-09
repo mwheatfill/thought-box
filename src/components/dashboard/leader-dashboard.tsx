@@ -1,7 +1,16 @@
 import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
 import { AlertTriangle, CheckCircle, Clock, Inbox } from "lucide-react";
+import { useState } from "react";
+import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "#/components/ui/select";
 import {
 	Table,
 	TableBody,
@@ -36,11 +45,37 @@ interface LeaderStats {
 interface LeaderDashboardProps {
 	ideas: LeaderIdea[];
 	stats: LeaderStats;
+	onBulkUpdate?: (ideaIds: string[], status: string) => Promise<void>;
+	isBulkUpdating?: boolean;
 }
 
-export function LeaderDashboard({ ideas, stats }: LeaderDashboardProps) {
+export function LeaderDashboard({
+	ideas,
+	stats,
+	onBulkUpdate,
+	isBulkUpdating,
+}: LeaderDashboardProps) {
 	const openStatuses = ["new", "under_review", "in_progress"];
 	const openIdeas = ideas.filter((i) => openStatuses.includes(i.status));
+	const [selected, setSelected] = useState<Set<string>>(new Set());
+	const [bulkStatus, setBulkStatus] = useState("under_review");
+
+	const toggleSelect = (id: string) => {
+		setSelected((prev) => {
+			const next = new Set(prev);
+			if (next.has(id)) next.delete(id);
+			else next.add(id);
+			return next;
+		});
+	};
+
+	const toggleAll = () => {
+		if (selected.size === openIdeas.length) {
+			setSelected(new Set());
+		} else {
+			setSelected(new Set(openIdeas.map((i) => i.id)));
+		}
+	};
 
 	return (
 		<div className="space-y-6">
@@ -80,13 +115,48 @@ export function LeaderDashboard({ ideas, stats }: LeaderDashboardProps) {
 				</Card>
 			) : (
 				<Card>
-					<CardHeader>
+					<CardHeader className="flex-row items-center justify-between space-y-0">
 						<CardTitle>Assigned Ideas</CardTitle>
+						{/* Bulk action bar */}
+						{selected.size > 0 && onBulkUpdate && (
+							<div className="flex items-center gap-2">
+								<span className="text-sm text-muted-foreground">{selected.size} selected</span>
+								<Select value={bulkStatus} onValueChange={setBulkStatus}>
+									<SelectTrigger className="h-8 w-[150px]">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="under_review">Under Review</SelectItem>
+										<SelectItem value="accepted">Accepted</SelectItem>
+										<SelectItem value="in_progress">In Progress</SelectItem>
+										<SelectItem value="declined">Declined</SelectItem>
+									</SelectContent>
+								</Select>
+								<Button
+									size="sm"
+									disabled={isBulkUpdating}
+									onClick={async () => {
+										await onBulkUpdate(Array.from(selected), bulkStatus);
+										setSelected(new Set());
+									}}
+								>
+									{isBulkUpdating ? "Updating..." : "Apply"}
+								</Button>
+							</div>
+						)}
 					</CardHeader>
 					<CardContent>
 						<Table>
 							<TableHeader>
 								<TableRow>
+									<TableHead className="w-[40px]">
+										<input
+											type="checkbox"
+											checked={selected.size === openIdeas.length && openIdeas.length > 0}
+											onChange={toggleAll}
+											className="size-4 rounded border-input"
+										/>
+									</TableHead>
 									<TableHead className="w-[100px]">ID</TableHead>
 									<TableHead>Title</TableHead>
 									<TableHead>Submitter</TableHead>
@@ -103,8 +173,17 @@ export function LeaderDashboard({ ideas, stats }: LeaderDashboardProps) {
 										className={cn(
 											"cursor-pointer hover:bg-muted/50",
 											idea.slaStatus === "overdue" && "bg-destructive/5",
+											selected.has(idea.id) && "bg-primary/5",
 										)}
 									>
+										<TableCell>
+											<input
+												type="checkbox"
+												checked={selected.has(idea.id)}
+												onChange={() => toggleSelect(idea.id)}
+												className="size-4 rounded border-input"
+											/>
+										</TableCell>
 										<TableCell className="font-mono text-xs">{idea.submissionId}</TableCell>
 										<TableCell>
 											<Link

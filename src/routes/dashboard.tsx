@@ -1,4 +1,7 @@
+import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { AdminDashboard } from "#/components/dashboard/admin-dashboard";
 import { LeaderDashboard } from "#/components/dashboard/leader-dashboard";
 import { SubmitterDashboard } from "#/components/dashboard/submitter-dashboard";
@@ -14,6 +17,7 @@ import {
 	getSubmissionsByCategory,
 	getSubmissionsByDepartment,
 } from "#/server/functions/dashboard";
+import { bulkUpdateStatus } from "#/server/functions/ideas";
 
 export const Route = createFileRoute("/dashboard")({
 	loader: async ({ context }) => {
@@ -58,6 +62,18 @@ export const Route = createFileRoute("/dashboard")({
 function DashboardPage() {
 	const { user } = Route.useRouteContext();
 	const data = Route.useLoaderData();
+	const router = Route.useRouter();
+
+	const bulkFn = useServerFn(bulkUpdateStatus);
+	const bulkMutation = useMutation({
+		mutationFn: ({ ideaIds, status }: { ideaIds: string[]; status: string }) =>
+			bulkFn({ data: { ideaIds, status: status as "under_review" } }),
+		onSuccess: (result) => {
+			toast.success(`Updated ${result.count} idea${result.count === 1 ? "" : "s"}`);
+			router.invalidate();
+		},
+		onError: () => toast.error("Failed to update"),
+	});
 
 	return (
 		<main className="flex-1 p-6">
@@ -83,7 +99,16 @@ function DashboardPage() {
 				/>
 			)}
 
-			{data.role === "leader" && <LeaderDashboard ideas={data.ideas} stats={data.stats} />}
+			{data.role === "leader" && (
+				<LeaderDashboard
+					ideas={data.ideas}
+					stats={data.stats}
+					onBulkUpdate={async (ideaIds, status) => {
+						await bulkMutation.mutateAsync({ ideaIds, status });
+					}}
+					isBulkUpdating={bulkMutation.isPending}
+				/>
+			)}
 
 			{data.role === "submitter" && (
 				<SubmitterDashboard user={user} ideas={data.ideas} yearlyCount={data.yearlyCount} />
