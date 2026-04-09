@@ -61,6 +61,11 @@ interface CategoryData {
 	count: number;
 }
 
+interface DepartmentData {
+	department: string;
+	count: number;
+}
+
 interface OutcomeData {
 	status: string;
 	count: number;
@@ -81,6 +86,7 @@ interface AdminDashboardProps {
 	stats: DashboardStats;
 	ideas: AdminIdea[];
 	byCategory: CategoryData[];
+	byDepartment: DepartmentData[];
 	outcomeDistribution: OutcomeData[];
 	recentActivity: ActivityEvent[];
 }
@@ -89,6 +95,10 @@ interface AdminDashboardProps {
 
 const categoryChartConfig = {
 	count: { label: "Ideas", color: "var(--color-chart-1)" },
+} satisfies ChartConfig;
+
+const departmentChartConfig = {
+	count: { label: "Ideas", color: "var(--color-chart-2)" },
 } satisfies ChartConfig;
 
 const STATUS_COLORS: Record<string, string> = {
@@ -107,6 +117,7 @@ export function AdminDashboard({
 	stats,
 	ideas,
 	byCategory,
+	byDepartment,
 	outcomeDistribution,
 	recentActivity,
 }: AdminDashboardProps) {
@@ -227,6 +238,38 @@ export function AdminDashboard({
 										))}
 									</Pie>
 								</PieChart>
+							</ChartContainer>
+						) : (
+							<p className="py-8 text-center text-sm text-muted-foreground">No data yet</p>
+						)}
+					</CardContent>
+				</Card>
+
+				{/* Submissions by Department */}
+				<Card>
+					<CardHeader>
+						<CardTitle className="flex items-center gap-2 text-sm font-medium">
+							<BarChart3 className="size-4" />
+							Ideas by Department
+						</CardTitle>
+					</CardHeader>
+					<CardContent>
+						{byDepartment.length > 0 ? (
+							<ChartContainer config={departmentChartConfig} className="h-[250px] w-full">
+								<BarChart data={byDepartment} layout="vertical" margin={{ left: 0, right: 16 }}>
+									<CartesianGrid horizontal={false} />
+									<YAxis
+										dataKey="department"
+										type="category"
+										width={120}
+										tickLine={false}
+										axisLine={false}
+										fontSize={12}
+									/>
+									<XAxis type="number" hide />
+									<ChartTooltip content={<ChartTooltipContent />} />
+									<Bar dataKey="count" fill="var(--color-count)" radius={4} />
+								</BarChart>
 							</ChartContainer>
 						) : (
 							<p className="py-8 text-center text-sm text-muted-foreground">No data yet</p>

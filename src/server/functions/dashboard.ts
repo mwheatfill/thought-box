@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { count, eq, gte, sql } from "drizzle-orm";
 import { db } from "#/server/db";
-import { categories, ideaEvents, ideas } from "#/server/db/schema";
+import { categories, ideaEvents, ideas, users } from "#/server/db/schema";
 import { businessDaysRemaining } from "#/server/lib/sla";
 import { adminMiddleware, authMiddleware, leaderMiddleware } from "#/server/middleware/auth";
 
@@ -209,6 +209,24 @@ export const getSubmissionsByCategory = createServerFn()
 			.from(ideas)
 			.innerJoin(categories, eq(ideas.categoryId, categories.id))
 			.groupBy(categories.name)
+			.orderBy(sql`count(*) desc`);
+
+		return result;
+	});
+
+// ── Admin: Submissions by Department ──────────────────────────────────────
+
+export const getSubmissionsByDepartment = createServerFn()
+	.middleware([adminMiddleware])
+	.handler(async () => {
+		const result = await db
+			.select({
+				department: sql<string>`coalesce(${users.department}, 'Unknown')`,
+				count: count(),
+			})
+			.from(ideas)
+			.innerJoin(users, eq(ideas.submitterId, users.id))
+			.groupBy(sql`coalesce(${users.department}, 'Unknown')`)
 			.orderBy(sql`count(*) desc`);
 
 		return result;

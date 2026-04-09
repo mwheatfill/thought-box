@@ -12,6 +12,7 @@ import {
 	getOutcomeDistribution,
 	getRecentProgramActivity,
 	getSubmissionsByCategory,
+	getSubmissionsByDepartment,
 } from "#/server/functions/dashboard";
 
 export const Route = createFileRoute("/dashboard")({
@@ -19,18 +20,21 @@ export const Route = createFileRoute("/dashboard")({
 		const { user } = context;
 
 		if (user.role === "admin") {
-			const [stats, ideas, byCategory, outcomeDistribution, recentActivity] = await Promise.all([
-				getDashboardStats(),
-				getAllIdeas(),
-				getSubmissionsByCategory(),
-				getOutcomeDistribution(),
-				getRecentProgramActivity(),
-			]);
+			const [stats, ideas, byCategory, byDepartment, outcomeDistribution, recentActivity] =
+				await Promise.all([
+					getDashboardStats(),
+					getAllIdeas(),
+					getSubmissionsByCategory(),
+					getSubmissionsByDepartment(),
+					getOutcomeDistribution(),
+					getRecentProgramActivity(),
+				]);
 			return {
 				role: "admin" as const,
 				stats,
 				ideas,
 				byCategory,
+				byDepartment,
 				outcomeDistribution,
 				recentActivity,
 			};
@@ -73,6 +77,7 @@ function DashboardPage() {
 					stats={data.stats}
 					ideas={data.ideas}
 					byCategory={data.byCategory}
+					byDepartment={data.byDepartment}
 					outcomeDistribution={data.outcomeDistribution}
 					recentActivity={data.recentActivity}
 				/>
