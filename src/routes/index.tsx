@@ -46,7 +46,7 @@ function LandingPage() {
 	const firstName = user.displayName.split(" ")[0];
 
 	return (
-		<main className="relative flex min-h-screen flex-col bg-gradient-to-b from-blue-100/60 via-indigo-50/30 to-background dark:from-blue-950/40 dark:via-indigo-950/20 dark:to-background">
+		<main className="relative flex min-h-screen flex-col bg-gradient-to-b from-blue-100/60 via-indigo-50/30 to-background dark:from-[oklch(0.18_0.03_260)] dark:via-[oklch(0.15_0.02_260)] dark:to-background">
 			{/* Top bar — always visible */}
 			<header className="flex shrink-0 items-center justify-between px-6 py-4">
 				<div className="flex items-center gap-2 text-sm font-semibold">
