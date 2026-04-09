@@ -103,11 +103,27 @@ const RedirectToolUI: ToolCallMessagePartComponent = ({ args }) => {
 
 // ── Chat thread ────────────────────────────────────────────────────────────
 
-function ChatThread({ suggestedPrompts }: { suggestedPrompts: string[] }) {
+function ChatThread({
+	suggestedPrompts,
+	firstName,
+}: { suggestedPrompts: string[]; firstName: string }) {
+	const thread = useThread();
+	const showGreeting = thread.messages.length === 0;
+
 	return (
 		<div className="flex h-full flex-col">
 			<ThreadPrimitive.Root className="flex flex-1 flex-col overflow-hidden">
 				<ThreadPrimitive.Viewport className="flex-1 space-y-4 overflow-y-auto p-4">
+					{showGreeting && (
+						<div className="flex justify-start">
+							<div className="max-w-[85%] space-y-1 rounded-2xl bg-muted px-4 py-2.5 text-sm">
+								<p>
+									Hey {firstName}! Got an idea to make things better? I'm here to help you capture
+									it. Just tell me what's on your mind.
+								</p>
+							</div>
+						</div>
+					)}
 					<ThreadPrimitive.Messages
 						components={{
 							UserMessage,
@@ -215,7 +231,7 @@ export function ChatInterface({ user, suggestedPrompts }: ChatInterfaceProps) {
 
 	return (
 		<AssistantRuntimeProvider runtime={runtime}>
-			<ChatThread suggestedPrompts={suggestedPrompts} />
+			<ChatThread suggestedPrompts={suggestedPrompts} firstName={user.displayName.split(" ")[0]} />
 		</AssistantRuntimeProvider>
 	);
 }
