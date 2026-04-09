@@ -11,6 +11,9 @@ const __dirname = dirname(__filename);
 const serverModule = await import("./dist/server/server.js");
 const { fetch: fetchHandler } = serverModule.default;
 
+// Import the chat handler (built separately by esbuild)
+const { handleChatRequest } = await import("./dist/server/chat-handler.js");
+
 const PORT = process.env.PORT || 3000;
 const CLIENT_DIR = join(__dirname, "dist", "client");
 
@@ -95,6 +98,30 @@ const server = createServer(async (req, res) => {
 	try {
 		// Static files first (fast path)
 		if (await tryServeStaticFile(req, res)) return;
+
+		// Chat API route (streaming)
+		if (req.url === "/api/chat" && req.method === "POST") {
+			const webRequest = toWebRequest(req);
+			const webResponse = await handleChatRequest(webRequest);
+			res.statusCode = webResponse.status;
+			webResponse.headers.forEach((value, key) => res.setHeader(key, value));
+			if (webResponse.body) {
+				const reader = webResponse.body.getReader();
+				const pump = async () => {
+					const { done, value } = await reader.read();
+					if (done) {
+						res.end();
+						return;
+					}
+					res.write(value);
+					await pump();
+				};
+				await pump();
+			} else {
+				res.end();
+			}
+			return;
+		}
 
 		// Everything else goes through TanStack Start (SSR, server functions, API routes)
 		const webRequest = toWebRequest(req);
