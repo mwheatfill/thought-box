@@ -151,16 +151,6 @@ function ChatThread({
 		<div className="flex h-full flex-col">
 			<ThreadPrimitive.Root className="flex flex-1 flex-col overflow-hidden">
 				<ThreadPrimitive.Viewport className="flex-1 space-y-4 overflow-y-auto p-4">
-					{!compact && !hasMessages && (
-						<div className="flex justify-start">
-							<div className="max-w-[85%] space-y-1 rounded-2xl bg-muted px-4 py-2.5 text-sm">
-								<p>
-									Hey {firstName}! Got an idea to make things better? I'm here to help you capture
-									it. Just tell me what's on your mind.
-								</p>
-							</div>
-						</div>
-					)}
 					<ThreadPrimitive.Messages
 						components={{
 							UserMessage,
@@ -172,14 +162,14 @@ function ChatThread({
 				{!compact && <SuggestedPrompts prompts={suggestedPrompts} />}
 
 				<div className={compact ? "p-3" : "border-t p-4"}>
-					<ComposerPrimitive.Root className="flex gap-2">
+					<ComposerPrimitive.Root className="flex items-end gap-2">
 						<ComposerPrimitive.Input
 							placeholder={compact ? "Describe your idea here..." : "Tell me about your idea..."}
-							className="flex-1 resize-none rounded-lg border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							className={`flex-1 resize-none rounded-lg border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${compact ? "min-h-[72px]" : ""}`}
 							autoFocus
 						/>
 						<ComposerPrimitive.Send asChild>
-							<Button size="icon" aria-label="Send message">
+							<Button size="icon" className="shrink-0" aria-label="Send message">
 								<ArrowUp className="size-4" />
 							</Button>
 						</ComposerPrimitive.Send>
