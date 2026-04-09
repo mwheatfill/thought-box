@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
 import {
+	Activity,
 	BarChart3,
 	CheckCircle,
 	Clock,
@@ -131,8 +132,17 @@ export function AdminDashboard({
 		]),
 	) satisfies ChartConfig;
 
+	const healthStatus = getHealthStatus(stats);
+
 	return (
 		<div className="space-y-6">
+			{/* Program health badge */}
+			<div className="flex items-center gap-2">
+				<Activity className={cn("size-4", healthStatus.color)} />
+				<span className={cn("text-sm font-medium", healthStatus.color)}>{healthStatus.label}</span>
+				<span className="text-xs text-muted-foreground">{healthStatus.detail}</span>
+			</div>
+
 			{/* KPI row */}
 			<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
 				<KpiCard
@@ -391,6 +401,35 @@ export function AdminDashboard({
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
+
+function getHealthStatus(stats: DashboardStats): {
+	label: string;
+	color: string;
+	detail: string;
+} {
+	const slaGood = stats.slaCompliancePercent === null || stats.slaCompliancePercent >= 80;
+	const volumeGood = stats.totalThisMonth > 0;
+
+	if (slaGood && volumeGood) {
+		return {
+			label: "Program Healthy",
+			color: "text-green-600 dark:text-green-400",
+			detail: "SLA compliance on target, ideas flowing",
+		};
+	}
+	if (!slaGood && !volumeGood) {
+		return {
+			label: "Needs Attention",
+			color: "text-red-600 dark:text-red-400",
+			detail: "Low volume and SLA compliance below target",
+		};
+	}
+	return {
+		label: "Monitor",
+		color: "text-yellow-600 dark:text-yellow-400",
+		detail: !slaGood ? "SLA compliance below 80%" : "No submissions this month",
+	};
+}
 
 function exportIdeasCsv(ideas: AdminIdea[]) {
 	const headers = [
