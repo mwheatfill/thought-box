@@ -293,7 +293,7 @@ export function LeaderActions({
 				</Card>
 			)}
 
-			{/* Communicate to Employee */}
+			{/* Send Update */}
 			<Button
 				variant="outline"
 				className="w-full"
@@ -314,14 +314,14 @@ export function LeaderActions({
 				}}
 			>
 				<Mail className="mr-2 size-4" />
-				Communicate to Employee
+				Send Update
 			</Button>
 
 			{/* Communicate Dialog */}
 			<Dialog open={communicateOpen} onOpenChange={setCommunicateOpen}>
 				<DialogContent className="max-w-lg">
 					<DialogHeader>
-						<DialogTitle>Communicate to Employee</DialogTitle>
+						<DialogTitle>Send Update to Employee</DialogTitle>
 					</DialogHeader>
 					<p className="text-sm text-muted-foreground">
 						Review and edit the message below before sending. The employee will receive this as a
