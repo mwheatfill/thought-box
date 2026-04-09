@@ -5,7 +5,7 @@ import { z } from "zod";
 import { db } from "#/server/db";
 import { categories, conversations, ideaEvents, ideas, users } from "#/server/db/schema";
 import type { ConversationMessage } from "#/server/db/schema";
-import { sendStatusChangedEmail } from "#/server/functions/email";
+import { sendIdeaReassignedEmail, sendStatusChangedEmail } from "#/server/functions/email";
 import { businessDaysRemaining, calculateSlaDueDate } from "#/server/lib/sla";
 import { nextSubmissionId } from "#/server/lib/submission-id";
 import { authMiddleware, leaderMiddleware } from "#/server/middleware/auth";
@@ -304,4 +304,96 @@ export const updateIdea = createServerFn({ method: "POST" })
 		}
 
 		return { success: true };
+	});
+
+// ── Reassign Idea ─────────────────────────────────────────────────────────
+
+export const reassignIdea = createServerFn({ method: "POST" })
+	.middleware([leaderMiddleware])
+	.inputValidator(z.object({ ideaId: z.string(), newLeaderId: z.string() }))
+	.handler(async ({ context, data }) => {
+		const idea = await db.query.ideas.findFirst({
+			where: eq(ideas.id, data.ideaId),
+			columns: {
+				id: true,
+				submissionId: true,
+				title: true,
+				assignedLeaderId: true,
+				submitterId: true,
+			},
+			with: {
+				category: { columns: { name: true } },
+				submitter: { columns: { displayName: true } },
+			},
+		});
+
+		if (!idea) throw new Error("Idea not found");
+
+		// Leaders can only reassign their own ideas (admins can reassign any)
+		if (context.user.role === "leader" && idea.assignedLeaderId !== context.user.id) {
+			throw new Error("Forbidden");
+		}
+
+		// Look up old and new leaders
+		const oldLeader = idea.assignedLeaderId
+			? await db.query.users.findFirst({
+					where: eq(users.id, idea.assignedLeaderId),
+					columns: { displayName: true },
+				})
+			: null;
+
+		const newLeader = await db.query.users.findFirst({
+			where: eq(users.id, data.newLeaderId),
+			columns: { id: true, displayName: true, email: true },
+		});
+
+		if (!newLeader) throw new Error("Leader not found");
+
+		// Reset SLA and update assignment
+		const now = new Date();
+		const newSlaDueDate = calculateSlaDueDate(now);
+
+		await db
+			.update(ideas)
+			.set({
+				assignedLeaderId: data.newLeaderId,
+				slaDueDate: newSlaDueDate,
+				updatedAt: now,
+			})
+			.where(eq(ideas.id, data.ideaId));
+
+		// Log reassignment event
+		await db.insert(ideaEvents).values({
+			ideaId: data.ideaId,
+			eventType: "reassigned",
+			actorId: context.user.id,
+			oldValue: oldLeader?.displayName ?? null,
+			newValue: newLeader.displayName,
+		});
+
+		// Fire-and-forget: notify new leader
+		sendIdeaReassignedEmail({
+			leaderEmail: newLeader.email,
+			leaderFirstName: newLeader.displayName.split(" ")[0],
+			submissionId: idea.submissionId,
+			ideaTitle: idea.title,
+			categoryName: idea.category.name,
+			submitterName: idea.submitter.displayName,
+			reassignedByName: context.user.displayName,
+		});
+
+		return { success: true, newLeaderName: newLeader.displayName };
+	});
+
+// ── Get Leaders for Reassignment ──────────────────────────────────────────
+
+export const getLeadersForReassign = createServerFn()
+	.middleware([leaderMiddleware])
+	.handler(async () => {
+		return db.query.users.findMany({
+			where: (u, { or, eq: e, and }) =>
+				and(or(e(u.role, "leader"), e(u.role, "admin")), e(u.active, true)),
+			columns: { id: true, displayName: true, role: true },
+			orderBy: (u, { asc }) => [asc(u.displayName)],
+		});
 	});

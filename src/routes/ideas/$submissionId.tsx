@@ -15,19 +15,28 @@ import { Separator } from "#/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import { IMPACT_AREAS } from "#/lib/constants";
 import type { IdeaStatus } from "#/lib/constants";
-import { getIdeaDetail, updateIdea } from "#/server/functions/ideas";
+import {
+	getIdeaDetail,
+	getLeadersForReassign,
+	reassignIdea,
+	updateIdea,
+} from "#/server/functions/ideas";
 import { addMessage, getIdeaMessages } from "#/server/functions/messages";
 
 export const Route = createFileRoute("/ideas/$submissionId")({
 	loader: async ({ params }) => {
-		return getIdeaDetail({ data: { submissionId: params.submissionId } });
+		const [idea, leaders] = await Promise.all([
+			getIdeaDetail({ data: { submissionId: params.submissionId } }),
+			getLeadersForReassign().catch(() => []),
+		]);
+		return { idea, leaders };
 	},
 	component: IdeaDetailPage,
 });
 
 function IdeaDetailPage() {
 	const { submissionId } = Route.useParams();
-	const initialData = Route.useLoaderData();
+	const { idea: initialIdea, leaders } = Route.useLoaderData();
 	const { user } = Route.useRouteContext();
 	const queryClient = useQueryClient();
 
@@ -35,7 +44,7 @@ function IdeaDetailPage() {
 	const { data: idea } = useQuery({
 		queryKey: ["idea", submissionId],
 		queryFn: () => getIdeaDetail({ data: { submissionId } }),
-		initialData,
+		initialData: initialIdea,
 	});
 
 	// Messages query
@@ -55,6 +64,19 @@ function IdeaDetailPage() {
 		},
 		onError: () => {
 			toast.error("Failed to save changes");
+		},
+	});
+
+	// Reassign mutation
+	const reassignFn = useServerFn(reassignIdea);
+	const reassignMutation = useMutation({
+		mutationFn: (newLeaderId: string) => reassignFn({ data: { ideaId: idea.id, newLeaderId } }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["idea", submissionId] });
+			toast.success("Idea reassigned");
+		},
+		onError: () => {
+			toast.error("Failed to reassign");
 		},
 	});
 
@@ -198,10 +220,16 @@ function IdeaDetailPage() {
 							slaDaysRemaining={idea.slaDaysRemaining}
 							slaDueDate={idea.slaDueDate}
 							assignedLeaderName={idea.assignedLeader?.displayName ?? null}
+							assignedLeaderId={idea.assignedLeader?.id ?? null}
+							leaders={leaders}
 							onSave={async (updates) => {
 								await updateMutation.mutateAsync(updates);
 							}}
+							onReassign={async (newLeaderId) => {
+								await reassignMutation.mutateAsync(newLeaderId);
+							}}
 							isSaving={updateMutation.isPending}
+							isReassigning={reassignMutation.isPending}
 						/>
 					</div>
 				)}

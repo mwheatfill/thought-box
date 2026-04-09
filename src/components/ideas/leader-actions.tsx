@@ -1,10 +1,20 @@
+import { ChevronsUpDown, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { SlaIndicator } from "#/components/dashboard/sla-indicator";
 import { StatusBadge } from "#/components/dashboard/status-badge";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
+import {
+	Command,
+	CommandEmpty,
+	CommandGroup,
+	CommandInput,
+	CommandItem,
+	CommandList,
+} from "#/components/ui/command";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
 import {
 	Select,
 	SelectContent,
@@ -14,6 +24,13 @@ import {
 } from "#/components/ui/select";
 import { Textarea } from "#/components/ui/textarea";
 import type { IdeaStatus } from "#/lib/constants";
+import { cn } from "#/lib/utils";
+
+interface Leader {
+	id: string;
+	displayName: string;
+	role: string;
+}
 
 interface LeaderActionsProps {
 	ideaId: string;
@@ -25,13 +42,17 @@ interface LeaderActionsProps {
 	slaDaysRemaining: number | null;
 	slaDueDate: string | null;
 	assignedLeaderName: string | null;
+	assignedLeaderId: string | null;
+	leaders: Leader[];
 	onSave: (updates: {
 		status?: string;
 		rejectionReason?: string | null;
 		leaderNotes?: string | null;
 		actionTaken?: string | null;
 	}) => Promise<void>;
+	onReassign: (newLeaderId: string) => Promise<void>;
 	isSaving: boolean;
+	isReassigning: boolean;
 }
 
 export function LeaderActions({
@@ -43,13 +64,19 @@ export function LeaderActions({
 	slaDaysRemaining,
 	slaDueDate,
 	assignedLeaderName,
+	assignedLeaderId,
+	leaders,
 	onSave,
+	onReassign,
 	isSaving,
+	isReassigning,
 }: LeaderActionsProps) {
 	const [status, setStatus] = useState(currentStatus);
 	const [rejectionReason, setRejectionReason] = useState(currentRejectionReason ?? "");
 	const [leaderNotes, setLeaderNotes] = useState(currentLeaderNotes ?? "");
 	const [actionTaken, setActionTaken] = useState(currentActionTaken ?? "");
+	const [reassignOpen, setReassignOpen] = useState(false);
+
 	const hasChanges =
 		status !== currentStatus ||
 		leaderNotes !== (currentLeaderNotes ?? "") ||
@@ -88,12 +115,56 @@ export function LeaderActions({
 						slaDueDate={slaDueDate}
 					/>
 
-					{assignedLeaderName && (
+					{/* Assigned leader with reassign */}
+					<div className="space-y-2">
 						<div className="flex items-center justify-between">
 							<span className="text-sm text-muted-foreground">Assigned to</span>
-							<span className="text-sm font-medium">{assignedLeaderName}</span>
+							<span className="text-sm font-medium">{assignedLeaderName ?? "Unassigned"}</span>
 						</div>
-					)}
+						<Popover open={reassignOpen} onOpenChange={setReassignOpen}>
+							<PopoverTrigger asChild>
+								<Button
+									variant="outline"
+									size="sm"
+									className="w-full justify-between font-normal"
+									disabled={isReassigning}
+								>
+									<span className="flex items-center gap-2">
+										<RefreshCw className={cn("size-3.5", isReassigning && "animate-spin")} />
+										{isReassigning ? "Reassigning..." : "Reassign"}
+									</span>
+									<ChevronsUpDown className="size-3.5 opacity-50" />
+								</Button>
+							</PopoverTrigger>
+							<PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+								<Command>
+									<CommandInput placeholder="Search leaders..." />
+									<CommandList>
+										<CommandEmpty>No leaders found.</CommandEmpty>
+										<CommandGroup>
+											{leaders
+												.filter((l) => l.id !== assignedLeaderId)
+												.map((l) => (
+													<CommandItem
+														key={l.id}
+														value={l.displayName}
+														onSelect={() => {
+															setReassignOpen(false);
+															onReassign(l.id);
+														}}
+													>
+														{l.displayName}
+														<span className="ml-auto text-xs text-muted-foreground capitalize">
+															{l.role}
+														</span>
+													</CommandItem>
+												))}
+										</CommandGroup>
+									</CommandList>
+								</Command>
+							</PopoverContent>
+						</Popover>
+					</div>
 				</CardContent>
 			</Card>
 

@@ -1,5 +1,6 @@
 import { createElement } from "react";
 import IdeaAssigned from "#/emails/IdeaAssigned";
+import IdeaReassigned from "#/emails/IdeaReassigned";
 import IdeaSubmitted from "#/emails/IdeaSubmitted";
 import NewMessage from "#/emails/NewMessage";
 import StatusChanged from "#/emails/StatusChanged";
@@ -116,6 +117,31 @@ export async function sendNewMessageEmail(params: {
 			ideaTitle: params.ideaTitle,
 			messagePreview: params.messagePreview,
 			isFromLeader: params.isFromLeader,
+			viewUrl: ideaUrl(params.submissionId),
+		}),
+	});
+}
+
+/** Notify a leader when an idea is reassigned to them. */
+export async function sendIdeaReassignedEmail(params: {
+	leaderEmail: string;
+	leaderFirstName: string;
+	submissionId: string;
+	ideaTitle: string;
+	categoryName: string;
+	submitterName: string;
+	reassignedByName: string;
+}) {
+	await sendEmail({
+		to: params.leaderEmail,
+		subject: `Idea reassigned to you: ${params.submissionId}`,
+		template: createElement(IdeaReassigned, {
+			leaderFirstName: params.leaderFirstName,
+			submissionId: params.submissionId,
+			ideaTitle: params.ideaTitle,
+			categoryName: params.categoryName,
+			submitterName: params.submitterName,
+			reassignedByName: params.reassignedByName,
 			viewUrl: ideaUrl(params.submissionId),
 		}),
 	});
