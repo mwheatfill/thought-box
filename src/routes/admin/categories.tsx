@@ -1,12 +1,29 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ExternalLink, GripVertical, Pencil, Plus, Power } from "lucide-react";
+import {
+	Check,
+	ChevronsUpDown,
+	ExternalLink,
+	MoveDown,
+	MoveUp,
+	Pencil,
+	Plus,
+	Power,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent } from "#/components/ui/card";
+import {
+	Command,
+	CommandEmpty,
+	CommandGroup,
+	CommandInput,
+	CommandItem,
+	CommandList,
+} from "#/components/ui/command";
 import {
 	Dialog,
 	DialogContent,
@@ -16,6 +33,7 @@ import {
 } from "#/components/ui/dialog";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
 import {
 	Select,
 	SelectContent,
@@ -79,6 +97,7 @@ function CategoriesPage() {
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [form, setForm] = useState<CategoryForm>(emptyForm);
+	const [leaderPopoverOpen, setLeaderPopoverOpen] = useState(false);
 
 	const { data: cats = initialCategories } = useQuery({
 		queryKey: ["admin-categories"],
@@ -135,9 +154,29 @@ function CategoriesPage() {
 		},
 	});
 
+	const moveMutation = useMutation({
+		mutationFn: async ({ id, direction }: { id: string; direction: "up" | "down" }) => {
+			const idx = cats.findIndex((c) => c.id === id);
+			if (idx < 0) return;
+			const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+			if (swapIdx < 0 || swapIdx >= cats.length) return;
+
+			await Promise.all([
+				updateFn({ data: { id: cats[idx].id, sortOrder: cats[swapIdx].sortOrder } }),
+				updateFn({ data: { id: cats[swapIdx].id, sortOrder: cats[idx].sortOrder } }),
+			]);
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["admin-categories"] });
+		},
+	});
+
 	function openCreate() {
 		setEditingId(null);
-		setForm(emptyForm);
+		setForm({
+			...emptyForm,
+			sortOrder: cats.length > 0 ? Math.max(...cats.map((c) => c.sortOrder)) + 1 : 1,
+		});
 		setDialogOpen(true);
 	}
 
@@ -154,6 +193,8 @@ function CategoriesPage() {
 		});
 		setDialogOpen(true);
 	}
+
+	const selectedLeader = leaders.find((l) => l.id === form.defaultLeaderId);
 
 	return (
 		<main className="flex-1 p-6">
@@ -173,7 +214,7 @@ function CategoriesPage() {
 					<Table>
 						<TableHeader>
 							<TableRow>
-								<TableHead className="w-[40px]" />
+								<TableHead className="w-[70px]">Order</TableHead>
 								<TableHead>Name</TableHead>
 								<TableHead>Type</TableHead>
 								<TableHead>Default Leader</TableHead>
@@ -182,10 +223,29 @@ function CategoriesPage() {
 							</TableRow>
 						</TableHeader>
 						<TableBody>
-							{cats.map((cat) => (
+							{cats.map((cat, idx) => (
 								<TableRow key={cat.id} className={cn(!cat.active && "opacity-50")}>
 									<TableCell>
-										<GripVertical className="size-4 text-muted-foreground" />
+										<div className="flex items-center gap-0.5">
+											<Button
+												variant="ghost"
+												size="icon"
+												className="size-6"
+												disabled={idx === 0 || moveMutation.isPending}
+												onClick={() => moveMutation.mutate({ id: cat.id, direction: "up" })}
+											>
+												<MoveUp className="size-3" />
+											</Button>
+											<Button
+												variant="ghost"
+												size="icon"
+												className="size-6"
+												disabled={idx === cats.length - 1 || moveMutation.isPending}
+												onClick={() => moveMutation.mutate({ id: cat.id, direction: "down" })}
+											>
+												<MoveDown className="size-3" />
+											</Button>
+										</div>
 									</TableCell>
 									<TableCell>
 										<div>
@@ -256,34 +316,22 @@ function CategoriesPage() {
 								className="min-h-[80px]"
 							/>
 						</div>
-						<div className="grid grid-cols-2 gap-4">
-							<div className="space-y-1.5">
-								<Label>Routing Type</Label>
-								<Select
-									value={form.routingType}
-									onValueChange={(v) =>
-										setForm({ ...form, routingType: v as "thoughtbox" | "redirect" })
-									}
-								>
-									<SelectTrigger>
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="thoughtbox">ThoughtBox</SelectItem>
-										<SelectItem value="redirect">Redirect</SelectItem>
-									</SelectContent>
-								</Select>
-							</div>
-							<div className="space-y-1.5">
-								<Label>Sort Order</Label>
-								<Input
-									type="number"
-									value={form.sortOrder}
-									onChange={(e) =>
-										setForm({ ...form, sortOrder: Number.parseInt(e.target.value) || 0 })
-									}
-								/>
-							</div>
+						<div className="space-y-1.5">
+							<Label>Routing Type</Label>
+							<Select
+								value={form.routingType}
+								onValueChange={(v) =>
+									setForm({ ...form, routingType: v as "thoughtbox" | "redirect" })
+								}
+							>
+								<SelectTrigger>
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="thoughtbox">ThoughtBox</SelectItem>
+									<SelectItem value="redirect">Redirect</SelectItem>
+								</SelectContent>
+							</Select>
 						</div>
 
 						{form.routingType === "redirect" && (
@@ -310,21 +358,45 @@ function CategoriesPage() {
 						{form.routingType === "thoughtbox" && (
 							<div className="space-y-1.5">
 								<Label>Default Leader</Label>
-								<Select
-									value={form.defaultLeaderId}
-									onValueChange={(v) => setForm({ ...form, defaultLeaderId: v })}
-								>
-									<SelectTrigger>
-										<SelectValue placeholder="Select a leader..." />
-									</SelectTrigger>
-									<SelectContent>
-										{leaders.map((l) => (
-											<SelectItem key={l.id} value={l.id}>
-												{l.displayName}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+								<Popover open={leaderPopoverOpen} onOpenChange={setLeaderPopoverOpen}>
+									<PopoverTrigger asChild>
+										<Button variant="outline" className="w-full justify-between font-normal">
+											{selectedLeader?.displayName ?? "Search for a leader..."}
+											<ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+										</Button>
+									</PopoverTrigger>
+									<PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+										<Command>
+											<CommandInput placeholder="Type a name..." />
+											<CommandList>
+												<CommandEmpty>No leaders found.</CommandEmpty>
+												<CommandGroup>
+													{leaders.map((l) => (
+														<CommandItem
+															key={l.id}
+															value={l.displayName}
+															onSelect={() => {
+																setForm({ ...form, defaultLeaderId: l.id });
+																setLeaderPopoverOpen(false);
+															}}
+														>
+															<Check
+																className={cn(
+																	"mr-2 size-4",
+																	form.defaultLeaderId === l.id ? "opacity-100" : "opacity-0",
+																)}
+															/>
+															{l.displayName}
+															<span className="ml-auto text-xs text-muted-foreground capitalize">
+																{l.role}
+															</span>
+														</CommandItem>
+													))}
+												</CommandGroup>
+											</CommandList>
+										</Command>
+									</PopoverContent>
+								</Popover>
 							</div>
 						)}
 					</div>
