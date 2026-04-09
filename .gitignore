@@ -15,6 +15,9 @@ dist/
 .output/
 .vinxi/
 
+# TanStack generated
+src/routeTree.gen.ts
+
 # Database
 *.db
 *.db-journal
