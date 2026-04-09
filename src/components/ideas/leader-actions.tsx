@@ -1,4 +1,4 @@
-import { ChevronsUpDown, RefreshCw } from "lucide-react";
+import { ChevronsUpDown, Lock, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { SlaIndicator } from "#/components/dashboard/sla-indicator";
 import { StatusBadge } from "#/components/dashboard/status-badge";
@@ -71,6 +71,9 @@ export function LeaderActions({
 	isSaving,
 	isReassigning,
 }: LeaderActionsProps) {
+	const closedStatuses = ["accepted", "implemented", "declined"];
+	const isClosed = closedStatuses.includes(currentStatus);
+
 	const [status, setStatus] = useState(currentStatus);
 	const [rejectionReason, setRejectionReason] = useState(currentRejectionReason ?? "");
 	const [leaderNotes, setLeaderNotes] = useState(currentLeaderNotes ?? "");
@@ -168,76 +171,90 @@ export function LeaderActions({
 				</CardContent>
 			</Card>
 
-			{/* Actions */}
-			<Card>
-				<CardHeader className="pb-3">
-					<CardTitle className="text-sm font-medium">Actions</CardTitle>
-				</CardHeader>
-				<CardContent className="space-y-4">
-					{/* Status change */}
-					<div className="space-y-1.5">
-						<Label htmlFor="status">Status</Label>
-						<Select value={status} onValueChange={setStatus}>
-							<SelectTrigger id="status">
-								<SelectValue />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="new">New</SelectItem>
-								<SelectItem value="under_review">Under Review</SelectItem>
-								<SelectItem value="accepted">Accepted</SelectItem>
-								<SelectItem value="in_progress">In Progress</SelectItem>
-								<SelectItem value="implemented">Implemented</SelectItem>
-								<SelectItem value="declined">Declined</SelectItem>
-							</SelectContent>
-						</Select>
-					</div>
+			{/* Locked banner */}
+			{isClosed && (
+				<Card>
+					<CardContent className="flex items-center gap-3 p-4">
+						<Lock className="size-4 text-muted-foreground" />
+						<p className="text-sm text-muted-foreground">
+							This idea is closed and locked from further edits.
+						</p>
+					</CardContent>
+				</Card>
+			)}
 
-					{/* Rejection reason (only when declined) */}
-					{status === "declined" && (
+			{/* Actions */}
+			{!isClosed && (
+				<Card>
+					<CardHeader className="pb-3">
+						<CardTitle className="text-sm font-medium">Actions</CardTitle>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						{/* Status change */}
 						<div className="space-y-1.5">
-							<Label htmlFor="rejection-reason">Rejection Reason</Label>
-							<Select value={rejectionReason} onValueChange={setRejectionReason}>
-								<SelectTrigger id="rejection-reason">
-									<SelectValue placeholder="Select a reason..." />
+							<Label htmlFor="status">Status</Label>
+							<Select value={status} onValueChange={setStatus}>
+								<SelectTrigger id="status">
+									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="already_in_progress">Already in progress</SelectItem>
-									<SelectItem value="not_feasible">Not feasible at this time</SelectItem>
-									<SelectItem value="not_aligned">Not aligned with priorities</SelectItem>
-									<SelectItem value="not_thoughtbox">Not a ThoughtBox idea</SelectItem>
+									<SelectItem value="new">New</SelectItem>
+									<SelectItem value="under_review">Under Review</SelectItem>
+									<SelectItem value="accepted">Accepted</SelectItem>
+									<SelectItem value="in_progress">In Progress</SelectItem>
+									<SelectItem value="implemented">Implemented</SelectItem>
+									<SelectItem value="declined">Declined</SelectItem>
 								</SelectContent>
 							</Select>
 						</div>
-					)}
 
-					{/* Leader notes */}
-					<div className="space-y-1.5">
-						<Label htmlFor="leader-notes">Leader Notes</Label>
-						<Textarea
-							id="leader-notes"
-							value={leaderNotes}
-							onChange={(e) => setLeaderNotes(e.target.value)}
-							placeholder="Research, decisions, context..."
-							className="min-h-[80px] resize-none"
-						/>
-					</div>
+						{/* Rejection reason (only when declined) */}
+						{status === "declined" && (
+							<div className="space-y-1.5">
+								<Label htmlFor="rejection-reason">Rejection Reason</Label>
+								<Select value={rejectionReason} onValueChange={setRejectionReason}>
+									<SelectTrigger id="rejection-reason">
+										<SelectValue placeholder="Select a reason..." />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="already_in_progress">Already in progress</SelectItem>
+										<SelectItem value="not_feasible">Not feasible at this time</SelectItem>
+										<SelectItem value="not_aligned">Not aligned with priorities</SelectItem>
+										<SelectItem value="not_thoughtbox">Not a ThoughtBox idea</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+						)}
 
-					{/* Action taken */}
-					<div className="space-y-1.5">
-						<Label htmlFor="action-taken">Action Taken</Label>
-						<Input
-							id="action-taken"
-							value={actionTaken}
-							onChange={(e) => setActionTaken(e.target.value)}
-							placeholder="What was done..."
-						/>
-					</div>
+						{/* Leader notes */}
+						<div className="space-y-1.5">
+							<Label htmlFor="leader-notes">Leader Notes</Label>
+							<Textarea
+								id="leader-notes"
+								value={leaderNotes}
+								onChange={(e) => setLeaderNotes(e.target.value)}
+								placeholder="Research, decisions, context..."
+								className="min-h-[80px] resize-none"
+							/>
+						</div>
 
-					<Button onClick={handleSave} disabled={!hasChanges || isSaving} className="w-full">
-						{isSaving ? "Saving..." : "Save Changes"}
-					</Button>
-				</CardContent>
-			</Card>
+						{/* Action taken */}
+						<div className="space-y-1.5">
+							<Label htmlFor="action-taken">Action Taken</Label>
+							<Input
+								id="action-taken"
+								value={actionTaken}
+								onChange={(e) => setActionTaken(e.target.value)}
+								placeholder="What was done..."
+							/>
+						</div>
+
+						<Button onClick={handleSave} disabled={!hasChanges || isSaving} className="w-full">
+							{isSaving ? "Saving..." : "Save Changes"}
+						</Button>
+					</CardContent>
+				</Card>
+			)}
 		</div>
 	);
 }
