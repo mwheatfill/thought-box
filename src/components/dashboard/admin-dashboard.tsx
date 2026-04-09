@@ -10,7 +10,18 @@ import {
 	Lightbulb,
 	TrendingUp,
 } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
+import {
+	Area,
+	AreaChart,
+	Bar,
+	BarChart,
+	CartesianGrid,
+	Cell,
+	Pie,
+	PieChart,
+	XAxis,
+	YAxis,
+} from "recharts";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import {
@@ -62,8 +73,9 @@ interface CategoryData {
 	count: number;
 }
 
-interface DepartmentData {
-	department: string;
+interface MonthlyData {
+	month: string;
+	status: string;
 	count: number;
 }
 
@@ -87,7 +99,7 @@ interface AdminDashboardProps {
 	stats: DashboardStats;
 	ideas: AdminIdea[];
 	byCategory: CategoryData[];
-	byDepartment: DepartmentData[];
+	byMonth: MonthlyData[];
 	outcomeDistribution: OutcomeData[];
 	recentActivity: ActivityEvent[];
 }
@@ -98,8 +110,8 @@ const categoryChartConfig = {
 	count: { label: "Ideas", color: "#3b82f6" },
 } satisfies ChartConfig;
 
-const departmentChartConfig = {
-	count: { label: "Ideas", color: "#8b5cf6" },
+const monthlyChartConfig = {
+	count: { label: "Ideas", color: "#3b82f6" },
 } satisfies ChartConfig;
 
 const STATUS_COLORS: Record<string, string> = {
@@ -118,7 +130,7 @@ export function AdminDashboard({
 	stats,
 	ideas,
 	byCategory,
-	byDepartment,
+	byMonth,
 	outcomeDistribution,
 	recentActivity,
 }: AdminDashboardProps) {
@@ -131,6 +143,16 @@ export function AdminDashboard({
 			},
 		]),
 	) satisfies ChartConfig;
+
+	// Aggregate monthly data into totals per month
+	const monthlyTrend = Object.entries(
+		byMonth.reduce<Record<string, number>>((acc, d) => {
+			acc[d.month] = (acc[d.month] ?? 0) + d.count;
+			return acc;
+		}, {}),
+	)
+		.map(([month, count]) => ({ month, count }))
+		.sort((a, b) => a.month.localeCompare(b.month));
 
 	const healthStatus = getHealthStatus(stats);
 
@@ -255,31 +277,47 @@ export function AdminDashboard({
 					</CardContent>
 				</Card>
 
-				{/* Submissions by Department */}
+				{/* Submissions Over Time */}
 				<Card>
 					<CardHeader>
 						<CardTitle className="flex items-center gap-2 text-sm font-medium">
-							<BarChart3 className="size-4" />
-							Ideas by Department
+							<TrendingUp className="size-4" />
+							Submissions Over Time
 						</CardTitle>
 					</CardHeader>
 					<CardContent>
-						{byDepartment.length > 0 ? (
-							<ChartContainer config={departmentChartConfig} className="h-[250px] w-full">
-								<BarChart data={byDepartment} layout="vertical" margin={{ left: 0, right: 16 }}>
-									<CartesianGrid horizontal={false} />
-									<YAxis
-										dataKey="department"
-										type="category"
-										width={120}
+						{monthlyTrend.length > 0 ? (
+							<ChartContainer config={monthlyChartConfig} className="h-[250px] w-full">
+								<AreaChart data={monthlyTrend} margin={{ left: 0, right: 16 }}>
+									<defs>
+										<linearGradient id="fillCount" x1="0" y1="0" x2="0" y2="1">
+											<stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+											<stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+										</linearGradient>
+									</defs>
+									<CartesianGrid vertical={false} />
+									<XAxis
+										dataKey="month"
 										tickLine={false}
 										axisLine={false}
 										fontSize={12}
+										tickFormatter={(v) => {
+											const [y, m] = v.split("-");
+											return new Date(Number(y), Number(m) - 1).toLocaleDateString("en-US", {
+												month: "short",
+											});
+										}}
 									/>
-									<XAxis type="number" hide />
+									<YAxis tickLine={false} axisLine={false} fontSize={12} allowDecimals={false} />
 									<ChartTooltip content={<ChartTooltipContent />} />
-									<Bar dataKey="count" fill="var(--color-count)" radius={4} />
-								</BarChart>
+									<Area
+										type="monotone"
+										dataKey="count"
+										stroke="#3b82f6"
+										fill="url(#fillCount)"
+										strokeWidth={2}
+									/>
+								</AreaChart>
 							</ChartContainer>
 						) : (
 							<p className="py-8 text-center text-sm text-muted-foreground">No data yet</p>

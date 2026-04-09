@@ -15,7 +15,7 @@ import {
 	getOutcomeDistribution,
 	getRecentProgramActivity,
 	getSubmissionsByCategory,
-	getSubmissionsByDepartment,
+	getSubmissionsByMonth,
 } from "#/server/functions/dashboard";
 import { bulkUpdateStatus } from "#/server/functions/ideas";
 
@@ -24,12 +24,12 @@ export const Route = createFileRoute("/dashboard")({
 		const { user } = context;
 
 		if (user.role === "admin") {
-			const [stats, ideas, byCategory, byDepartment, outcomeDistribution, recentActivity] =
+			const [stats, ideas, byCategory, byMonth, outcomeDistribution, recentActivity] =
 				await Promise.all([
 					getDashboardStats(),
 					getAllIdeas(),
 					getSubmissionsByCategory(),
-					getSubmissionsByDepartment(),
+					getSubmissionsByMonth(),
 					getOutcomeDistribution(),
 					getRecentProgramActivity(),
 				]);
@@ -38,7 +38,7 @@ export const Route = createFileRoute("/dashboard")({
 				stats,
 				ideas,
 				byCategory,
-				byDepartment,
+				byMonth,
 				outcomeDistribution,
 				recentActivity,
 			};
@@ -93,7 +93,7 @@ function DashboardPage() {
 					stats={data.stats}
 					ideas={data.ideas}
 					byCategory={data.byCategory}
-					byDepartment={data.byDepartment}
+					byMonth={data.byMonth}
 					outcomeDistribution={data.outcomeDistribution}
 					recentActivity={data.recentActivity}
 				/>
