@@ -52,7 +52,7 @@ The following categories are available. Use the category ID when calling submit_
 ${categoryTaxonomy}${userContext}`;
 
 	const result = streamText({
-		model: anthropic("claude-sonnet-4-20250514"),
+		model: anthropic("claude-haiku-4-5-20251001"),
 		system: systemPrompt,
 		messages,
 		tools: {
