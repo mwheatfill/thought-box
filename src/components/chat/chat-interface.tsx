@@ -112,13 +112,11 @@ const RedirectToolUI: ToolCallMessagePartComponent = ({ args }) => {
 
 function ChatThread({
 	suggestedPrompts,
-	firstName,
 	onFirstMessage,
 	compact,
 	initialPrompt,
 }: {
 	suggestedPrompts: string[];
-	firstName: string;
 	onFirstMessage?: () => void;
 	compact?: boolean;
 	initialPrompt?: string | null;
@@ -348,7 +346,6 @@ export function ChatInterface({
 		<AssistantRuntimeProvider runtime={runtime}>
 			<ChatThread
 				suggestedPrompts={suggestedPrompts}
-				firstName={user.displayName.split(" ")[0]}
 				onFirstMessage={onFirstMessage}
 				compact={compact}
 				initialPrompt={initialPrompt}
