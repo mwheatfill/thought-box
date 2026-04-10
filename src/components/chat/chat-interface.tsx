@@ -192,13 +192,26 @@ function UserMessage() {
 	);
 }
 
+function TypingIndicator() {
+	return (
+		<div className="flex items-center gap-1 py-1">
+			<span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/50 [animation-delay:0ms]" />
+			<span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/50 [animation-delay:150ms]" />
+			<span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/50 [animation-delay:300ms]" />
+		</div>
+	);
+}
+
 function AssistantMessage() {
 	return (
 		<div className="flex justify-start">
 			<div className="max-w-[85%] space-y-2 rounded-2xl bg-muted px-4 py-2.5 text-sm">
 				<MessagePrimitive.Content
 					components={{
-						Text: ({ text }) => <div className="whitespace-pre-wrap">{parseMarkdown(text)}</div>,
+						Text: ({ text }) => {
+							if (!text) return <TypingIndicator />;
+							return <div className="whitespace-pre-wrap">{parseMarkdown(text)}</div>;
+						},
 						tools: {
 							by_name: {
 								submit_idea: SubmitIdeaToolUI,
