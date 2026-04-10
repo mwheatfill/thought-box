@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
 import {
 	Activity,
@@ -139,6 +139,7 @@ export function AdminDashboard({
 	recentActivity,
 	hideKpi,
 }: AdminDashboardProps) {
+	const navigate = useNavigate();
 	const kpiOnly = !ideas;
 
 	const outcomeConfig = Object.fromEntries(
@@ -389,6 +390,12 @@ export function AdminDashboard({
 												"cursor-pointer hover:bg-muted/50",
 												idea.slaStatus === "overdue" && "bg-destructive/5",
 											)}
+											onClick={() =>
+												navigate({
+													to: "/ideas/$submissionId",
+													params: { submissionId: idea.submissionId },
+												})
+											}
 										>
 											<TableCell className="font-mono text-xs">{idea.submissionId}</TableCell>
 											<TableCell>

@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
 import { Lightbulb, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
@@ -29,6 +29,7 @@ interface SubmitterDashboardProps {
 }
 
 export function SubmitterDashboard({ user, ideas, yearlyCount }: SubmitterDashboardProps) {
+	const navigate = useNavigate();
 	const firstName = user.displayName.split(" ")[0];
 
 	return (
@@ -90,7 +91,16 @@ export function SubmitterDashboard({ user, ideas, yearlyCount }: SubmitterDashbo
 							</TableHeader>
 							<TableBody>
 								{ideas.map((idea) => (
-									<TableRow key={idea.id} className="cursor-pointer hover:bg-muted/50">
+									<TableRow
+										key={idea.id}
+										className="cursor-pointer hover:bg-muted/50"
+										onClick={() =>
+											navigate({
+												to: "/ideas/$submissionId",
+												params: { submissionId: idea.submissionId },
+											})
+										}
+									>
 										<TableCell className="font-mono text-xs">{idea.submissionId}</TableCell>
 										<TableCell>
 											<Link

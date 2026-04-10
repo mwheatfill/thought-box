@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { formatDistanceToNow } from "date-fns";
 import { AlertTriangle, CheckCircle, Clock, Inbox } from "lucide-react";
 import { useState } from "react";
@@ -58,6 +58,7 @@ export function LeaderDashboard({
 	onBulkUpdate,
 	isBulkUpdating,
 }: LeaderDashboardProps) {
+	const navigate = useNavigate();
 	const openStatuses = ["new", "under_review", "in_progress"];
 	const openIdeas = ideas.filter((i) => openStatuses.includes(i.status));
 	const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -186,6 +187,12 @@ export function LeaderDashboard({
 											idea.slaStatus === "overdue" && "bg-destructive/5",
 											selected.has(idea.id) && "bg-primary/5",
 										)}
+										onClick={() =>
+											navigate({
+												to: "/ideas/$submissionId",
+												params: { submissionId: idea.submissionId },
+											})
+										}
 									>
 										<TableCell>
 											<input
