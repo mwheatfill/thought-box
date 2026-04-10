@@ -2,9 +2,9 @@ import { TanStackDevtools } from "@tanstack/react-devtools";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HeadContent, Outlet, Scripts, createRootRoute, useLocation } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AppSidebar } from "#/components/layout/app-sidebar";
-import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from "#/components/ui/sidebar";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "#/components/ui/sidebar";
 import { Toaster } from "#/components/ui/sonner";
 import { TooltipProvider } from "#/components/ui/tooltip";
 import { getCurrentUser } from "#/server/functions/users";
@@ -50,29 +50,15 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 	);
 }
 
-/** Close sidebar on landing page without writing to cookie */
-function LandingSidebarReset() {
-	const { setOpen } = useSidebar();
-	const location = useLocation();
-
-	useEffect(() => {
-		if (location.pathname === "/") {
-			setOpen(false);
-		}
-	}, [location.pathname, setOpen]);
-
-	return null;
-}
-
 function RootComponent() {
 	const { user } = Route.useRouteContext();
 	const [queryClient] = useState(() => new QueryClient());
+	const isLandingPage = useLocation().pathname === "/";
 
 	return (
 		<QueryClientProvider client={queryClient}>
 			<TooltipProvider>
-				<SidebarProvider defaultOpen={false}>
-					<LandingSidebarReset />
+				<SidebarProvider defaultOpen={false} persistState={!isLandingPage}>
 					<AppSidebar user={user} />
 					<SidebarInset>
 						<header className="relative z-10 flex h-12 shrink-0 items-center gap-2 px-4">

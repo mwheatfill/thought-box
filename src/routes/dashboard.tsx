@@ -78,7 +78,7 @@ function DashboardPage() {
 
 	return (
 		<PageTransition>
-			<main className="flex-1 bg-background p-6">
+			<main className="min-w-0 flex-1 bg-background p-6">
 				<div className="mb-6">
 					<h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
 					<p className="text-muted-foreground">

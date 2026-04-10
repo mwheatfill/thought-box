@@ -158,7 +158,7 @@ export function AdminDashboard({
 	const healthStatus = getHealthStatus(stats);
 
 	return (
-		<div className="space-y-6">
+		<div className="min-w-0 space-y-6">
 			{/* Program health badge */}
 			<div className="flex items-center gap-2">
 				<Activity className={cn("size-4", healthStatus.color)} />
@@ -388,62 +388,64 @@ export function AdminDashboard({
 							</p>
 						</div>
 					) : (
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead className="w-[90px]">ID</TableHead>
-									<TableHead>Title</TableHead>
-									<TableHead>Submitter</TableHead>
-									<TableHead>Assigned To</TableHead>
-									<TableHead>Category</TableHead>
-									<TableHead>Status</TableHead>
-									<TableHead>SLA</TableHead>
-									<TableHead className="text-right">Submitted</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{ideas.map((idea) => (
-									<TableRow
-										key={idea.id}
-										className={cn(
-											"cursor-pointer hover:bg-muted/50",
-											idea.slaStatus === "overdue" && "bg-destructive/5",
-										)}
-									>
-										<TableCell className="font-mono text-xs">{idea.submissionId}</TableCell>
-										<TableCell>
-											<Link
-												to="/ideas/$submissionId"
-												params={{ submissionId: idea.submissionId }}
-												className="font-medium hover:underline"
-											>
-												{idea.title}
-											</Link>
-										</TableCell>
-										<TableCell className="text-muted-foreground">{idea.submitterName}</TableCell>
-										<TableCell className="text-muted-foreground">
-											{idea.assignedLeaderName ?? "—"}
-										</TableCell>
-										<TableCell className="text-muted-foreground">{idea.categoryName}</TableCell>
-										<TableCell>
-											<StatusBadge
-												status={idea.status as Parameters<typeof StatusBadge>[0]["status"]}
-											/>
-										</TableCell>
-										<TableCell>
-											<SlaIndicator
-												slaStatus={idea.slaStatus}
-												slaDaysRemaining={idea.slaDaysRemaining}
-												slaDueDate={idea.slaDueDate}
-											/>
-										</TableCell>
-										<TableCell className="text-right text-muted-foreground">
-											{formatDistanceToNow(new Date(idea.submittedAt), { addSuffix: true })}
-										</TableCell>
+						<div className="overflow-x-auto">
+							<Table>
+								<TableHeader>
+									<TableRow>
+										<TableHead className="w-[90px]">ID</TableHead>
+										<TableHead>Title</TableHead>
+										<TableHead>Submitter</TableHead>
+										<TableHead>Assigned To</TableHead>
+										<TableHead>Category</TableHead>
+										<TableHead>Status</TableHead>
+										<TableHead>SLA</TableHead>
+										<TableHead className="text-right">Submitted</TableHead>
 									</TableRow>
-								))}
-							</TableBody>
-						</Table>
+								</TableHeader>
+								<TableBody>
+									{ideas.map((idea) => (
+										<TableRow
+											key={idea.id}
+											className={cn(
+												"cursor-pointer hover:bg-muted/50",
+												idea.slaStatus === "overdue" && "bg-destructive/5",
+											)}
+										>
+											<TableCell className="font-mono text-xs">{idea.submissionId}</TableCell>
+											<TableCell>
+												<Link
+													to="/ideas/$submissionId"
+													params={{ submissionId: idea.submissionId }}
+													className="font-medium hover:underline"
+												>
+													{idea.title}
+												</Link>
+											</TableCell>
+											<TableCell className="text-muted-foreground">{idea.submitterName}</TableCell>
+											<TableCell className="text-muted-foreground">
+												{idea.assignedLeaderName ?? "—"}
+											</TableCell>
+											<TableCell className="text-muted-foreground">{idea.categoryName}</TableCell>
+											<TableCell>
+												<StatusBadge
+													status={idea.status as Parameters<typeof StatusBadge>[0]["status"]}
+												/>
+											</TableCell>
+											<TableCell>
+												<SlaIndicator
+													slaStatus={idea.slaStatus}
+													slaDaysRemaining={idea.slaDaysRemaining}
+													slaDueDate={idea.slaDueDate}
+												/>
+											</TableCell>
+											<TableCell className="text-right text-muted-foreground">
+												{formatDistanceToNow(new Date(idea.submittedAt), { addSuffix: true })}
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</div>
 					)}
 				</CardContent>
 			</Card>
