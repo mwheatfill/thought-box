@@ -196,7 +196,14 @@ function UsersPage() {
 			accessorKey: "active",
 			header: ({ column }) => <SortableHeader column={column}>Status</SortableHeader>,
 			cell: ({ row }) => (
-				<Badge variant={row.original.active ? "default" : "outline"}>
+				<Badge
+					variant="outline"
+					className={
+						row.original.active
+							? "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-400"
+							: ""
+					}
+				>
 					{row.original.active ? "Active" : "Inactive"}
 				</Badge>
 			),
