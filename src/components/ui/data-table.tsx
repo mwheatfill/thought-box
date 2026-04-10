@@ -3,6 +3,7 @@
 import {
 	type ColumnDef,
 	type ColumnFiltersState,
+	type RowSelectionState,
 	type SortingState,
 	flexRender,
 	getCoreRowModel,
@@ -50,6 +51,11 @@ interface DataTableProps<TData> {
 	rowClassName?: (row: TData) => string;
 	pageSize?: number;
 	toolbar?: React.ReactNode;
+	enableSelection?: boolean;
+	rowSelection?: RowSelectionState;
+	onRowSelectionChange?: (selection: RowSelectionState) => void;
+	getRowId?: (row: TData) => string;
+	selectionToolbar?: (selectedCount: number) => React.ReactNode;
 }
 
 // ── Sortable header helper ────────────────────────────────────────────────
@@ -76,7 +82,7 @@ export function SortableHeader({
 // ── Component ─────────────────────────────────────────────────────────────
 
 export function DataTable<TData>({
-	columns,
+	columns: userColumns,
 	data,
 	searchPlaceholder = "Search...",
 	searchColumn,
@@ -85,24 +91,71 @@ export function DataTable<TData>({
 	rowClassName,
 	pageSize = 20,
 	toolbar,
+	enableSelection,
+	rowSelection: controlledRowSelection,
+	onRowSelectionChange,
+	getRowId,
+	selectionToolbar,
 }: DataTableProps<TData>) {
 	const [sorting, setSorting] = useState<SortingState>([]);
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 	const [globalFilter, setGlobalFilter] = useState("");
+	const [internalRowSelection, setInternalRowSelection] = useState<RowSelectionState>({});
+
+	const rowSelection = controlledRowSelection ?? internalRowSelection;
+	const setRowSelection = onRowSelectionChange ?? setInternalRowSelection;
+
+	// Prepend checkbox column if selection enabled
+	const columns = enableSelection
+		? [
+				{
+					id: "select",
+					header: ({ table: t }: { table: { getIsAllPageRowsSelected: () => boolean; toggleAllPageRowsSelected: (v: boolean) => void } }) => (
+						<input
+							type="checkbox"
+							checked={t.getIsAllPageRowsSelected()}
+							onChange={(e) => t.toggleAllPageRowsSelected(e.target.checked)}
+							className="size-4 rounded border-input"
+						/>
+					),
+					cell: ({ row }: { row: { getIsSelected: () => boolean; toggleSelected: (v: boolean) => void } }) => (
+						<input
+							type="checkbox"
+							checked={row.getIsSelected()}
+							onChange={(e) => {
+								e.stopPropagation();
+								row.toggleSelected(e.target.checked);
+							}}
+							className="size-4 rounded border-input"
+							onClick={(e) => e.stopPropagation()}
+						/>
+					),
+					size: 40,
+				} as ColumnDef<TData, unknown>,
+				...userColumns,
+			]
+		: userColumns;
 
 	const table = useReactTable({
 		data,
 		columns,
-		state: { sorting, columnFilters, globalFilter },
+		getRowId,
+		state: { sorting, columnFilters, globalFilter, rowSelection },
 		onSortingChange: setSorting,
 		onColumnFiltersChange: setColumnFilters,
 		onGlobalFilterChange: setGlobalFilter,
+		onRowSelectionChange: (updater) => {
+			const next = typeof updater === "function" ? updater(rowSelection) : updater;
+			setRowSelection(next);
+		},
 		getCoreRowModel: getCoreRowModel(),
 		getSortedRowModel: getSortedRowModel(),
 		getFilteredRowModel: getFilteredRowModel(),
 		getPaginationRowModel: getPaginationRowModel(),
 		initialState: { pagination: { pageSize } },
 	});
+
+	const selectedCount = Object.keys(rowSelection).length;
 
 	const hasActiveFilters = globalFilter || columnFilters.length > 0;
 
@@ -166,7 +219,10 @@ export function DataTable<TData>({
 					</Button>
 				)}
 
-				{toolbar && <div className="ml-auto">{toolbar}</div>}
+				{selectedCount > 0 && selectionToolbar && (
+				<div className="ml-auto flex items-center gap-2">{selectionToolbar(selectedCount)}</div>
+			)}
+			{selectedCount === 0 && toolbar && <div className="ml-auto">{toolbar}</div>}
 			</div>
 
 			{/* Table */}

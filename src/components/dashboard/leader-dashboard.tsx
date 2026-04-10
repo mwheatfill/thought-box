@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
+import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import { formatDistanceToNow } from "date-fns";
 import { AlertTriangle, CheckCircle, Clock, Inbox } from "lucide-react";
 import { useState } from "react";
@@ -6,6 +7,7 @@ import { FadeIn } from "#/components/ui/animated";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
+import { DataTable, SortableHeader } from "#/components/ui/data-table";
 import {
 	Select,
 	SelectContent,
@@ -13,14 +15,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "#/components/ui/select";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "#/components/ui/table";
 import { cn } from "#/lib/utils";
 import { SlaIndicator } from "./sla-indicator";
 import { StatusBadge } from "./status-badge";
@@ -52,6 +46,88 @@ interface LeaderDashboardProps {
 	isBulkUpdating?: boolean;
 }
 
+// ── Column definitions ────────────────────────────────────────────────────
+
+const leaderColumns: ColumnDef<LeaderIdea, unknown>[] = [
+	{
+		accessorKey: "submissionId",
+		header: ({ column }) => <SortableHeader column={column}>ID</SortableHeader>,
+		cell: ({ row }) => <span className="font-mono text-xs">{row.original.submissionId}</span>,
+		size: 100,
+	},
+	{
+		accessorKey: "title",
+		header: ({ column }) => <SortableHeader column={column}>Title</SortableHeader>,
+		cell: ({ row }) => (
+			<Link
+				to="/ideas/$submissionId"
+				params={{ submissionId: row.original.submissionId }}
+				className="font-medium hover:underline"
+				onClick={(e) => e.stopPropagation()}
+			>
+				{row.original.title}
+			</Link>
+		),
+	},
+	{
+		accessorKey: "submitterName",
+		header: ({ column }) => <SortableHeader column={column}>Submitter</SortableHeader>,
+		cell: ({ row }) => (
+			<div className="flex items-center gap-2">
+				<Avatar className="size-6">
+					{row.original.submitterPhotoUrl && (
+						<AvatarImage src={row.original.submitterPhotoUrl} alt={row.original.submitterName} />
+					)}
+					<AvatarFallback className="text-[10px]">
+						{row.original.submitterName
+							.split(" ")
+							.map((n) => n[0])
+							.join("")
+							.slice(0, 2)}
+					</AvatarFallback>
+				</Avatar>
+				<span className="text-muted-foreground">{row.original.submitterName}</span>
+			</div>
+		),
+	},
+	{
+		accessorKey: "categoryName",
+		header: ({ column }) => <SortableHeader column={column}>Category</SortableHeader>,
+		cell: ({ row }) => <span className="text-muted-foreground">{row.original.categoryName}</span>,
+		filterFn: "equals",
+	},
+	{
+		accessorKey: "status",
+		header: ({ column }) => <SortableHeader column={column}>Status</SortableHeader>,
+		cell: ({ row }) => (
+			<StatusBadge status={row.original.status as Parameters<typeof StatusBadge>[0]["status"]} />
+		),
+		filterFn: "equals",
+	},
+	{
+		accessorKey: "slaDaysRemaining",
+		header: ({ column }) => <SortableHeader column={column}>SLA</SortableHeader>,
+		cell: ({ row }) => (
+			<SlaIndicator
+				slaStatus={row.original.slaStatus}
+				slaDaysRemaining={row.original.slaDaysRemaining}
+				slaDueDate={row.original.slaDueDate}
+			/>
+		),
+	},
+	{
+		accessorKey: "submittedAt",
+		header: ({ column }) => <SortableHeader column={column}>Submitted</SortableHeader>,
+		cell: ({ row }) => (
+			<span className="text-muted-foreground">
+				{formatDistanceToNow(new Date(row.original.submittedAt), { addSuffix: true })}
+			</span>
+		),
+	},
+];
+
+// ── Component ─────────────────────────────────────────────────────────────
+
 export function LeaderDashboard({
 	ideas,
 	stats,
@@ -61,30 +137,13 @@ export function LeaderDashboard({
 	const navigate = useNavigate();
 	const openStatuses = ["new", "under_review", "in_progress"];
 	const openIdeas = ideas.filter((i) => openStatuses.includes(i.status));
-	const [selected, setSelected] = useState<Set<string>>(new Set());
+	const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 	const [bulkStatus, setBulkStatus] = useState("under_review");
-
-	const toggleSelect = (id: string) => {
-		setSelected((prev) => {
-			const next = new Set(prev);
-			if (next.has(id)) next.delete(id);
-			else next.add(id);
-			return next;
-		});
-	};
-
-	const toggleAll = () => {
-		if (selected.size === openIdeas.length) {
-			setSelected(new Set());
-		} else {
-			setSelected(new Set(openIdeas.map((i) => i.id)));
-		}
-	};
 
 	return (
 		<div className="space-y-6">
 			{/* KPI row */}
-			<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
 				<FadeIn delay={0}>
 					<KpiCard icon={Inbox} label="My Open" value={stats.openCount} />
 				</FadeIn>
@@ -127,128 +186,78 @@ export function LeaderDashboard({
 				</Card>
 			) : (
 				<Card>
-					<CardHeader className="flex-row items-center justify-between space-y-0">
+					<CardHeader>
 						<CardTitle>Assigned Ideas</CardTitle>
-						{/* Bulk action bar */}
-						{selected.size > 0 && onBulkUpdate && (
-							<div className="flex items-center gap-2">
-								<span className="text-sm text-muted-foreground">{selected.size} selected</span>
-								<Select value={bulkStatus} onValueChange={setBulkStatus}>
-									<SelectTrigger className="h-8 w-[150px]">
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="under_review">Under Review</SelectItem>
-										<SelectItem value="accepted">Accepted</SelectItem>
-										<SelectItem value="in_progress">In Progress</SelectItem>
-										<SelectItem value="declined">Declined</SelectItem>
-									</SelectContent>
-								</Select>
-								<Button
-									size="sm"
-									disabled={isBulkUpdating}
-									onClick={async () => {
-										await onBulkUpdate(Array.from(selected), bulkStatus);
-										setSelected(new Set());
-									}}
-								>
-									{isBulkUpdating ? "Updating..." : "Apply"}
-								</Button>
-							</div>
-						)}
 					</CardHeader>
 					<CardContent>
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead className="w-[40px]">
-										<input
-											type="checkbox"
-											checked={selected.size === openIdeas.length && openIdeas.length > 0}
-											onChange={toggleAll}
-											className="size-4 rounded border-input"
-										/>
-									</TableHead>
-									<TableHead className="w-[100px]">ID</TableHead>
-									<TableHead>Title</TableHead>
-									<TableHead>Submitter</TableHead>
-									<TableHead>Category</TableHead>
-									<TableHead>Status</TableHead>
-									<TableHead>SLA</TableHead>
-									<TableHead className="text-right">Submitted</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{openIdeas.map((idea) => (
-									<TableRow
-										key={idea.id}
-										className={cn(
-											"cursor-pointer hover:bg-muted/50",
-											idea.slaStatus === "overdue" && "bg-destructive/5",
-											selected.has(idea.id) && "bg-primary/5",
-										)}
-										onClick={() =>
-											navigate({
-												to: "/ideas/$submissionId",
-												params: { submissionId: idea.submissionId },
-											})
-										}
+						<DataTable
+							columns={leaderColumns}
+							data={openIdeas}
+							searchPlaceholder="Search ideas..."
+							searchColumn="title"
+							enableSelection
+							rowSelection={rowSelection}
+							onRowSelectionChange={setRowSelection}
+							getRowId={(row) => row.id}
+							facetedFilters={[
+								{
+									columnId: "status",
+									label: "Status",
+									options: [
+										{ value: "new", label: "New" },
+										{ value: "under_review", label: "Under Review" },
+										{ value: "in_progress", label: "In Progress" },
+									],
+								},
+								{
+									columnId: "categoryName",
+									label: "Category",
+									options: [...new Set(openIdeas.map((i) => i.categoryName))].sort().map((c) => ({
+										value: c,
+										label: c,
+									})),
+								},
+							]}
+							onRowClick={(idea) =>
+								navigate({
+									to: "/ideas/$submissionId",
+									params: { submissionId: idea.submissionId },
+								})
+							}
+							rowClassName={(idea) =>
+								cn(
+									idea.slaStatus === "overdue" && "bg-destructive/5",
+									rowSelection[idea.id] && "bg-primary/5",
+								)
+							}
+							selectionToolbar={(count) => (
+								<>
+									<span className="text-sm text-muted-foreground">{count} selected</span>
+									<Select value={bulkStatus} onValueChange={setBulkStatus}>
+										<SelectTrigger className="h-8 w-[150px]" onClick={(e) => e.stopPropagation()}>
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="under_review">Under Review</SelectItem>
+											<SelectItem value="accepted">Accepted</SelectItem>
+											<SelectItem value="in_progress">In Progress</SelectItem>
+											<SelectItem value="declined">Declined</SelectItem>
+										</SelectContent>
+									</Select>
+									<Button
+										size="sm"
+										disabled={isBulkUpdating}
+										onClick={async () => {
+											if (!onBulkUpdate) return;
+											await onBulkUpdate(Object.keys(rowSelection), bulkStatus);
+											setRowSelection({});
+										}}
 									>
-										<TableCell>
-											<input
-												type="checkbox"
-												checked={selected.has(idea.id)}
-												onChange={() => toggleSelect(idea.id)}
-												className="size-4 rounded border-input"
-											/>
-										</TableCell>
-										<TableCell className="font-mono text-xs">{idea.submissionId}</TableCell>
-										<TableCell>
-											<Link
-												to="/ideas/$submissionId"
-												params={{ submissionId: idea.submissionId }}
-												className="font-medium hover:underline"
-											>
-												{idea.title}
-											</Link>
-										</TableCell>
-										<TableCell>
-											<div className="flex items-center gap-2">
-												<Avatar className="size-6">
-													{idea.submitterPhotoUrl && (
-														<AvatarImage src={idea.submitterPhotoUrl} alt={idea.submitterName} />
-													)}
-													<AvatarFallback className="text-[10px]">
-														{idea.submitterName
-															.split(" ")
-															.map((n) => n[0])
-															.join("")
-															.slice(0, 2)}
-													</AvatarFallback>
-												</Avatar>
-												<span className="text-muted-foreground">{idea.submitterName}</span>
-											</div>
-										</TableCell>
-										<TableCell className="text-muted-foreground">{idea.categoryName}</TableCell>
-										<TableCell>
-											<StatusBadge
-												status={idea.status as Parameters<typeof StatusBadge>[0]["status"]}
-											/>
-										</TableCell>
-										<TableCell>
-											<SlaIndicator
-												slaStatus={idea.slaStatus}
-												slaDaysRemaining={idea.slaDaysRemaining}
-												slaDueDate={idea.slaDueDate}
-											/>
-										</TableCell>
-										<TableCell className="text-right text-muted-foreground">
-											{formatDistanceToNow(new Date(idea.submittedAt), { addSuffix: true })}
-										</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
+										{isBulkUpdating ? "Updating..." : "Apply"}
+									</Button>
+								</>
+							)}
+						/>
 					</CardContent>
 				</Card>
 			)}
@@ -270,8 +279,8 @@ function KpiCard({
 	variant?: "default" | "destructive";
 }) {
 	return (
-		<Card>
-			<CardContent className="flex items-center gap-4 p-4">
+		<Card className="h-full">
+			<CardContent className="flex h-full items-center gap-4 p-4">
 				<div
 					className={cn(
 						"rounded-full p-2",
