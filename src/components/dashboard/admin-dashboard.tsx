@@ -147,7 +147,7 @@ const adminIdeaColumns: ColumnDef<AdminIdea, unknown>[] = [
 	},
 	{
 		accessorKey: "submitterName",
-		header: "Submitter",
+		header: ({ column }) => <SortableHeader column={column}>Submitter</SortableHeader>,
 		cell: ({ row }) => (
 			<div className="flex items-center gap-2">
 				<Avatar className="size-6">
@@ -168,28 +168,28 @@ const adminIdeaColumns: ColumnDef<AdminIdea, unknown>[] = [
 	},
 	{
 		accessorKey: "assignedLeaderName",
-		header: "Assigned To",
+		header: ({ column }) => <SortableHeader column={column}>Assigned To</SortableHeader>,
 		cell: ({ row }) => (
 			<span className="text-muted-foreground">{row.original.assignedLeaderName ?? "—"}</span>
 		),
 	},
 	{
 		accessorKey: "categoryName",
-		header: "Category",
+		header: ({ column }) => <SortableHeader column={column}>Category</SortableHeader>,
 		cell: ({ row }) => <span className="text-muted-foreground">{row.original.categoryName}</span>,
 		filterFn: "equals",
 	},
 	{
 		accessorKey: "status",
-		header: "Status",
+		header: ({ column }) => <SortableHeader column={column}>Status</SortableHeader>,
 		cell: ({ row }) => (
 			<StatusBadge status={row.original.status as Parameters<typeof StatusBadge>[0]["status"]} />
 		),
 		filterFn: "equals",
 	},
 	{
-		accessorKey: "slaStatus",
-		header: "SLA",
+		accessorKey: "slaDaysRemaining",
+		header: ({ column }) => <SortableHeader column={column}>SLA</SortableHeader>,
 		cell: ({ row }) => (
 			<SlaIndicator
 				slaStatus={row.original.slaStatus}

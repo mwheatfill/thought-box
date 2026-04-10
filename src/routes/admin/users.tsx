@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent } from "#/components/ui/card";
-import { DataTable } from "#/components/ui/data-table";
+import { DataTable, SortableHeader } from "#/components/ui/data-table";
 import {
 	Dialog,
 	DialogContent,
@@ -99,7 +99,7 @@ function UsersPage() {
 	const columns: ColumnDef<UserRow, unknown>[] = [
 		{
 			accessorKey: "displayName",
-			header: "Name",
+			header: ({ column }) => <SortableHeader column={column}>Name</SortableHeader>,
 			cell: ({ row }) => {
 				const u = row.original;
 				return (
@@ -128,7 +128,7 @@ function UsersPage() {
 		},
 		{
 			accessorKey: "email",
-			header: "Email",
+			header: ({ column }) => <SortableHeader column={column}>Email</SortableHeader>,
 			cell: ({ row }) => <span className="text-muted-foreground">{row.original.email}</span>,
 		},
 		{
