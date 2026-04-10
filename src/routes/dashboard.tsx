@@ -1,11 +1,13 @@
 import { useMutation } from "@tanstack/react-query";
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { Await, createFileRoute, defer, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { Suspense } from "react";
 import { toast } from "sonner";
 import { AdminDashboard } from "#/components/dashboard/admin-dashboard";
 import { LeaderDashboard } from "#/components/dashboard/leader-dashboard";
 import { SubmitterDashboard } from "#/components/dashboard/submitter-dashboard";
 import { PageTransition } from "#/components/ui/animated";
+import { Skeleton } from "#/components/ui/skeleton";
 import { getUserSubmissionCount } from "#/server/functions/ai";
 import {
 	getAllIdeas,
@@ -25,29 +27,30 @@ export const Route = createFileRoute("/dashboard")({
 		const { user } = context;
 
 		if (user.role === "admin") {
-			const [stats, ideas, byCategory, byMonth, outcomeDistribution, recentActivity] =
-				await Promise.all([
-					getDashboardStats(),
-					getAllIdeas(),
-					getSubmissionsByCategory(),
-					getSubmissionsByMonth(),
-					getOutcomeDistribution(),
-					getRecentProgramActivity(),
-				]);
+			// Block on stats (KPI cards, above the fold), stream in everything else
+			const stats = await getDashboardStats();
 			return {
 				role: "admin" as const,
 				stats,
-				ideas,
-				byCategory,
-				byMonth,
-				outcomeDistribution,
-				recentActivity,
+				deferred: defer(
+					Promise.all([
+						getAllIdeas(),
+						getSubmissionsByCategory(),
+						getSubmissionsByMonth(),
+						getOutcomeDistribution(),
+						getRecentProgramActivity(),
+					]),
+				),
 			};
 		}
 
 		if (user.role === "leader") {
-			const [ideas, stats] = await Promise.all([getAssignedIdeas(), getLeaderStats()]);
-			return { role: "leader" as const, ideas, stats };
+			const stats = await getLeaderStats();
+			return {
+				role: "leader" as const,
+				stats,
+				deferred: defer(getAssignedIdeas()),
+			};
 		}
 
 		// Submitter
@@ -91,25 +94,37 @@ function DashboardPage() {
 				</div>
 
 				{data.role === "admin" && (
-					<AdminDashboard
-						stats={data.stats}
-						ideas={data.ideas}
-						byCategory={data.byCategory}
-						byMonth={data.byMonth}
-						outcomeDistribution={data.outcomeDistribution}
-						recentActivity={data.recentActivity}
-					/>
+					<Suspense fallback={<DashboardSkeleton />}>
+						<Await promise={data.deferred}>
+							{([ideas, byCategory, byMonth, outcomeDistribution, recentActivity]) => (
+								<AdminDashboard
+									stats={data.stats}
+									ideas={ideas}
+									byCategory={byCategory}
+									byMonth={byMonth}
+									outcomeDistribution={outcomeDistribution}
+									recentActivity={recentActivity}
+								/>
+							)}
+						</Await>
+					</Suspense>
 				)}
 
 				{data.role === "leader" && (
-					<LeaderDashboard
-						ideas={data.ideas}
-						stats={data.stats}
-						onBulkUpdate={async (ideaIds, status) => {
-							await bulkMutation.mutateAsync({ ideaIds, status });
-						}}
-						isBulkUpdating={bulkMutation.isPending}
-					/>
+					<Suspense fallback={<DashboardSkeleton />}>
+						<Await promise={data.deferred}>
+							{(ideas) => (
+								<LeaderDashboard
+									ideas={ideas}
+									stats={data.stats}
+									onBulkUpdate={async (ideaIds, status) => {
+										await bulkMutation.mutateAsync({ ideaIds, status });
+									}}
+									isBulkUpdating={bulkMutation.isPending}
+								/>
+							)}
+						</Await>
+					</Suspense>
 				)}
 
 				{data.role === "submitter" && (
@@ -117,5 +132,17 @@ function DashboardPage() {
 				)}
 			</main>
 		</PageTransition>
+	);
+}
+
+function DashboardSkeleton() {
+	return (
+		<div className="space-y-6">
+			<div className="grid gap-4 lg:grid-cols-2">
+				<Skeleton className="h-[300px] rounded-xl" />
+				<Skeleton className="h-[300px] rounded-xl" />
+			</div>
+			<Skeleton className="h-[200px] rounded-xl" />
+		</div>
 	);
 }
