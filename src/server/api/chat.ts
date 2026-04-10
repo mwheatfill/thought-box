@@ -64,6 +64,7 @@ ${categoryTaxonomy}${userContext}`;
 		model: anthropic("claude-haiku-4-5-20251001"),
 		system: systemPrompt,
 		messages,
+		maxSteps: 3,
 		tools: {
 			submit_idea: tool({
 				description:
