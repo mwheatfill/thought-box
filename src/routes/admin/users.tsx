@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import type { ColumnDef } from "@tanstack/react-table";
 import { Building2, Loader2, Plus, Power, Search, UserPlus } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
@@ -8,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent } from "#/components/ui/card";
+import { DataTable } from "#/components/ui/data-table";
 import {
 	Dialog,
 	DialogContent,
@@ -25,15 +27,6 @@ import {
 	SelectValue,
 } from "#/components/ui/select";
 import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "#/components/ui/table";
-import { cn } from "#/lib/utils";
-import {
 	getUsers,
 	searchDirectory,
 	toggleUserActive,
@@ -50,6 +43,25 @@ export const Route = createFileRoute("/admin/users")({
 	loader: () => getUsers(),
 	component: UsersPage,
 });
+
+// ── Types ─────────────────────────────────────────────────────────────────
+
+interface UserRow {
+	id: string;
+	displayName: string;
+	email: string;
+	department: string | null;
+	jobTitle: string | null;
+	officeLocation: string | null;
+	photoUrl: string | null;
+	managerDisplayName: string | null;
+	role: string;
+	active: boolean;
+	firstSeen: string | null;
+	createdAt: string;
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────
 
 function UsersPage() {
 	const initialUsers = Route.useLoaderData();
@@ -84,6 +96,110 @@ function UsersPage() {
 		onError: (err) => toast.error(err.message || "Failed to update user"),
 	});
 
+	const columns: ColumnDef<UserRow, unknown>[] = [
+		{
+			accessorKey: "displayName",
+			header: "Name",
+			cell: ({ row }) => {
+				const u = row.original;
+				return (
+					<div className="flex items-center gap-2">
+						<Avatar className="size-7">
+							{u.photoUrl && <AvatarImage src={u.photoUrl} alt={u.displayName} />}
+							<AvatarFallback className="text-[10px]">
+								{u.displayName
+									.split(" ")
+									.map((n) => n[0])
+									.join("")
+									.slice(0, 2)}
+							</AvatarFallback>
+						</Avatar>
+						<div>
+							<span className="font-medium">{u.displayName}</span>
+							{!u.firstSeen && (
+								<Badge variant="outline" className="ml-2 text-[10px]">
+									Not logged in
+								</Badge>
+							)}
+						</div>
+					</div>
+				);
+			},
+		},
+		{
+			accessorKey: "email",
+			header: "Email",
+			cell: ({ row }) => <span className="text-muted-foreground">{row.original.email}</span>,
+		},
+		{
+			accessorKey: "department",
+			header: "Department",
+			cell: ({ row }) => (
+				<span className="text-muted-foreground">{row.original.department ?? "—"}</span>
+			),
+		},
+		{
+			accessorKey: "role",
+			header: "Role",
+			cell: ({ row }) => {
+				const u = row.original;
+				return (
+					<Select
+						value={u.role}
+						onValueChange={(role) =>
+							roleMutation.mutate({
+								userId: u.id,
+								role: role as "submitter" | "leader" | "admin",
+							})
+						}
+					>
+						<SelectTrigger className="h-8 w-[130px]" onClick={(e) => e.stopPropagation()}>
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="submitter">Submitter</SelectItem>
+							<SelectItem value="leader">Leader</SelectItem>
+							<SelectItem value="admin">Admin</SelectItem>
+						</SelectContent>
+					</Select>
+				);
+			},
+			filterFn: "equals",
+		},
+		{
+			accessorKey: "active",
+			header: "Status",
+			cell: ({ row }) => (
+				<Badge variant={row.original.active ? "default" : "outline"}>
+					{row.original.active ? "Active" : "Inactive"}
+				</Badge>
+			),
+			filterFn: (row, _columnId, filterValue) => {
+				if (filterValue === "active") return row.original.active;
+				if (filterValue === "inactive") return !row.original.active;
+				return true;
+			},
+		},
+		{
+			id: "actions",
+			cell: ({ row }) => (
+				<Button
+					variant="ghost"
+					size="icon"
+					onClick={(e) => {
+						e.stopPropagation();
+						toggleMutation.mutate({
+							userId: row.original.id,
+							active: !row.original.active,
+						});
+					}}
+				>
+					<Power className="size-3.5" />
+				</Button>
+			),
+		},
+	];
+
 	return (
 		<main className="flex-1 bg-background p-6">
 			<div className="mb-6 flex items-center justify-between">
@@ -98,88 +214,33 @@ function UsersPage() {
 			</div>
 
 			<Card>
-				<CardContent className="p-0">
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Name</TableHead>
-								<TableHead>Email</TableHead>
-								<TableHead>Department</TableHead>
-								<TableHead>Role</TableHead>
-								<TableHead>Status</TableHead>
-								<TableHead className="w-[60px]" />
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{userList.map((u) => (
-								<TableRow key={u.id} className={cn(!u.active && "opacity-50")}>
-									<TableCell>
-										<div className="flex items-center gap-2">
-											<Avatar className="size-7">
-												{u.photoUrl && <AvatarImage src={u.photoUrl} alt={u.displayName} />}
-												<AvatarFallback className="text-[10px]">
-													{u.displayName
-														.split(" ")
-														.map((n: string) => n[0])
-														.join("")
-														.slice(0, 2)}
-												</AvatarFallback>
-											</Avatar>
-											<div>
-												<span className="font-medium">{u.displayName}</span>
-												{!u.firstSeen && (
-													<Badge variant="outline" className="ml-2 text-[10px]">
-														Not logged in
-													</Badge>
-												)}
-											</div>
-										</div>
-									</TableCell>
-									<TableCell className="text-muted-foreground">{u.email}</TableCell>
-									<TableCell className="text-muted-foreground">{u.department ?? "—"}</TableCell>
-									<TableCell>
-										<Select
-											value={u.role}
-											onValueChange={(role) =>
-												roleMutation.mutate({
-													userId: u.id,
-													role: role as "submitter" | "leader" | "admin",
-												})
-											}
-										>
-											<SelectTrigger className="h-8 w-[130px]">
-												<SelectValue />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value="submitter">Submitter</SelectItem>
-												<SelectItem value="leader">Leader</SelectItem>
-												<SelectItem value="admin">Admin</SelectItem>
-											</SelectContent>
-										</Select>
-									</TableCell>
-									<TableCell>
-										<Badge variant={u.active ? "default" : "outline"}>
-											{u.active ? "Active" : "Inactive"}
-										</Badge>
-									</TableCell>
-									<TableCell>
-										<Button
-											variant="ghost"
-											size="icon"
-											onClick={() =>
-												toggleMutation.mutate({
-													userId: u.id,
-													active: !u.active,
-												})
-											}
-										>
-											<Power className="size-3.5" />
-										</Button>
-									</TableCell>
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
+				<CardContent className="pt-6">
+					<DataTable
+						columns={columns}
+						data={userList as UserRow[]}
+						searchPlaceholder="Search users..."
+						searchColumn="displayName"
+						facetedFilters={[
+							{
+								columnId: "role",
+								label: "Role",
+								options: [
+									{ value: "admin", label: "Admin" },
+									{ value: "leader", label: "Leader" },
+									{ value: "submitter", label: "Submitter" },
+								],
+							},
+							{
+								columnId: "active",
+								label: "Status",
+								options: [
+									{ value: "active", label: "Active" },
+									{ value: "inactive", label: "Inactive" },
+								],
+							},
+						]}
+						rowClassName={(u) => (!u.active ? "opacity-50" : "")}
+					/>
 				</CardContent>
 			</Card>
 
@@ -267,11 +328,9 @@ function AddUserDialog({
 		onError: () => toast.error("Failed to add user"),
 	});
 
-	// Debounced search on input change
 	const handleQueryChange = (value: string) => {
 		setQuery(value);
 		setSelectedUser(null);
-		// Simple debounce with timeout
 		const timeout = setTimeout(() => doSearch(value), 300);
 		return () => clearTimeout(timeout);
 	};
@@ -298,7 +357,6 @@ function AddUserDialog({
 				</DialogHeader>
 
 				<div className="space-y-4">
-					{/* Search input */}
 					<div className="space-y-1.5">
 						<Label>Search Directory</Label>
 						<div className="relative">
@@ -315,7 +373,6 @@ function AddUserDialog({
 						</div>
 					</div>
 
-					{/* Search results */}
 					{results.length > 0 && !selectedUser && (
 						<div className="max-h-[200px] space-y-1 overflow-y-auto rounded-md border p-1">
 							{results.map((u) => (
@@ -341,12 +398,11 @@ function AddUserDialog({
 					)}
 
 					{query.length >= 2 && results.length === 0 && !searching && !selectedUser && (
-						<p className="text-center text-sm text-muted-foreground py-4">
+						<p className="py-4 text-center text-sm text-muted-foreground">
 							No users found matching "{query}"
 						</p>
 					)}
 
-					{/* Selected user preview */}
 					{selectedUser && (
 						<div className="rounded-md border bg-muted/50 p-4">
 							<div className="flex items-start justify-between">
