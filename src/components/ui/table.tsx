@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { useState } from "react"
 
 import { cn } from "#/lib/utils"
 
@@ -53,25 +52,14 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
   )
 }
 
-function TableRow({ className, onMouseEnter, onMouseLeave, ...props }: React.ComponentProps<"tr">) {
-  const [hovered, setHovered] = useState(false)
-
+function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   return (
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
-        hovered && "bg-muted",
+        "border-b transition-colors hover:bg-muted has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
         className
       )}
-      onMouseEnter={(e) => {
-        setHovered(true)
-        onMouseEnter?.(e)
-      }}
-      onMouseLeave={(e) => {
-        setHovered(false)
-        onMouseLeave?.(e)
-      }}
       {...props}
     />
   )

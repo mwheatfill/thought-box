@@ -1,5 +1,4 @@
 import * as React from "react"
-import { useState } from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { Slot } from "radix-ui"
 
@@ -47,34 +46,19 @@ function Button({
   variant = "default",
   size = "default",
   asChild = false,
-  onMouseEnter,
-  onMouseLeave,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
   }) {
   const Comp = asChild ? Slot.Root : "button"
-  const [hovered, setHovered] = useState(false)
-  const isGhost = variant === "ghost"
 
   return (
     <Comp
       data-slot="button"
       data-variant={variant}
       data-size={size}
-      className={cn(
-        buttonVariants({ variant, size, className }),
-        isGhost && hovered && "bg-muted text-foreground",
-      )}
-      onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => {
-        setHovered(true)
-        onMouseEnter?.(e)
-      }}
-      onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => {
-        setHovered(false)
-        onMouseLeave?.(e)
-      }}
+      className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />
   )
