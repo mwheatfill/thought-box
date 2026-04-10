@@ -95,20 +95,23 @@ function DashboardPage() {
 				</div>
 
 				{data.role === "admin" && (
-					<Suspense fallback={<DashboardSkeleton />}>
-						<Await promise={data.deferred}>
-							{([ideas, byCategory, byMonth, outcomeDistribution, recentActivity]) => (
-								<AdminDashboard
-									stats={data.stats}
-									ideas={ideas}
-									byCategory={byCategory}
-									byMonth={byMonth}
-									outcomeDistribution={outcomeDistribution}
-									recentActivity={recentActivity}
-								/>
-							)}
-						</Await>
-					</Suspense>
+					<>
+						<AdminDashboard stats={data.stats} />
+						<Suspense fallback={<DashboardSkeleton />}>
+							<Await promise={data.deferred}>
+								{([ideas, byCategory, byMonth, outcomeDistribution, recentActivity]) => (
+									<AdminDashboard
+										stats={data.stats}
+										ideas={ideas}
+										byCategory={byCategory}
+										byMonth={byMonth}
+										outcomeDistribution={outcomeDistribution}
+										recentActivity={recentActivity}
+									/>
+								)}
+							</Await>
+						</Suspense>
+					</>
 				)}
 
 				{data.role === "leader" && (
@@ -138,28 +141,50 @@ function DashboardPage() {
 
 function DashboardSkeleton() {
 	return (
-		<div className="space-y-6">
-			{/* Charts row */}
+		<div className="min-w-0 space-y-6">
+			{/* Charts row — matches the 2-col grid */}
 			<div className="grid gap-4 lg:grid-cols-2">
 				{[0, 1].map((i) => (
 					<Card key={i}>
-						<CardHeader>
-							<Skeleton className="h-4 w-32" />
+						<CardHeader className="pb-3">
+							<Skeleton className="h-4 w-28" />
 						</CardHeader>
 						<CardContent>
-							<Skeleton className="h-[220px] w-full" />
+							<div className="space-y-3">
+								{[0, 1, 2].map((j) => (
+									<Skeleton key={j} className="h-8 w-full" />
+								))}
+							</div>
 						</CardContent>
 					</Card>
 				))}
 			</div>
-			{/* Table */}
+			{/* Second charts row */}
+			<div className="grid gap-4 lg:grid-cols-2">
+				{[0, 1].map((i) => (
+					<Card key={i}>
+						<CardHeader className="pb-3">
+							<Skeleton className="h-4 w-28" />
+						</CardHeader>
+						<CardContent>
+							<div className="space-y-2">
+								{[0, 1, 2, 3].map((j) => (
+									<Skeleton key={j} className="h-6 w-full" />
+								))}
+							</div>
+						</CardContent>
+					</Card>
+				))}
+			</div>
+			{/* Ideas table */}
 			<Card>
-				<CardHeader>
-					<Skeleton className="h-5 w-24" />
+				<CardHeader className="pb-3">
+					<Skeleton className="h-5 w-20" />
 				</CardHeader>
-				<CardContent className="space-y-3">
-					{[0, 1, 2, 3, 4].map((i) => (
-						<Skeleton key={i} className="h-10 w-full" />
+				<CardContent className="space-y-2">
+					<Skeleton className="h-8 w-full" />
+					{[0, 1, 2, 3].map((i) => (
+						<Skeleton key={i} className="h-12 w-full" />
 					))}
 				</CardContent>
 			</Card>

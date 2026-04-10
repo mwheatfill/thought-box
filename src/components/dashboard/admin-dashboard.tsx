@@ -100,11 +100,11 @@ interface ActivityEvent {
 
 interface AdminDashboardProps {
 	stats: DashboardStats;
-	ideas: AdminIdea[];
-	byCategory: CategoryData[];
-	byMonth: MonthlyData[];
-	outcomeDistribution: OutcomeData[];
-	recentActivity: ActivityEvent[];
+	ideas?: AdminIdea[];
+	byCategory?: CategoryData[];
+	byMonth?: MonthlyData[];
+	outcomeDistribution?: OutcomeData[];
+	recentActivity?: ActivityEvent[];
 }
 
 // ── Chart configs ─────────────────────────────────────────────────────────
@@ -137,8 +137,10 @@ export function AdminDashboard({
 	outcomeDistribution,
 	recentActivity,
 }: AdminDashboardProps) {
+	const kpiOnly = !ideas;
+
 	const outcomeConfig = Object.fromEntries(
-		outcomeDistribution.map((d) => [
+		(outcomeDistribution ?? []).map((d) => [
 			d.status,
 			{
 				label: STATUS_LABELS[d.status as keyof typeof STATUS_LABELS] ?? d.status,
@@ -147,9 +149,8 @@ export function AdminDashboard({
 		]),
 	) satisfies ChartConfig;
 
-	// Aggregate monthly data into totals per month
 	const monthlyTrend = Object.entries(
-		byMonth.reduce<Record<string, number>>((acc, d) => {
+		(byMonth ?? []).reduce<Record<string, number>>((acc, d) => {
 			acc[d.month] = (acc[d.month] ?? 0) + d.count;
 			return acc;
 		}, {}),
@@ -158,6 +159,21 @@ export function AdminDashboard({
 		.sort((a, b) => a.month.localeCompare(b.month));
 
 	const healthStatus = getHealthStatus(stats);
+
+	if (kpiOnly) {
+		return (
+			<div className="min-w-0 space-y-6">
+				<div className="flex items-center gap-2">
+					<Activity className={cn("size-4", healthStatus.color)} />
+					<span className={cn("text-sm font-medium", healthStatus.color)}>
+						{healthStatus.label}
+					</span>
+					<span className="text-xs text-muted-foreground">{healthStatus.detail}</span>
+				</div>
+				<KpiRow stats={stats} />
+			</div>
+		);
+	}
 
 	return (
 		<div className="min-w-0 space-y-6">
@@ -168,52 +184,7 @@ export function AdminDashboard({
 				<span className="text-xs text-muted-foreground">{healthStatus.detail}</span>
 			</div>
 
-			{/* KPI row */}
-			<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-				<FadeIn delay={0}>
-					<KpiCard
-						icon={Lightbulb}
-						label="This Month"
-						value={stats.totalThisMonth}
-						detail={`${stats.totalThisYear} this year`}
-					/>
-				</FadeIn>
-				<FadeIn delay={0.05}>
-					<KpiCard
-						icon={Inbox}
-						label="Open Ideas"
-						value={stats.openCount}
-						detail={stats.overdueCount > 0 ? `${stats.overdueCount} overdue` : "none overdue"}
-						variant={stats.overdueCount > 0 ? "warning" : "default"}
-					/>
-				</FadeIn>
-				<FadeIn delay={0.1}>
-					<KpiCard
-						icon={CheckCircle}
-						label="SLA Compliance"
-						value={stats.slaCompliancePercent !== null ? `${stats.slaCompliancePercent}%` : "—"}
-						variant={
-							stats.slaCompliancePercent === null
-								? "default"
-								: stats.slaCompliancePercent >= 80
-									? "success"
-									: stats.slaCompliancePercent >= 60
-										? "warning"
-										: "destructive"
-						}
-					/>
-				</FadeIn>
-				<FadeIn delay={0.15}>
-					<KpiCard
-						icon={Clock}
-						label="Avg Close Time"
-						value={stats.avgCloseTimeDays !== null ? `${stats.avgCloseTimeDays}d` : "—"}
-					/>
-				</FadeIn>
-				<FadeIn delay={0.2}>
-					<KpiCard icon={TrendingUp} label="Total This Year" value={stats.totalThisYear} />
-				</FadeIn>
-			</div>
+			<KpiRow stats={stats} />
 
 			{/* Charts row */}
 			<div className="grid gap-4 lg:grid-cols-2">
@@ -549,6 +520,56 @@ function formatEventDescription(event: ActivityEvent): string {
 		default:
 			return "updated";
 	}
+}
+
+function KpiRow({ stats }: { stats: DashboardStats }) {
+	return (
+		<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+			<FadeIn delay={0}>
+				<KpiCard
+					icon={Lightbulb}
+					label="This Month"
+					value={stats.totalThisMonth}
+					detail={`${stats.totalThisYear} this year`}
+				/>
+			</FadeIn>
+			<FadeIn delay={0.05}>
+				<KpiCard
+					icon={Inbox}
+					label="Open Ideas"
+					value={stats.openCount}
+					detail={stats.overdueCount > 0 ? `${stats.overdueCount} overdue` : "none overdue"}
+					variant={stats.overdueCount > 0 ? "warning" : "default"}
+				/>
+			</FadeIn>
+			<FadeIn delay={0.1}>
+				<KpiCard
+					icon={CheckCircle}
+					label="SLA Compliance"
+					value={stats.slaCompliancePercent !== null ? `${stats.slaCompliancePercent}%` : "—"}
+					variant={
+						stats.slaCompliancePercent === null
+							? "default"
+							: stats.slaCompliancePercent >= 80
+								? "success"
+								: stats.slaCompliancePercent >= 60
+									? "warning"
+									: "destructive"
+					}
+				/>
+			</FadeIn>
+			<FadeIn delay={0.15}>
+				<KpiCard
+					icon={Clock}
+					label="Avg Close Time"
+					value={stats.avgCloseTimeDays !== null ? `${stats.avgCloseTimeDays}d` : "—"}
+				/>
+			</FadeIn>
+			<FadeIn delay={0.2}>
+				<KpiCard icon={TrendingUp} label="Total This Year" value={stats.totalThisYear} />
+			</FadeIn>
+		</div>
+	);
 }
 
 function KpiCard({
