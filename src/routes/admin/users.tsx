@@ -99,6 +99,12 @@ function UsersPage() {
 		onError: (err) => toast.error(err.message || "Failed to update user"),
 	});
 
+	const [pendingPromotion, setPendingPromotion] = useState<{
+		userId: string;
+		role: "leader" | "admin";
+		displayName: string;
+	} | null>(null);
+
 	const inviteFn = useServerFn(sendInvite);
 	const inviteMutation = useMutation({
 		mutationFn: (userId: string) => inviteFn({ data: { userId } }),
@@ -156,12 +162,22 @@ function UsersPage() {
 				return (
 					<Select
 						value={u.role}
-						onValueChange={(role) =>
-							roleMutation.mutate({
-								userId: u.id,
-								role: role as "submitter" | "leader" | "admin",
-							})
-						}
+						onValueChange={(newRole) => {
+							const isPromotion =
+								(newRole === "leader" || newRole === "admin") && u.role === "submitter";
+							if (isPromotion) {
+								setPendingPromotion({
+									userId: u.id,
+									role: newRole as "leader" | "admin",
+									displayName: u.displayName,
+								});
+							} else {
+								roleMutation.mutate({
+									userId: u.id,
+									role: newRole as "submitter" | "leader" | "admin",
+								});
+							}
+						}}
 					>
 						<SelectTrigger className="h-8 w-[130px]" onClick={(e) => e.stopPropagation()}>
 							<SelectValue />
@@ -277,7 +293,79 @@ function UsersPage() {
 					queryClient.invalidateQueries({ queryKey: ["admin-users"] });
 				}}
 			/>
+
+			{/* Promotion confirmation dialog */}
+			<Dialog
+				open={!!pendingPromotion}
+				onOpenChange={(open) => {
+					if (!open) setPendingPromotion(null);
+				}}
+			>
+				<DialogContent className="max-w-sm">
+					<DialogHeader>
+						<DialogTitle>
+							Promote to {pendingPromotion?.role === "admin" ? "Admin" : "Leader"}
+						</DialogTitle>
+						<DialogDescription>
+							{pendingPromotion?.displayName} will be promoted to{" "}
+							{pendingPromotion?.role === "admin" ? "administrator" : "idea reviewer"}.
+						</DialogDescription>
+					</DialogHeader>
+					<PromotionActions
+						pendingPromotion={pendingPromotion}
+						onConfirm={async (sendEmail) => {
+							if (!pendingPromotion) return;
+							await roleMutation.mutateAsync({
+								userId: pendingPromotion.userId,
+								role: pendingPromotion.role,
+							});
+							if (sendEmail) {
+								inviteMutation.mutate(pendingPromotion.userId);
+							}
+							setPendingPromotion(null);
+						}}
+						onCancel={() => setPendingPromotion(null)}
+						isPending={roleMutation.isPending}
+					/>
+				</DialogContent>
+			</Dialog>
 		</main>
+	);
+}
+
+function PromotionActions({
+	pendingPromotion,
+	onConfirm,
+	onCancel,
+	isPending,
+}: {
+	pendingPromotion: { userId: string; role: string; displayName: string } | null;
+	onConfirm: (sendInvite: boolean) => void;
+	onCancel: () => void;
+	isPending: boolean;
+}) {
+	const [sendEmail, setSendEmail] = useState(true);
+
+	return (
+		<div className="space-y-4">
+			<label className="flex items-center gap-2 text-sm">
+				<input
+					type="checkbox"
+					checked={sendEmail}
+					onChange={(e) => setSendEmail(e.target.checked)}
+					className="size-4 rounded border-input"
+				/>
+				Send invite email
+			</label>
+			<div className="flex justify-end gap-2">
+				<Button variant="outline" onClick={onCancel}>
+					Cancel
+				</Button>
+				<Button onClick={() => onConfirm(sendEmail)} disabled={isPending}>
+					{isPending ? "Updating..." : "Confirm"}
+				</Button>
+			</div>
+		</div>
 	);
 }
 
