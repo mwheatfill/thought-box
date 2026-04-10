@@ -226,6 +226,7 @@ export function DataTable<TData>({
 			</div>
 
 			{/* Table */}
+			<div className="overflow-x-auto">
 			<Table>
 				<TableHeader>
 					{table.getHeaderGroups().map((headerGroup) => (
@@ -267,6 +268,7 @@ export function DataTable<TData>({
 					)}
 				</TableBody>
 			</Table>
+			</div>
 
 			{/* Pagination */}
 			{table.getPageCount() > 1 && (
