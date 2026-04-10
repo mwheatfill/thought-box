@@ -324,6 +324,7 @@ interface ChatInterfaceProps {
 	user: AuthUser;
 	suggestedPrompts: string[];
 	onFirstMessage?: () => void;
+	onError?: () => void;
 	compact?: boolean;
 	initialPrompt?: string | null;
 }
@@ -332,14 +333,25 @@ export function ChatInterface({
 	user,
 	suggestedPrompts,
 	onFirstMessage,
+	onError,
 	compact,
 	initialPrompt,
 }: ChatInterfaceProps) {
+	const onErrorRef = useRef(onError);
+	onErrorRef.current = onError;
+
 	const transport = useMemo(
 		() =>
 			new AssistantChatTransport({
 				api: "/api/chat",
 				body: { userId: user.id },
+				fetch: async (input, init) => {
+					const res = await fetch(input, init);
+					if (res.status >= 500) {
+						onErrorRef.current?.();
+					}
+					return res;
+				},
 			}),
 		[user.id],
 	);

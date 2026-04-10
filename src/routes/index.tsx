@@ -3,6 +3,7 @@ import { Lightbulb } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { ChatInterface } from "#/components/chat/chat-interface";
+import { FallbackForm } from "#/components/chat/fallback-form";
 import { getLandingData } from "#/server/functions/landing";
 
 export const Route = createFileRoute("/")({
@@ -19,9 +20,10 @@ function getGreeting(): string {
 
 function LandingPage() {
 	const { user } = Route.useRouteContext();
-	const { yearlyCount, suggestedPrompts } = Route.useLoaderData();
+	const { yearlyCount, suggestedPrompts, categories } = Route.useLoaderData();
 	const [hasStarted, setHasStarted] = useState(false);
 	const [initialPrompt, setInitialPrompt] = useState<string | null>(null);
+	const [chatFailed, setChatFailed] = useState(false);
 	const firstName = user.displayName.split(" ")[0];
 
 	return (
@@ -105,13 +107,21 @@ function LandingPage() {
 				}}
 				transition={{ duration: 0.4, ease: "easeInOut" }}
 			>
-				<ChatInterface
-					user={user}
-					suggestedPrompts={suggestedPrompts}
-					onFirstMessage={() => setHasStarted(true)}
-					compact={!hasStarted}
-					initialPrompt={initialPrompt}
-				/>
+				{chatFailed ? (
+					<FallbackForm categories={categories} />
+				) : (
+					<ChatInterface
+						user={user}
+						suggestedPrompts={suggestedPrompts}
+						onFirstMessage={() => setHasStarted(true)}
+						onError={() => {
+							setHasStarted(true);
+							setChatFailed(true);
+						}}
+						compact={!hasStarted}
+						initialPrompt={initialPrompt}
+					/>
+				)}
 			</motion.div>
 		</main>
 	);
