@@ -3,6 +3,7 @@ import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/server/db";
 import { users } from "#/server/db/schema";
+import { enrichUserProfile } from "#/server/lib/enrichment";
 import { searchDirectory as searchDirectoryApi } from "#/server/lib/graph";
 import { adminMiddleware } from "#/server/middleware/auth";
 
@@ -115,7 +116,6 @@ export const upsertUser = createServerFn({ method: "POST" })
 		});
 
 		if (existing) {
-			// Update role if provided, reactivate if deactivated
 			await db
 				.update(users)
 				.set({
@@ -129,10 +129,13 @@ export const upsertUser = createServerFn({ method: "POST" })
 					updatedAt: new Date(),
 				})
 				.where(eq(users.id, existing.id));
+
+			// Fire-and-forget: enrich profile + photo from Graph
+			enrichUserProfile(existing.id).catch(() => {});
+
 			return { id: existing.id, created: false };
 		}
 
-		// Create new user from directory
 		const [created] = await db
 			.insert(users)
 			.values({
@@ -144,9 +147,11 @@ export const upsertUser = createServerFn({ method: "POST" })
 				officeLocation: data.officeLocation ?? null,
 				role: data.role ?? "submitter",
 				source: "graph",
-				// firstSeen stays null — they haven't logged in yet
 			})
 			.returning({ id: users.id });
+
+		// Fire-and-forget: enrich profile + photo from Graph
+		enrichUserProfile(created.id).catch(() => {});
 
 		return { id: created.id, created: true };
 	});
