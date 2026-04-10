@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Building2, Loader2, Plus, Power, Search, UserPlus } from "lucide-react";
+import { Building2, Loader2, Mail, Plus, Power, Search, UserPlus } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
@@ -30,6 +30,7 @@ import {
 import {
 	getUsers,
 	searchDirectory,
+	sendInvite,
 	toggleUserActive,
 	updateUserRole,
 	upsertUser,
@@ -96,6 +97,13 @@ function UsersPage() {
 			toast.success("User updated");
 		},
 		onError: (err) => toast.error(err.message || "Failed to update user"),
+	});
+
+	const inviteFn = useServerFn(sendInvite);
+	const inviteMutation = useMutation({
+		mutationFn: (userId: string) => inviteFn({ data: { userId } }),
+		onSuccess: (result) => toast.success(`Invite sent to ${result.sentTo}`),
+		onError: (err) => toast.error(err.message || "Failed to send invite"),
 	});
 
 	const columns: ColumnDef<UserRow, unknown>[] = [
@@ -185,19 +193,35 @@ function UsersPage() {
 		{
 			id: "actions",
 			cell: ({ row }) => (
-				<Button
-					variant="ghost"
-					size="icon"
-					onClick={(e) => {
-						e.stopPropagation();
-						toggleMutation.mutate({
-							userId: row.original.id,
-							active: !row.original.active,
-						});
-					}}
-				>
-					<Power className="size-3.5" />
-				</Button>
+				<div className="flex gap-1">
+					{(row.original.role === "leader" || row.original.role === "admin") && (
+						<Button
+							variant="ghost"
+							size="icon"
+							title="Send invite email"
+							onClick={(e) => {
+								e.stopPropagation();
+								inviteMutation.mutate(row.original.id);
+							}}
+						>
+							<Mail className="size-3.5" />
+						</Button>
+					)}
+					<Button
+						variant="ghost"
+						size="icon"
+						title={row.original.active ? "Deactivate" : "Activate"}
+						onClick={(e) => {
+							e.stopPropagation();
+							toggleMutation.mutate({
+								userId: row.original.id,
+								active: !row.original.active,
+							});
+						}}
+					>
+						<Power className="size-3.5" />
+					</Button>
+				</div>
 			),
 		},
 	];

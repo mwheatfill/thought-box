@@ -87,6 +87,30 @@ export const toggleUserActive = createServerFn({ method: "POST" })
 		return { success: true };
 	});
 
+/** Send (or resend) an invite email to an existing user. */
+export const sendInvite = createServerFn({ method: "POST" })
+	.middleware([adminMiddleware])
+	.inputValidator(z.object({ userId: z.string() }))
+	.handler(async ({ data, context }) => {
+		const user = await db.query.users.findFirst({
+			where: eq(users.id, data.userId),
+			columns: { email: true, displayName: true, role: true },
+		});
+		if (!user) throw new Error("User not found");
+		if (user.role !== "leader" && user.role !== "admin") {
+			throw new Error("Invites are only for leaders and admins");
+		}
+
+		await sendUserInviteEmail({
+			recipientEmail: user.email,
+			recipientFirstName: user.displayName.split(" ")[0],
+			role: user.role,
+			invitedByName: context.user.displayName,
+		});
+
+		return { success: true, sentTo: user.email };
+	});
+
 /** Search the Entra ID directory for users to add. */
 export const searchDirectory = createServerFn()
 	.middleware([adminMiddleware])
