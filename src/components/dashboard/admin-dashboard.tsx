@@ -127,7 +127,7 @@ const STATUS_COLORS: Record<string, string> = {
 const adminIdeaColumns: ColumnDef<AdminIdea, unknown>[] = [
 	{
 		accessorKey: "submissionId",
-		header: "ID",
+		header: ({ column }) => <SortableHeader column={column}>ID</SortableHeader>,
 		cell: ({ row }) => <span className="font-mono text-xs">{row.original.submissionId}</span>,
 		size: 90,
 	},
