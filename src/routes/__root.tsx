@@ -1,8 +1,8 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
+import { HeadContent, Outlet, Scripts, createRootRoute, useLocation } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AppSidebar } from "#/components/layout/app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "#/components/ui/sidebar";
 import { Toaster } from "#/components/ui/sonner";
@@ -53,11 +53,32 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 function RootComponent() {
 	const { user } = Route.useRouteContext();
 	const [queryClient] = useState(() => new QueryClient());
+	const location = useLocation();
+	const isLandingPage = location.pathname === "/";
+
+	// Sidebar is forced closed on landing page, remembers user preference elsewhere
+	const [sidebarOpen, setSidebarOpen] = useState(false);
+
+	// When navigating away from landing page, restore from cookie
+	useEffect(() => {
+		if (!isLandingPage) {
+			const cookie = document.cookie.split("; ").find((c) => c.startsWith("sidebar_state="));
+			const stored = cookie?.split("=")[1];
+			if (stored === "true") setSidebarOpen(true);
+		} else {
+			setSidebarOpen(false);
+		}
+	}, [isLandingPage]);
+
+	const handleOpenChange = useCallback((open: boolean) => {
+		setSidebarOpen(open);
+		document.cookie = `sidebar_state=${open}; path=/; max-age=${60 * 60 * 24 * 7}`;
+	}, []);
 
 	return (
 		<QueryClientProvider client={queryClient}>
 			<TooltipProvider>
-				<SidebarProvider defaultOpen={false}>
+				<SidebarProvider open={isLandingPage ? false : sidebarOpen} onOpenChange={handleOpenChange}>
 					<AppSidebar user={user} />
 					<SidebarInset>
 						<header className="relative z-10 flex h-12 shrink-0 items-center gap-2 px-4">
