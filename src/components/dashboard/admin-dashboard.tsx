@@ -135,14 +135,16 @@ const adminIdeaColumns: ColumnDef<AdminIdea, unknown>[] = [
 		accessorKey: "title",
 		header: ({ column }) => <SortableHeader column={column}>Title</SortableHeader>,
 		cell: ({ row }) => (
-			<Link
-				to="/ideas/$submissionId"
-				params={{ submissionId: row.original.submissionId }}
-				className="font-medium hover:underline"
-				onClick={(e) => e.stopPropagation()}
-			>
-				{row.original.title}
-			</Link>
+			<div className="max-w-[400px]">
+				<Link
+					to="/ideas/$submissionId"
+					params={{ submissionId: row.original.submissionId }}
+					className="font-medium hover:underline line-clamp-1"
+					onClick={(e) => e.stopPropagation()}
+				>
+					{row.original.title}
+				</Link>
+			</div>
 		),
 	},
 	{
