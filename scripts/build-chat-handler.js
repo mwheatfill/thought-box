@@ -17,3 +17,18 @@ await esbuild.build({
 });
 
 console.log("Chat handler built → dist/server/chat-handler.js");
+
+await esbuild.build({
+	entryPoints: ["src/server/api/photo.ts"],
+	bundle: true,
+	platform: "node",
+	target: "node22",
+	format: "esm",
+	outfile: "dist/server/photo-handler.js",
+	packages: "external",
+	alias: {
+		"#/*": "./src/*",
+	},
+});
+
+console.log("Photo handler built → dist/server/photo-handler.js");

@@ -9,6 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const serverModule = await import("./dist/server/server.js");
 const { fetch: fetchHandler } = serverModule.default;
 const { handleChatRequest } = await import("./dist/server/chat-handler.js");
+const { handlePhotoRequest } = await import("./dist/server/photo-handler.js");
 
 const PORT = process.env.PORT || 3000;
 const CLIENT_DIR = join(__dirname, "dist", "client");
@@ -110,6 +111,12 @@ const server = createServer(async (req, res) => {
 		// Chat API uses a separately-built handler (TanStack Start doesn't bundle custom API routes)
 		if (req.url === "/api/chat" && req.method === "POST") {
 			await sendWebResponse(await handleChatRequest(webRequest), res);
+			return;
+		}
+
+		// Photo endpoint (separately built, same as chat handler)
+		if (req.url.match(/^\/api\/users\/[^/]+\/photo$/)) {
+			await sendWebResponse(await handlePhotoRequest(webRequest), res);
 			return;
 		}
 
