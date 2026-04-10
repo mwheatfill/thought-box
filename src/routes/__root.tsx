@@ -110,7 +110,7 @@ function RootComponent() {
 				<SidebarProvider defaultOpen={false} persistState={!isLandingPage}>
 					<AppSidebar user={user} />
 					<SidebarInset>
-						<header className="relative z-10 flex h-12 shrink-0 items-center gap-2 px-4">
+						<header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 bg-background/80 px-4 backdrop-blur-sm">
 							<SidebarTrigger className="text-foreground" />
 							<span className="text-base font-semibold text-foreground">ThoughtBox</span>
 						</header>
