@@ -56,9 +56,9 @@ function SettingsPage() {
 				/>
 				<TextSetting
 					settingKey="watcher_email"
-					title="Watcher Notification Email"
-					description="Distribution list that receives alerts on every new submission. Leave blank to disable."
-					placeholder="pdi@desertfinancial.com"
+					title="System Notifications"
+					description="Send new idea alerts to this email or distribution list. Leave blank to disable."
+					placeholder="thoughtbox-admins@desertfinancial.com"
 					value={settings.watcher_email ?? ""}
 					queryClient={queryClient}
 				/>
