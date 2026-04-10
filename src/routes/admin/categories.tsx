@@ -34,6 +34,7 @@ import {
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
+import { RouteError } from "#/components/ui/route-error";
 import {
 	Select,
 	SelectContent,
@@ -59,6 +60,7 @@ import {
 } from "#/server/functions/categories";
 
 export const Route = createFileRoute("/admin/categories")({
+	errorComponent: ({ error }) => <RouteError error={error} />,
 	beforeLoad: ({ context }) => {
 		if (context.user.role !== "admin") {
 			throw redirect({ to: "/dashboard" });

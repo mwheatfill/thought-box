@@ -19,6 +19,7 @@ import {
 } from "#/components/ui/dialog";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
+import { RouteError } from "#/components/ui/route-error";
 import {
 	Select,
 	SelectContent,
@@ -35,6 +36,7 @@ import {
 } from "#/server/functions/admin-users";
 
 export const Route = createFileRoute("/admin/users")({
+	errorComponent: ({ error }) => <RouteError error={error} />,
 	beforeLoad: ({ context }) => {
 		if (context.user.role !== "admin") {
 			throw redirect({ to: "/dashboard" });

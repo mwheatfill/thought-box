@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "#/components/ui/card";
 import { Input } from "#/components/ui/input";
+import { RouteError } from "#/components/ui/route-error";
 import {
 	Select,
 	SelectContent,
@@ -20,6 +21,7 @@ import type { TestEmailTemplate } from "#/server/functions/email";
 import { getSettings, updateSetting } from "#/server/functions/settings";
 
 export const Route = createFileRoute("/admin/settings")({
+	errorComponent: ({ error }) => <RouteError error={error} />,
 	beforeLoad: ({ context }) => {
 		if (context.user.role !== "admin") {
 			throw redirect({ to: "/dashboard" });

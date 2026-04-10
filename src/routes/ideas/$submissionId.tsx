@@ -12,6 +12,7 @@ import { PeopleCard } from "#/components/ideas/people-card";
 import { PageTransition } from "#/components/ui/animated";
 import { Badge } from "#/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
+import { RouteError } from "#/components/ui/route-error";
 import { Separator } from "#/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import { IMPACT_AREAS } from "#/lib/constants";
@@ -25,6 +26,7 @@ import {
 import { addMessage, getIdeaMessages } from "#/server/functions/messages";
 
 export const Route = createFileRoute("/ideas/$submissionId")({
+	errorComponent: ({ error }) => <RouteError error={error} variant="not-found" />,
 	loader: async ({ params }) => {
 		const [idea, leaders] = await Promise.all([
 			getIdeaDetail({ data: { submissionId: params.submissionId } }),

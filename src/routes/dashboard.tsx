@@ -9,6 +9,7 @@ import { LeaderDashboard } from "#/components/dashboard/leader-dashboard";
 import { SubmitterDashboard } from "#/components/dashboard/submitter-dashboard";
 import { PageTransition } from "#/components/ui/animated";
 import { Card, CardContent, CardHeader } from "#/components/ui/card";
+import { RouteError } from "#/components/ui/route-error";
 import { Skeleton } from "#/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import { getUserSubmissionCount } from "#/server/functions/ai";
@@ -26,6 +27,7 @@ import {
 import { bulkUpdateStatus } from "#/server/functions/ideas";
 
 export const Route = createFileRoute("/dashboard")({
+	errorComponent: ({ error }) => <RouteError error={error} />,
 	loader: async ({ context }) => {
 		const { user } = context;
 
