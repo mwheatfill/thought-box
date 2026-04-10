@@ -7,6 +7,7 @@ import { AdminDashboard } from "#/components/dashboard/admin-dashboard";
 import { LeaderDashboard } from "#/components/dashboard/leader-dashboard";
 import { SubmitterDashboard } from "#/components/dashboard/submitter-dashboard";
 import { PageTransition } from "#/components/ui/animated";
+import { Card, CardContent, CardHeader } from "#/components/ui/card";
 import { Skeleton } from "#/components/ui/skeleton";
 import { getUserSubmissionCount } from "#/server/functions/ai";
 import {
@@ -138,11 +139,30 @@ function DashboardPage() {
 function DashboardSkeleton() {
 	return (
 		<div className="space-y-6">
+			{/* Charts row */}
 			<div className="grid gap-4 lg:grid-cols-2">
-				<Skeleton className="h-[300px] rounded-xl" />
-				<Skeleton className="h-[300px] rounded-xl" />
+				{[0, 1].map((i) => (
+					<Card key={i}>
+						<CardHeader>
+							<Skeleton className="h-4 w-32" />
+						</CardHeader>
+						<CardContent>
+							<Skeleton className="h-[220px] w-full" />
+						</CardContent>
+					</Card>
+				))}
 			</div>
-			<Skeleton className="h-[200px] rounded-xl" />
+			{/* Table */}
+			<Card>
+				<CardHeader>
+					<Skeleton className="h-5 w-24" />
+				</CardHeader>
+				<CardContent className="space-y-3">
+					{[0, 1, 2, 3, 4].map((i) => (
+						<Skeleton key={i} className="h-10 w-full" />
+					))}
+				</CardContent>
+			</Card>
 		</div>
 	);
 }
