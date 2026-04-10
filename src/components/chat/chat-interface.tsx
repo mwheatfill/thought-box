@@ -167,7 +167,7 @@ function ChatThread({
 					<ComposerPrimitive.Root className="flex items-end gap-2">
 						<ComposerPrimitive.Input
 							placeholder={compact ? "Describe your idea here..." : "Tell me about your idea..."}
-							className={`flex-1 resize-none rounded-lg border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${compact ? "h-[72px] min-h-[72px] max-h-[72px]" : ""}`}
+							className={`flex-1 resize-none rounded-lg border border-transparent bg-muted/50 px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-border/50 ${compact ? "h-[72px] min-h-[72px] max-h-[72px]" : ""}`}
 							autoFocus
 						/>
 						<ComposerPrimitive.Send asChild>
