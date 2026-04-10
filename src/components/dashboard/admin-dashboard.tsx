@@ -368,86 +368,84 @@ export function AdminDashboard({
 							</p>
 						</div>
 					) : (
-						<div className="overflow-x-auto">
-							<Table>
-								<TableHeader>
-									<TableRow>
-										<TableHead className="w-[90px]">ID</TableHead>
-										<TableHead>Title</TableHead>
-										<TableHead>Submitter</TableHead>
-										<TableHead>Assigned To</TableHead>
-										<TableHead>Category</TableHead>
-										<TableHead>Status</TableHead>
-										<TableHead>SLA</TableHead>
-										<TableHead className="text-right">Submitted</TableHead>
+						<Table>
+							<TableHeader>
+								<TableRow>
+									<TableHead className="w-[90px]">ID</TableHead>
+									<TableHead>Title</TableHead>
+									<TableHead>Submitter</TableHead>
+									<TableHead>Assigned To</TableHead>
+									<TableHead>Category</TableHead>
+									<TableHead>Status</TableHead>
+									<TableHead>SLA</TableHead>
+									<TableHead className="text-right">Submitted</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{ideas.map((idea) => (
+									<TableRow
+										key={idea.id}
+										className={cn(
+											"cursor-pointer hover:bg-muted",
+											idea.slaStatus === "overdue" && "bg-destructive/5",
+										)}
+										onClick={() =>
+											navigate({
+												to: "/ideas/$submissionId",
+												params: { submissionId: idea.submissionId },
+											})
+										}
+									>
+										<TableCell className="font-mono text-xs">{idea.submissionId}</TableCell>
+										<TableCell>
+											<Link
+												to="/ideas/$submissionId"
+												params={{ submissionId: idea.submissionId }}
+												className="font-medium hover:underline"
+											>
+												{idea.title}
+											</Link>
+										</TableCell>
+										<TableCell>
+											<div className="flex items-center gap-2">
+												<Avatar className="size-6">
+													{idea.submitterPhotoUrl && (
+														<AvatarImage src={idea.submitterPhotoUrl} alt={idea.submitterName} />
+													)}
+													<AvatarFallback className="text-[10px]">
+														{idea.submitterName
+															.split(" ")
+															.map((n) => n[0])
+															.join("")
+															.slice(0, 2)}
+													</AvatarFallback>
+												</Avatar>
+												<span className="text-muted-foreground">{idea.submitterName}</span>
+											</div>
+										</TableCell>
+										<TableCell className="text-muted-foreground">
+											{idea.assignedLeaderName ?? "—"}
+										</TableCell>
+										<TableCell className="text-muted-foreground">{idea.categoryName}</TableCell>
+										<TableCell>
+											<StatusBadge
+												status={idea.status as Parameters<typeof StatusBadge>[0]["status"]}
+											/>
+										</TableCell>
+										<TableCell>
+											<SlaIndicator
+												slaStatus={idea.slaStatus}
+												slaDaysRemaining={idea.slaDaysRemaining}
+												slaDueDate={idea.slaDueDate}
+											/>
+										</TableCell>
+										<TableCell className="text-right text-muted-foreground">
+											{formatDistanceToNow(new Date(idea.submittedAt), { addSuffix: true })}
+										</TableCell>
 									</TableRow>
-								</TableHeader>
-								<TableBody>
-									{ideas.map((idea) => (
-										<TableRow
-											key={idea.id}
-											className={cn(
-												"cursor-pointer hover:bg-muted/50",
-												idea.slaStatus === "overdue" && "bg-destructive/5",
-											)}
-											onClick={() =>
-												navigate({
-													to: "/ideas/$submissionId",
-													params: { submissionId: idea.submissionId },
-												})
-											}
-										>
-											<TableCell className="font-mono text-xs">{idea.submissionId}</TableCell>
-											<TableCell>
-												<Link
-													to="/ideas/$submissionId"
-													params={{ submissionId: idea.submissionId }}
-													className="font-medium hover:underline"
-												>
-													{idea.title}
-												</Link>
-											</TableCell>
-											<TableCell>
-												<div className="flex items-center gap-2">
-													<Avatar className="size-6">
-														{idea.submitterPhotoUrl && (
-															<AvatarImage src={idea.submitterPhotoUrl} alt={idea.submitterName} />
-														)}
-														<AvatarFallback className="text-[10px]">
-															{idea.submitterName
-																.split(" ")
-																.map((n) => n[0])
-																.join("")
-																.slice(0, 2)}
-														</AvatarFallback>
-													</Avatar>
-													<span className="text-muted-foreground">{idea.submitterName}</span>
-												</div>
-											</TableCell>
-											<TableCell className="text-muted-foreground">
-												{idea.assignedLeaderName ?? "—"}
-											</TableCell>
-											<TableCell className="text-muted-foreground">{idea.categoryName}</TableCell>
-											<TableCell>
-												<StatusBadge
-													status={idea.status as Parameters<typeof StatusBadge>[0]["status"]}
-												/>
-											</TableCell>
-											<TableCell>
-												<SlaIndicator
-													slaStatus={idea.slaStatus}
-													slaDaysRemaining={idea.slaDaysRemaining}
-													slaDueDate={idea.slaDueDate}
-												/>
-											</TableCell>
-											<TableCell className="text-right text-muted-foreground">
-												{formatDistanceToNow(new Date(idea.submittedAt), { addSuffix: true })}
-											</TableCell>
-										</TableRow>
-									))}
-								</TableBody>
-							</Table>
-						</div>
+								))}
+							</TableBody>
+						</Table>
 					)}
 				</CardContent>
 			</Card>
