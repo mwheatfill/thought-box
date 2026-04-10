@@ -282,6 +282,7 @@ function AddUserDialog({
 	const [searching, setSearching] = useState(false);
 	const [selectedUser, setSelectedUser] = useState<DirectoryResult | null>(null);
 	const [role, setRole] = useState<"submitter" | "leader" | "admin">("leader");
+	const [sendInvite, setSendInvite] = useState(true);
 
 	const searchFn = useServerFn(searchDirectory);
 	const upsertFn = useServerFn(upsertUser);
@@ -315,6 +316,7 @@ function AddUserDialog({
 					department: selectedUser.department,
 					officeLocation: selectedUser.officeLocation,
 					role,
+					sendInvite,
 				},
 			});
 		},
@@ -325,6 +327,7 @@ function AddUserDialog({
 			setResults([]);
 			setSelectedUser(null);
 			setRole("leader");
+			setSendInvite(true);
 			toast.success(result?.created ? "User added from directory" : "User updated");
 		},
 		onError: () => toast.error("Failed to add user"),
@@ -347,6 +350,7 @@ function AddUserDialog({
 					setResults([]);
 					setSelectedUser(null);
 					setRole("leader");
+					setSendInvite(true);
 				}
 			}}
 		>
@@ -435,7 +439,13 @@ function AddUserDialog({
 
 							<div className="mt-3 space-y-1.5">
 								<Label>Role</Label>
-								<Select value={role} onValueChange={(v) => setRole(v as typeof role)}>
+								<Select
+									value={role}
+									onValueChange={(v) => {
+										setRole(v as typeof role);
+										setSendInvite(v !== "submitter");
+									}}
+								>
 									<SelectTrigger>
 										<SelectValue />
 									</SelectTrigger>
@@ -446,6 +456,17 @@ function AddUserDialog({
 									</SelectContent>
 								</Select>
 							</div>
+							{role !== "submitter" && (
+								<label className="mt-3 flex items-center gap-2 text-sm">
+									<input
+										type="checkbox"
+										checked={sendInvite}
+										onChange={(e) => setSendInvite(e.target.checked)}
+										className="size-4 rounded border-input"
+									/>
+									Send invite email
+								</label>
+							)}
 						</div>
 					)}
 				</div>

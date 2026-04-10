@@ -6,6 +6,7 @@ import IdeaReassigned from "#/emails/IdeaReassigned";
 import IdeaSubmitted from "#/emails/IdeaSubmitted";
 import NewMessage from "#/emails/NewMessage";
 import StatusChanged from "#/emails/StatusChanged";
+import UserInvite from "#/emails/UserInvite";
 import WatcherAlert from "#/emails/WatcherAlert";
 import { sendEmail } from "#/server/lib/email";
 import { adminMiddleware } from "#/server/middleware/auth";
@@ -182,6 +183,26 @@ export async function sendWatcherAlert(params: {
 	});
 }
 
+// ── User invite ──────────────────────────────────────────────────────────
+
+export async function sendUserInviteEmail(params: {
+	recipientEmail: string;
+	recipientFirstName: string;
+	role: "leader" | "admin";
+	invitedByName: string;
+}) {
+	await sendEmail({
+		to: params.recipientEmail,
+		subject: "You've been invited to ThoughtBox",
+		template: createElement(UserInvite, {
+			recipientFirstName: params.recipientFirstName,
+			role: params.role,
+			invitedByName: params.invitedByName,
+			dashboardUrl: `${APP_URL}/dashboard`,
+		}),
+	});
+}
+
 // ── Test email ───────────────────────────────────────────────────────────
 
 const TEST_TEMPLATES = [
@@ -194,6 +215,8 @@ const TEST_TEMPLATES = [
 	"message_from_leader",
 	"message_from_submitter",
 	"watcher_alert",
+	"user_invite_leader",
+	"user_invite_admin",
 ] as const;
 
 export type TestEmailTemplate = (typeof TEST_TEMPLATES)[number];
@@ -327,6 +350,24 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						submitterDepartment: "Retail Banking",
 						assignedLeaderName: "Michelle Murray",
 						viewUrl,
+					}),
+				},
+				user_invite_leader: {
+					subject: "[TEST] You've been invited to ThoughtBox",
+					template: createElement(UserInvite, {
+						recipientFirstName: firstName,
+						role: "leader",
+						invitedByName: "Nubia Ruiz",
+						dashboardUrl: `${APP_URL}/dashboard`,
+					}),
+				},
+				user_invite_admin: {
+					subject: "[TEST] You've been invited to ThoughtBox",
+					template: createElement(UserInvite, {
+						recipientFirstName: firstName,
+						role: "admin",
+						invitedByName: "Nubia Ruiz",
+						dashboardUrl: `${APP_URL}/dashboard`,
 					}),
 				},
 			};

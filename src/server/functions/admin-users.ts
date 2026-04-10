@@ -3,6 +3,7 @@ import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/server/db";
 import { users } from "#/server/db/schema";
+import { sendUserInviteEmail } from "#/server/functions/email";
 import { enrichUserProfile } from "#/server/lib/enrichment";
 import { searchDirectory as searchDirectoryApi } from "#/server/lib/graph";
 import { adminMiddleware } from "#/server/middleware/auth";
@@ -106,9 +107,10 @@ export const upsertUser = createServerFn({ method: "POST" })
 			department: z.string().nullable().optional(),
 			officeLocation: z.string().nullable().optional(),
 			role: z.enum(["submitter", "leader", "admin"]).optional(),
+			sendInvite: z.boolean().optional(),
 		}),
 	)
-	.handler(async ({ data }) => {
+	.handler(async ({ data, context }) => {
 		// Check if user already exists
 		const existing = await db.query.users.findFirst({
 			where: eq(users.entraId, data.entraId),
@@ -152,6 +154,17 @@ export const upsertUser = createServerFn({ method: "POST" })
 
 		// Fire-and-forget: enrich profile + photo from Graph
 		enrichUserProfile(created.id).catch(() => {});
+
+		// Fire-and-forget: send invite email for leaders/admins
+		const role = data.role ?? "submitter";
+		if (data.sendInvite && (role === "leader" || role === "admin")) {
+			sendUserInviteEmail({
+				recipientEmail: data.email,
+				recipientFirstName: data.displayName.split(" ")[0],
+				role,
+				invitedByName: context.user.displayName,
+			}).catch(() => {});
+		}
 
 		return { id: created.id, created: true };
 	});

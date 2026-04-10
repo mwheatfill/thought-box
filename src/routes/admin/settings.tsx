@@ -303,7 +303,9 @@ const EMAIL_TEMPLATE_OPTIONS: { value: TestEmailTemplate; label: string }[] = [
 	{ value: "idea_reassigned", label: "Idea Reassigned" },
 	{ value: "message_from_leader", label: "Message from Leader" },
 	{ value: "message_from_submitter", label: "Message from Submitter" },
-	{ value: "watcher_alert", label: "Watcher Alert (new submission)" },
+	{ value: "watcher_alert", label: "System Notification (new submission)" },
+	{ value: "user_invite_leader", label: "Invite (Leader)" },
+	{ value: "user_invite_admin", label: "Invite (Admin)" },
 ];
 
 function TestEmailSetting() {
