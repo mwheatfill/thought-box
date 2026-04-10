@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { db } from "#/server/db";
 import { settings } from "#/server/db/schema";
-import { diagnoseEnrichment } from "#/server/lib/enrichment";
 import { adminMiddleware } from "#/server/middleware/auth";
 
 export const getSettings = createServerFn()
@@ -24,10 +23,4 @@ export const updateSetting = createServerFn({ method: "POST" })
 				set: { value: data.value, updatedAt: new Date() },
 			});
 		return { success: true };
-	});
-
-export const runEnrichmentDiagnostic = createServerFn({ method: "POST" })
-	.middleware([adminMiddleware])
-	.handler(async ({ context }) => {
-		return diagnoseEnrichment(context.user.id);
 	});
