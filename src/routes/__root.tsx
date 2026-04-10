@@ -2,9 +2,9 @@ import { TanStackDevtools } from "@tanstack/react-devtools";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HeadContent, Outlet, Scripts, createRootRoute, useLocation } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { AppSidebar } from "#/components/layout/app-sidebar";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "#/components/ui/sidebar";
+import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from "#/components/ui/sidebar";
 import { Toaster } from "#/components/ui/sonner";
 import { TooltipProvider } from "#/components/ui/tooltip";
 import { getCurrentUser } from "#/server/functions/users";
@@ -50,45 +50,29 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 	);
 }
 
+/** Close sidebar on landing page without writing to cookie */
+function LandingSidebarReset() {
+	const { setOpen } = useSidebar();
+	const location = useLocation();
+
+	useEffect(() => {
+		if (location.pathname === "/") {
+			setOpen(false);
+		}
+	}, [location.pathname, setOpen]);
+
+	return null;
+}
+
 function RootComponent() {
 	const { user } = Route.useRouteContext();
 	const [queryClient] = useState(() => new QueryClient());
-	const location = useLocation();
-	const isLandingPage = location.pathname === "/";
-
-	// Read initial sidebar state from cookie (for non-landing pages)
-	const [sidebarOpen, setSidebarOpen] = useState(() => {
-		if (typeof document === "undefined") return false;
-		const cookie = document.cookie.split("; ").find((c) => c.startsWith("sidebar_state="));
-		return cookie?.split("=")[1] === "true";
-	});
-
-	// Landing page resets to closed on navigation, non-landing restores from cookie
-	useEffect(() => {
-		if (isLandingPage) {
-			setSidebarOpen(false);
-		} else {
-			const cookie = document.cookie.split("; ").find((c) => c.startsWith("sidebar_state="));
-			const stored = cookie?.split("=")[1] === "true";
-			setSidebarOpen(stored);
-		}
-	}, [isLandingPage]);
-
-	const handleOpenChange = useCallback(
-		(open: boolean) => {
-			setSidebarOpen(open);
-			// Only persist to cookie on non-landing pages
-			if (!isLandingPage) {
-				document.cookie = `sidebar_state=${open}; path=/; max-age=${60 * 60 * 24 * 7}`;
-			}
-		},
-		[isLandingPage],
-	);
 
 	return (
 		<QueryClientProvider client={queryClient}>
 			<TooltipProvider>
-				<SidebarProvider open={sidebarOpen} onOpenChange={handleOpenChange}>
+				<SidebarProvider defaultOpen={false}>
+					<LandingSidebarReset />
 					<AppSidebar user={user} />
 					<SidebarInset>
 						<header className="relative z-10 flex h-12 shrink-0 items-center gap-2 px-4">
