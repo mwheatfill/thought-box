@@ -2,8 +2,10 @@ import { TanStackDevtools } from "@tanstack/react-devtools";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HeadContent, Outlet, Scripts, createRootRoute, useLocation } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { AppSidebar } from "#/components/layout/app-sidebar";
+import { Button } from "#/components/ui/button";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "#/components/ui/sidebar";
 import { Toaster } from "#/components/ui/sonner";
 import { TooltipProvider } from "#/components/ui/tooltip";
@@ -34,15 +36,52 @@ export const Route = createRootRoute({
 		if (typeof window !== "undefined" && cachedUser) {
 			return { user: cachedUser };
 		}
-		const user = await getCurrentUser();
-		if (typeof window !== "undefined") {
-			cachedUser = user;
+		try {
+			const user = await getCurrentUser();
+			if (typeof window !== "undefined") {
+				cachedUser = user;
+			}
+			return { user };
+		} catch (err) {
+			// Auth expired — force full reload so Easy Auth redirects to login
+			if (typeof window !== "undefined") {
+				const msg = err instanceof Error ? err.message : "";
+				if (msg.includes("Unauthorized") || msg.includes("401")) {
+					window.location.reload();
+					// Return never-resolving promise to prevent flash
+					return new Promise(() => {}) as never;
+				}
+			}
+			throw err;
 		}
-		return { user };
 	},
 	component: RootComponent,
+	errorComponent: RootErrorComponent,
 	shellComponent: RootDocument,
 });
+
+function RootErrorComponent({ error }: { error: Error }) {
+	return (
+		<div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
+			<div className="mb-4 rounded-full bg-muted p-4">
+				<AlertTriangle className="size-8 text-muted-foreground" />
+			</div>
+			<h2 className="mb-2 text-xl font-semibold">Something went wrong</h2>
+			<p className="mb-6 max-w-md text-sm text-muted-foreground">
+				An unexpected error occurred. This is usually temporary — try refreshing the page.
+			</p>
+			<Button variant="outline" onClick={() => window.location.reload()}>
+				<RefreshCw className="mr-2 size-4" />
+				Refresh Page
+			</Button>
+			{process.env.NODE_ENV === "development" && (
+				<pre className="mt-6 max-w-lg overflow-auto rounded-md bg-muted p-3 text-left text-xs">
+					{error.message}
+				</pre>
+			)}
+		</div>
+	);
+}
 
 function RootDocument({ children }: { children: React.ReactNode }) {
 	return (
