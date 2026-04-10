@@ -1,15 +1,10 @@
 import { Link, useNavigate } from "@tanstack/react-router";
+import type { ColumnDef } from "@tanstack/react-table";
 import { formatDistanceToNow } from "date-fns";
 import { Lightbulb, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "#/components/ui/table";
+import { DataTable, SortableHeader } from "#/components/ui/data-table";
+import { STATUS_LABELS } from "#/lib/constants";
 import type { AuthUser } from "#/server/middleware/auth";
 import { StatusBadge } from "./status-badge";
 
@@ -27,6 +22,52 @@ interface SubmitterDashboardProps {
 	ideas: SubmitterIdea[];
 	yearlyCount: number;
 }
+
+const submitterColumns: ColumnDef<SubmitterIdea, unknown>[] = [
+	{
+		accessorKey: "submissionId",
+		header: "ID",
+		cell: ({ row }) => <span className="font-mono text-xs">{row.original.submissionId}</span>,
+		size: 100,
+	},
+	{
+		accessorKey: "title",
+		header: ({ column }) => <SortableHeader column={column}>Title</SortableHeader>,
+		cell: ({ row }) => (
+			<Link
+				to="/ideas/$submissionId"
+				params={{ submissionId: row.original.submissionId }}
+				className="font-medium hover:underline"
+				onClick={(e) => e.stopPropagation()}
+			>
+				{row.original.title}
+			</Link>
+		),
+	},
+	{
+		accessorKey: "categoryName",
+		header: "Category",
+		cell: ({ row }) => <span className="text-muted-foreground">{row.original.categoryName}</span>,
+		filterFn: "equals",
+	},
+	{
+		accessorKey: "status",
+		header: "Status",
+		cell: ({ row }) => (
+			<StatusBadge status={row.original.status as Parameters<typeof StatusBadge>[0]["status"]} />
+		),
+		filterFn: "equals",
+	},
+	{
+		accessorKey: "submittedAt",
+		header: ({ column }) => <SortableHeader column={column}>Submitted</SortableHeader>,
+		cell: ({ row }) => (
+			<span className="text-muted-foreground">
+				{formatDistanceToNow(new Date(row.original.submittedAt), { addSuffix: true })}
+			</span>
+		),
+	},
+];
 
 export function SubmitterDashboard({ user, ideas, yearlyCount }: SubmitterDashboardProps) {
 	const navigate = useNavigate();
@@ -79,51 +120,28 @@ export function SubmitterDashboard({ user, ideas, yearlyCount }: SubmitterDashbo
 						<CardTitle>My Ideas</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead className="w-[100px]">ID</TableHead>
-									<TableHead>Title</TableHead>
-									<TableHead>Category</TableHead>
-									<TableHead>Status</TableHead>
-									<TableHead className="text-right">Submitted</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{ideas.map((idea) => (
-									<TableRow
-										key={idea.id}
-										className="cursor-pointer hover:bg-muted/50"
-										onClick={() =>
-											navigate({
-												to: "/ideas/$submissionId",
-												params: { submissionId: idea.submissionId },
-											})
-										}
-									>
-										<TableCell className="font-mono text-xs">{idea.submissionId}</TableCell>
-										<TableCell>
-											<Link
-												to="/ideas/$submissionId"
-												params={{ submissionId: idea.submissionId }}
-												className="font-medium hover:underline"
-											>
-												{idea.title}
-											</Link>
-										</TableCell>
-										<TableCell className="text-muted-foreground">{idea.categoryName}</TableCell>
-										<TableCell>
-											<StatusBadge
-												status={idea.status as Parameters<typeof StatusBadge>[0]["status"]}
-											/>
-										</TableCell>
-										<TableCell className="text-right text-muted-foreground">
-											{formatDistanceToNow(new Date(idea.submittedAt), { addSuffix: true })}
-										</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
+						<DataTable
+							columns={submitterColumns}
+							data={ideas}
+							searchPlaceholder="Search my ideas..."
+							searchColumn="title"
+							facetedFilters={[
+								{
+									columnId: "status",
+									label: "Status",
+									options: Object.entries(STATUS_LABELS).map(([value, label]) => ({
+										value,
+										label,
+									})),
+								},
+							]}
+							onRowClick={(idea) =>
+								navigate({
+									to: "/ideas/$submissionId",
+									params: { submissionId: idea.submissionId },
+								})
+							}
+						/>
 					</CardContent>
 				</Card>
 			)}

@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
+import type { ColumnDef } from "@tanstack/react-table";
 import { formatDistanceToNow } from "date-fns";
 import {
 	Activity,
@@ -32,14 +33,7 @@ import {
 	ChartTooltip,
 	ChartTooltipContent,
 } from "#/components/ui/chart";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "#/components/ui/table";
+import { DataTable, SortableHeader } from "#/components/ui/data-table";
 import { STATUS_LABELS } from "#/lib/constants";
 import { cn } from "#/lib/utils";
 import { SlaIndicator } from "./sla-indicator";
@@ -127,6 +121,97 @@ const STATUS_COLORS: Record<string, string> = {
 	declined: "#ef4444",
 	redirected: "#9ca3af",
 };
+
+// ── Column definitions ────────────────────────────────────────────────────
+
+const adminIdeaColumns: ColumnDef<AdminIdea, unknown>[] = [
+	{
+		accessorKey: "submissionId",
+		header: "ID",
+		cell: ({ row }) => <span className="font-mono text-xs">{row.original.submissionId}</span>,
+		size: 90,
+	},
+	{
+		accessorKey: "title",
+		header: ({ column }) => <SortableHeader column={column}>Title</SortableHeader>,
+		cell: ({ row }) => (
+			<Link
+				to="/ideas/$submissionId"
+				params={{ submissionId: row.original.submissionId }}
+				className="font-medium hover:underline"
+				onClick={(e) => e.stopPropagation()}
+			>
+				{row.original.title}
+			</Link>
+		),
+	},
+	{
+		accessorKey: "submitterName",
+		header: "Submitter",
+		cell: ({ row }) => (
+			<div className="flex items-center gap-2">
+				<Avatar className="size-6">
+					{row.original.submitterPhotoUrl && (
+						<AvatarImage src={row.original.submitterPhotoUrl} alt={row.original.submitterName} />
+					)}
+					<AvatarFallback className="text-[10px]">
+						{row.original.submitterName
+							.split(" ")
+							.map((n) => n[0])
+							.join("")
+							.slice(0, 2)}
+					</AvatarFallback>
+				</Avatar>
+				<span className="text-muted-foreground">{row.original.submitterName}</span>
+			</div>
+		),
+	},
+	{
+		accessorKey: "assignedLeaderName",
+		header: "Assigned To",
+		cell: ({ row }) => (
+			<span className="text-muted-foreground">{row.original.assignedLeaderName ?? "—"}</span>
+		),
+	},
+	{
+		accessorKey: "categoryName",
+		header: "Category",
+		cell: ({ row }) => <span className="text-muted-foreground">{row.original.categoryName}</span>,
+		filterFn: "equals",
+	},
+	{
+		accessorKey: "status",
+		header: "Status",
+		cell: ({ row }) => (
+			<StatusBadge status={row.original.status as Parameters<typeof StatusBadge>[0]["status"]} />
+		),
+		filterFn: "equals",
+	},
+	{
+		accessorKey: "slaStatus",
+		header: "SLA",
+		cell: ({ row }) => (
+			<SlaIndicator
+				slaStatus={row.original.slaStatus}
+				slaDaysRemaining={row.original.slaDaysRemaining}
+				slaDueDate={row.original.slaDueDate}
+			/>
+		),
+	},
+	{
+		accessorKey: "submittedAt",
+		header: ({ column }) => (
+			<SortableHeader column={column}>
+				<span className="text-right">Submitted</span>
+			</SortableHeader>
+		),
+		cell: ({ row }) => (
+			<span className="text-muted-foreground">
+				{formatDistanceToNow(new Date(row.original.submittedAt), { addSuffix: true })}
+			</span>
+		),
+	},
+];
 
 // ── Component ─────────────────────────────────────────────────────────────
 
@@ -347,14 +432,8 @@ export function AdminDashboard({
 
 			{/* Full ideas table */}
 			<Card>
-				<CardHeader className="flex-row items-center justify-between space-y-0">
+				<CardHeader>
 					<CardTitle>All Ideas</CardTitle>
-					{ideas.length > 0 && (
-						<Button variant="outline" size="sm" onClick={() => exportIdeasCsv(ideas)}>
-							<Download className="mr-2 size-3.5" />
-							Export CSV
-						</Button>
-					)}
 				</CardHeader>
 				<CardContent>
 					{ideas.length === 0 ? (
@@ -368,84 +447,43 @@ export function AdminDashboard({
 							</p>
 						</div>
 					) : (
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead className="w-[90px]">ID</TableHead>
-									<TableHead>Title</TableHead>
-									<TableHead>Submitter</TableHead>
-									<TableHead>Assigned To</TableHead>
-									<TableHead>Category</TableHead>
-									<TableHead>Status</TableHead>
-									<TableHead>SLA</TableHead>
-									<TableHead className="text-right">Submitted</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{ideas.map((idea) => (
-									<TableRow
-										key={idea.id}
-										className={cn(
-											"cursor-pointer hover:bg-muted",
-											idea.slaStatus === "overdue" && "bg-destructive/5",
-										)}
-										onClick={() =>
-											navigate({
-												to: "/ideas/$submissionId",
-												params: { submissionId: idea.submissionId },
-											})
-										}
-									>
-										<TableCell className="font-mono text-xs">{idea.submissionId}</TableCell>
-										<TableCell>
-											<Link
-												to="/ideas/$submissionId"
-												params={{ submissionId: idea.submissionId }}
-												className="font-medium hover:underline"
-											>
-												{idea.title}
-											</Link>
-										</TableCell>
-										<TableCell>
-											<div className="flex items-center gap-2">
-												<Avatar className="size-6">
-													{idea.submitterPhotoUrl && (
-														<AvatarImage src={idea.submitterPhotoUrl} alt={idea.submitterName} />
-													)}
-													<AvatarFallback className="text-[10px]">
-														{idea.submitterName
-															.split(" ")
-															.map((n) => n[0])
-															.join("")
-															.slice(0, 2)}
-													</AvatarFallback>
-												</Avatar>
-												<span className="text-muted-foreground">{idea.submitterName}</span>
-											</div>
-										</TableCell>
-										<TableCell className="text-muted-foreground">
-											{idea.assignedLeaderName ?? "—"}
-										</TableCell>
-										<TableCell className="text-muted-foreground">{idea.categoryName}</TableCell>
-										<TableCell>
-											<StatusBadge
-												status={idea.status as Parameters<typeof StatusBadge>[0]["status"]}
-											/>
-										</TableCell>
-										<TableCell>
-											<SlaIndicator
-												slaStatus={idea.slaStatus}
-												slaDaysRemaining={idea.slaDaysRemaining}
-												slaDueDate={idea.slaDueDate}
-											/>
-										</TableCell>
-										<TableCell className="text-right text-muted-foreground">
-											{formatDistanceToNow(new Date(idea.submittedAt), { addSuffix: true })}
-										</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
+						<DataTable
+							columns={adminIdeaColumns}
+							data={ideas}
+							searchPlaceholder="Search ideas..."
+							searchColumn="title"
+							facetedFilters={[
+								{
+									columnId: "status",
+									label: "Status",
+									options: Object.entries(STATUS_LABELS).map(([value, label]) => ({
+										value,
+										label,
+									})),
+								},
+								{
+									columnId: "categoryName",
+									label: "Category",
+									options: [...new Set(ideas.map((i) => i.categoryName))].sort().map((c) => ({
+										value: c,
+										label: c,
+									})),
+								},
+							]}
+							onRowClick={(idea) =>
+								navigate({
+									to: "/ideas/$submissionId",
+									params: { submissionId: idea.submissionId },
+								})
+							}
+							rowClassName={(idea) => (idea.slaStatus === "overdue" ? "bg-destructive/5" : "")}
+							toolbar={
+								<Button variant="outline" size="sm" onClick={() => exportIdeasCsv(ideas)}>
+									<Download className="mr-2 size-3.5" />
+									Export CSV
+								</Button>
+							}
+						/>
 					)}
 				</CardContent>
 			</Card>
