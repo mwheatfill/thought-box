@@ -613,3 +613,110 @@ The session brief **overrides** the following sections of this file when working
 Everything else in this file (TanStack Start patterns, coding standards, React patterns, testing, naming conventions, Drizzle schema, AI integration, email templates, engagement patterns, commit cadence) applies unchanged.
 
 **Do not modify Azure-specific files** (Bicep templates, Azure GitHub Actions workflow, Easy Auth middleware). The Azure path stays intact. Create new Cloudflare-specific files alongside existing ones.
+
+## Current implementation status (as of April 2026)
+
+### Production environment
+- **URL:** https://thoughtbox.desertfinancial.com (CNAME to app-df-thoughtbox-prod.azurewebsites.net)
+- **SSL:** Azure managed certificate, auto-renewing
+- **CI/CD:** GitHub Actions OIDC → builds with pnpm → npm install in isolated dir → zip deploy
+- **Always On:** enabled (no cold starts)
+- **App Insights:** auto-instrumentation enabled (request metrics, dependency tracking, exceptions)
+
+### What's built and working
+
+**AI Chat Intake:**
+- Anthropic Claude Haiku via Vercel AI SDK `streamText` with `maxSteps: 3`
+- `submit_idea` tool creates idea, generates TB-NNNN submission ID from PostgreSQL sequence, logs event, saves conversation, sends emails
+- `redirect_to_form` tool for redirect categories
+- `get_category_details` tool for classification
+- Confetti celebration on successful submission (canvas-confetti)
+- Fallback traditional form when AI provider returns 5xx (title, description, category dropdown)
+- Bouncing dots typing indicator while AI is responding
+- System prompt and category taxonomy loaded from database on each conversation
+- Suggested prompt pills from settings
+
+**Dashboard:**
+- Role-based tabs: Program (admin), My Queue (leader), My Ideas (submitter)
+- Admin sees all three tabs, leader sees queue + ideas, submitter sees ideas only
+- Streaming SSR: KPI cards render instantly, charts/tables stream in with skeleton loading
+- DataTable component (TanStack Table + shadcn) with search, sort, faceted filters, pagination
+- Full-row click navigation to idea detail
+- Leader queue has checkbox row selection with bulk status update
+- Export CSV on admin table
+
+**Idea Detail Page:**
+- Two-column layout: idea content + leader actions sidebar
+- People card with photo, job title, department, manager
+- Activity timeline with actor avatars
+- Messages tab with chat-style thread (leader-submitter communication)
+- Leader actions: status update, notes, rejection reason, reassignment, "Send Update" message
+- Per-route error boundary (not-found variant)
+
+**Admin Pages:**
+- Categories: CRUD, sort order, routing type (thoughtbox/redirect), default leader assignment
+- Users: DataTable with search/sort/filter, directory search (Entra ID), role management, activate/deactivate
+- Users: invite email on add (checkbox, default checked for leader/admin), resend invite button, promotion dialog with invite option
+- Settings: system prompt, suggested prompts, watcher notification email, SLA business days, social proof threshold, test email sender (all 10 templates)
+
+**Email System:**
+- 7 email templates (React Email + Microsoft Graph): IdeaSubmitted, IdeaAssigned, StatusChanged, IdeaReassigned, NewMessage, WatcherAlert, UserInvite
+- All triggers wired: submission (submitter + leader + watcher DL), status change, reassignment, messages, user invite
+- Shared mailbox: thoughtbox@desertfinancial.com
+- APP_URL configured for email links
+- Test email sender on admin settings page
+
+**Auth & User Management:**
+- Azure App Service Easy Auth (Entra ID)
+- Auth middleware: parses x-ms-client-principal header, auto-creates users on first login, refreshes displayName/email from claims
+- Profile enrichment via Graph API: profile fields, manager, photo (fire-and-forget, 24hr/7day TTLs, 60s in-memory debounce)
+- Profile photos cached to /home/photos/ on Azure, served via /api/users/:id/photo endpoint
+- SVG initials avatar fallback with hash-based consistent color
+- Enrichment triggers on login AND admin user add/update
+- Graceful auth expiry: client-side navigation with expired session triggers full reload → Easy Auth redirect
+
+**UI/UX:**
+- Dark mode with theme toggle (localStorage + system preference)
+- Sidebar: push layout, cookie-persisted state on dashboard, resets on landing page
+- Sticky header with backdrop blur (transparent on landing page for gradient)
+- Landing page: gradient background, greeting, social proof strip, prompt cards, chat interface
+- Styled error boundaries (root + per-route)
+- Ghost button hover: `hover:bg-foreground/10` (visible against any background)
+- Default button hover: `hover:bg-primary/85`
+- Blue primary color in both themes
+- Green Active badges on users table
+
+**Performance:**
+- Client-side user cache (skips getCurrentUser() server call on navigations)
+- Prefetch on intent with 30s stale time
+- Streaming SSR with defer/Await on dashboard
+- In-memory enrichment debounce (60s)
+
+### Production architecture notes
+
+**Custom API routes require separate esbuild builds.** TanStack Start's vite build strips custom route handlers from `entry.server.ts`. Any `/api/*` endpoint needs:
+1. Source in `src/server/api/`
+2. esbuild step in `scripts/build-chat-handler.js`
+3. Import in `server-adapter.js`
+4. Route match before the TanStack Start fallback
+
+Currently two custom routes: `/api/chat` (chat-handler.js) and `/api/users/:id/photo` (photo-handler.js).
+
+**Never use `process.env.*` for runtime checks in vite-bundled server code.** Vite replaces `process.env.X` with the build-time value (usually `undefined`). Use `process.cwd()` or other runtime values. Example: `process.cwd().startsWith("/home/site")` to detect Azure App Service.
+
+**Azure App Service filesystem:** App directory (`/home/site/wwwroot`) is read-only with WEBSITE_RUN_FROM_PACKAGE=1. Use `/home/` for writable persistent storage (photos).
+
+### What's NOT built (Phase 2 / deferred)
+
+- Automated SLA reminder emails (needs scheduled job infrastructure)
+- SLA escalation chain (leader → manager → HR)
+- File attachments on ideas
+- Watcher subscriptions per-category (currently one DL for all)
+- Full notification system / per-idea follow
+- Abandoned conversation saving (30s inactivity)
+- Health endpoint (/health)
+- Structured logging with Pino
+- Custom App Insights events/telemetry
+- Azure Blob Storage for photos (currently filesystem)
+- Keystone conditional fields
+- AI-powered insights for admins
