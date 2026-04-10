@@ -8,11 +8,10 @@ import { getUserManager, getUserPhoto, getUserProfile } from "#/server/lib/graph
 const ENRICHMENT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const PHOTO_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-// Azure App Service with WEBSITE_RUN_FROM_PACKAGE=1 has a read-only app dir.
-// /home/ is persistent and writable. Locally, use ./photos/.
-const PHOTOS_DIR = process.env.HOME?.startsWith("/home")
-	? "/home/photos"
-	: join(process.cwd(), "photos");
+// Azure App Service app dir is read-only. /home/ is persistent and writable.
+// Writable check: /home/site/wwwroot is cwd on Azure, /home/ is writable.
+const isAzure = process.cwd().startsWith("/home/site");
+const PHOTOS_DIR = isAzure ? "/home/photos" : join(process.cwd(), "photos");
 
 /**
  * Force-run enrichment and return a diagnostic log of each step.

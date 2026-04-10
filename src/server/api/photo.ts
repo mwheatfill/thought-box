@@ -4,9 +4,8 @@ import { eq } from "drizzle-orm";
 import { db } from "#/server/db";
 import { users } from "#/server/db/schema";
 
-const PHOTOS_DIR = process.env.HOME?.startsWith("/home")
-	? "/home/photos"
-	: join(process.cwd(), "photos");
+const isAzure = process.cwd().startsWith("/home/site");
+const PHOTOS_DIR = isAzure ? "/home/photos" : join(process.cwd(), "photos");
 
 /** Generate an SVG initials avatar with a consistent color derived from the user ID. */
 function generateInitialsAvatar(displayName: string, userId: string): string {

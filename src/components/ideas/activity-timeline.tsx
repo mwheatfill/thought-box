@@ -1,5 +1,4 @@
 import { formatDistanceToNow } from "date-fns";
-import { ArrowRight, MessageSquare, PenLine, RefreshCw, Zap } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { STATUS_LABELS } from "#/lib/constants";
 import { cn } from "#/lib/utils";
@@ -19,14 +18,6 @@ interface ActivityTimelineProps {
 	events: TimelineEvent[];
 }
 
-const EVENT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-	created: Zap,
-	status_changed: ArrowRight,
-	reassigned: RefreshCw,
-	note_added: PenLine,
-	message: MessageSquare,
-};
-
 export function ActivityTimeline({ events }: ActivityTimelineProps) {
 	if (events.length === 0) {
 		return <p className="text-sm text-muted-foreground">No activity yet.</p>;
@@ -35,7 +26,6 @@ export function ActivityTimeline({ events }: ActivityTimelineProps) {
 	return (
 		<div className="space-y-0">
 			{events.map((event, i) => {
-				const Icon = EVENT_ICONS[event.eventType] ?? Zap;
 				const isLast = i === events.length - 1;
 
 				return (
