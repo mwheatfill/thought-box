@@ -15,6 +15,86 @@ const PHOTOS_DIR = process.env.HOME?.startsWith("/home")
 	: join(process.cwd(), "photos");
 
 /**
+ * Force-run enrichment and return a diagnostic log of each step.
+ * Used by the admin settings page to debug enrichment issues.
+ */
+export async function diagnoseEnrichment(userId: string): Promise<string[]> {
+	const log: string[] = [];
+
+	const user = await db.query.users.findFirst({
+		where: eq(users.id, userId),
+		columns: {
+			id: true,
+			entraId: true,
+			photoUrl: true,
+			profileEnrichedAt: true,
+			photoLastFetched: true,
+		},
+	});
+
+	if (!user) {
+		log.push("ERROR: User not found in database");
+		return log;
+	}
+	log.push(
+		`User: ${user.entraId}, photoUrl=${user.photoUrl ?? "null"}, enrichedAt=${user.profileEnrichedAt?.toISOString() ?? "never"}`,
+	);
+
+	try {
+		log.push("Fetching profile from Graph...");
+		const profile = await getUserProfile(user.entraId);
+		if (!profile) {
+			log.push("ERROR: getUserProfile returned null (Graph client not configured)");
+			return log;
+		}
+		log.push(
+			`Profile: ${profile.displayName}, dept=${profile.department}, office=${profile.officeLocation}`,
+		);
+	} catch (err) {
+		log.push(`ERROR in getUserProfile: ${err instanceof Error ? err.message : String(err)}`);
+		return log;
+	}
+
+	try {
+		log.push("Fetching manager from Graph...");
+		const manager = await getUserManager(user.entraId);
+		log.push(manager ? `Manager: ${manager.displayName} (${manager.entraId})` : "No manager set");
+	} catch (err) {
+		log.push(`ERROR in getUserManager: ${err instanceof Error ? err.message : String(err)}`);
+	}
+
+	try {
+		log.push("Fetching photo from Graph...");
+		const photo = await getUserPhoto(user.entraId);
+		if (photo) {
+			log.push(`Photo: ${photo.length} bytes`);
+			log.push(`PHOTOS_DIR: ${PHOTOS_DIR}`);
+			await mkdir(PHOTOS_DIR, { recursive: true });
+			const photoPath = join(PHOTOS_DIR, `${user.entraId}.jpg`);
+			await writeFile(photoPath, photo);
+			log.push(`Written to: ${photoPath}`);
+			const photoUrl = `/api/users/${user.id}/photo`;
+			await db
+				.update(users)
+				.set({
+					photoUrl,
+					photoLastFetched: new Date(),
+					profileEnrichedAt: new Date(),
+					updatedAt: new Date(),
+				})
+				.where(eq(users.id, user.id));
+			log.push(`DB updated: photoUrl=${photoUrl}`);
+		} else {
+			log.push("Photo: null (no photo or error)");
+		}
+	} catch (err) {
+		log.push(`ERROR in photo step: ${err instanceof Error ? err.message : String(err)}`);
+	}
+
+	return log;
+}
+
+/**
  * Enrich a user's profile via Graph API if stale (>24 hours).
  * Fetches profile fields, manager, and optionally photo.
  * No-ops in dev mode (Graph client returns null).

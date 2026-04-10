@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Check, Mail } from "lucide-react";
+import { Check, Mail, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "#/components/ui/button";
@@ -17,7 +17,7 @@ import {
 import { Textarea } from "#/components/ui/textarea";
 import { sendTestEmail } from "#/server/functions/email";
 import type { TestEmailTemplate } from "#/server/functions/email";
-import { getSettings, updateSetting } from "#/server/functions/settings";
+import { getSettings, runEnrichmentDiagnostic, updateSetting } from "#/server/functions/settings";
 
 export const Route = createFileRoute("/admin/settings")({
 	beforeLoad: ({ context }) => {
@@ -49,6 +49,7 @@ function SettingsPage() {
 			</div>
 
 			<div className="space-y-6">
+				<EnrichmentDiagnostic />
 				<TestEmailSetting />
 				<TextSetting
 					settingKey="watcher_email"
@@ -287,6 +288,41 @@ function TextSetting({
 						{mutation.isPending ? "Saving..." : "Save"}
 					</Button>
 				</div>
+			</CardContent>
+		</Card>
+	);
+}
+
+function EnrichmentDiagnostic() {
+	const [log, setLog] = useState<string[] | null>(null);
+	const diagnoseFn = useServerFn(runEnrichmentDiagnostic);
+
+	const mutation = useMutation({
+		mutationFn: () => diagnoseFn(),
+		onSuccess: (result) => setLog(result),
+		onError: (err) => {
+			setLog([`FAILED: ${err.message}`]);
+		},
+	});
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Profile Enrichment Diagnostic</CardTitle>
+				<CardDescription>
+					Force-run Graph API enrichment for your account and see step-by-step results.
+				</CardDescription>
+			</CardHeader>
+			<CardContent className="space-y-3">
+				<Button onClick={() => mutation.mutate()} disabled={mutation.isPending} variant="outline">
+					<RefreshCw className={`mr-2 size-4 ${mutation.isPending ? "animate-spin" : ""}`} />
+					{mutation.isPending ? "Running..." : "Run Diagnostic"}
+				</Button>
+				{log && (
+					<pre className="max-h-[300px] overflow-auto rounded-md bg-muted p-3 text-xs font-mono">
+						{log.join("\n")}
+					</pre>
+				)}
 			</CardContent>
 		</Card>
 	);
