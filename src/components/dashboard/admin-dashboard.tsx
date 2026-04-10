@@ -193,7 +193,7 @@ export function AdminDashboard({
 			)}
 
 			{/* Charts row */}
-			<div className="grid gap-4 lg:grid-cols-2">
+			<div className="grid gap-6 lg:grid-cols-2">
 				{/* Submissions by Category */}
 				<Card>
 					<CardHeader>
@@ -530,7 +530,7 @@ function formatEventDescription(event: ActivityEvent): string {
 
 function KpiRow({ stats }: { stats: DashboardStats }) {
 	return (
-		<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+		<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
 			<FadeIn delay={0}>
 				<KpiCard
 					icon={Lightbulb}
