@@ -6,6 +6,7 @@ import IdeaReassigned from "#/emails/IdeaReassigned";
 import IdeaSubmitted from "#/emails/IdeaSubmitted";
 import NewMessage from "#/emails/NewMessage";
 import StatusChanged from "#/emails/StatusChanged";
+import WatcherAlert from "#/emails/WatcherAlert";
 import { sendEmail } from "#/server/lib/email";
 import { adminMiddleware } from "#/server/middleware/auth";
 
@@ -150,6 +151,37 @@ export async function sendIdeaReassignedEmail(params: {
 	});
 }
 
+// ── Watcher notification ─────────────────────────────────────────────────
+
+/** Send watcher alert. Caller provides the email (from settings). Skips if blank/null. */
+export async function sendWatcherAlert(params: {
+	watcherEmail: string | null;
+	submissionId: string;
+	ideaTitle: string;
+	ideaDescription: string;
+	categoryName: string;
+	submitterName: string;
+	submitterDepartment: string | null;
+	assignedLeaderName: string | null;
+}) {
+	if (!params.watcherEmail) return;
+
+	await sendEmail({
+		to: params.watcherEmail,
+		subject: `New ThoughtBox idea: ${params.submissionId} — ${params.ideaTitle}`,
+		template: createElement(WatcherAlert, {
+			submissionId: params.submissionId,
+			ideaTitle: params.ideaTitle,
+			ideaDescription: params.ideaDescription,
+			categoryName: params.categoryName,
+			submitterName: params.submitterName,
+			submitterDepartment: params.submitterDepartment,
+			assignedLeaderName: params.assignedLeaderName,
+			viewUrl: ideaUrl(params.submissionId),
+		}),
+	});
+}
+
 // ── Test email ───────────────────────────────────────────────────────────
 
 const TEST_TEMPLATES = [
@@ -161,6 +193,7 @@ const TEST_TEMPLATES = [
 	"idea_reassigned",
 	"message_from_leader",
 	"message_from_submitter",
+	"watcher_alert",
 ] as const;
 
 export type TestEmailTemplate = (typeof TEST_TEMPLATES)[number];
@@ -279,6 +312,20 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						messagePreview:
 							"The ID verification step takes about 15 minutes per account. If we could automate the address validation that would cut it in half.",
 						isFromLeader: false,
+						viewUrl,
+					}),
+				},
+				watcher_alert: {
+					subject: `[TEST] New ThoughtBox idea: ${sample.submissionId} — ${sample.ideaTitle}`,
+					template: createElement(WatcherAlert, {
+						submissionId: sample.submissionId,
+						ideaTitle: sample.ideaTitle,
+						ideaDescription:
+							"The current new account opening process requires members to fill out the same information multiple times. We could consolidate this into a single intake.",
+						categoryName: sample.categoryName,
+						submitterName: "Sarah Chen",
+						submitterDepartment: "Retail Banking",
+						assignedLeaderName: "Michelle Murray",
 						viewUrl,
 					}),
 				},

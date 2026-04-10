@@ -50,6 +50,14 @@ function SettingsPage() {
 
 			<div className="space-y-6">
 				<TestEmailSetting />
+				<TextSetting
+					settingKey="watcher_email"
+					title="Watcher Notification Email"
+					description="Distribution list that receives alerts on every new submission. Leave blank to disable."
+					placeholder="pdi@desertfinancial.com"
+					value={settings.watcher_email ?? ""}
+					queryClient={queryClient}
+				/>
 				<SystemPromptSetting value={settings.system_prompt ?? ""} queryClient={queryClient} />
 				<SuggestedPromptsSetting
 					value={settings.suggested_prompts ?? "[]"}
@@ -228,6 +236,62 @@ function NumberSetting({
 	);
 }
 
+function TextSetting({
+	settingKey,
+	title,
+	description,
+	placeholder,
+	value,
+	queryClient,
+}: {
+	settingKey: string;
+	title: string;
+	description: string;
+	placeholder?: string;
+	value: string;
+	queryClient: ReturnType<typeof useQueryClient>;
+}) {
+	const [draft, setDraft] = useState(value);
+	const saveFn = useServerFn(updateSetting);
+
+	const mutation = useMutation({
+		mutationFn: () => saveFn({ data: { key: settingKey, value: draft } }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+			toast.success(`${title} saved`);
+		},
+		onError: () => toast.error("Failed to save"),
+	});
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>{title}</CardTitle>
+				<CardDescription>{description}</CardDescription>
+			</CardHeader>
+			<CardContent className="space-y-3">
+				<div className="flex items-center gap-3">
+					<Input
+						value={draft}
+						onChange={(e) => setDraft(e.target.value)}
+						placeholder={placeholder}
+						className="max-w-sm"
+					/>
+					<Button
+						onClick={() => mutation.mutate()}
+						disabled={draft === value || mutation.isPending}
+						variant="outline"
+						size="sm"
+					>
+						<Check className="mr-2 size-4" />
+						{mutation.isPending ? "Saving..." : "Save"}
+					</Button>
+				</div>
+			</CardContent>
+		</Card>
+	);
+}
+
 const EMAIL_TEMPLATE_OPTIONS: { value: TestEmailTemplate; label: string }[] = [
 	{ value: "idea_submitted", label: "Idea Submitted (to submitter)" },
 	{ value: "idea_assigned", label: "Idea Assigned (to leader)" },
@@ -237,6 +301,7 @@ const EMAIL_TEMPLATE_OPTIONS: { value: TestEmailTemplate; label: string }[] = [
 	{ value: "idea_reassigned", label: "Idea Reassigned" },
 	{ value: "message_from_leader", label: "Message from Leader" },
 	{ value: "message_from_submitter", label: "Message from Submitter" },
+	{ value: "watcher_alert", label: "Watcher Alert (new submission)" },
 ];
 
 function TestEmailSetting() {

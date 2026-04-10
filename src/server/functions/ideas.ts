@@ -3,13 +3,14 @@ import { eq } from "drizzle-orm";
 import postgres from "postgres";
 import { z } from "zod";
 import { db } from "#/server/db";
-import { categories, conversations, ideaEvents, ideas, users } from "#/server/db/schema";
+import { categories, conversations, ideaEvents, ideas, settings, users } from "#/server/db/schema";
 import type { ConversationMessage } from "#/server/db/schema";
 import {
 	sendIdeaAssignedEmail,
 	sendIdeaReassignedEmail,
 	sendIdeaSubmittedEmail,
 	sendStatusChangedEmail,
+	sendWatcherAlert,
 } from "#/server/functions/email";
 import { businessDaysRemaining, calculateSlaDueDate } from "#/server/lib/sla";
 import { nextSubmissionId } from "#/server/lib/submission-id";
@@ -141,6 +142,21 @@ export const createIdea = createServerFn({ method: "POST" })
 				submitterDepartment: context.user.department,
 			});
 		}
+
+		// Fire-and-forget: notify watcher DL (if configured)
+		const watcherSetting = await db.query.settings.findFirst({
+			where: eq(settings.key, "watcher_email"),
+		});
+		sendWatcherAlert({
+			watcherEmail: watcherSetting?.value?.trim() || null,
+			submissionId,
+			ideaTitle: data.title,
+			ideaDescription: data.description,
+			categoryName: category.name,
+			submitterName: context.user.displayName,
+			submitterDepartment: context.user.department,
+			assignedLeaderName,
+		});
 
 		return {
 			data: {
