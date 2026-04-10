@@ -130,11 +130,15 @@ export async function getUserPhoto(entraId: string): Promise<Buffer | null> {
 	if (!client) return null;
 
 	try {
-		const photoBlob = await client.api(`/users/${entraId}/photo/$value`).get();
-		// Graph SDK returns an ArrayBuffer
-		return Buffer.from(photoBlob);
-	} catch {
-		// 404 if no photo uploaded
+		// Graph SDK .get() returns JSON by default — use .getStream() for binary
+		const stream = await client.api(`/users/${entraId}/photo/$value`).getStream();
+		const chunks: Buffer[] = [];
+		for await (const chunk of stream as AsyncIterable<Buffer>) {
+			chunks.push(Buffer.from(chunk));
+		}
+		return Buffer.concat(chunks);
+	} catch (err) {
+		console.log(`[graph] No photo for ${entraId}:`, err instanceof Error ? err.message : err);
 		return null;
 	}
 }

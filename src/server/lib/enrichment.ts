@@ -36,14 +36,18 @@ export async function enrichUserProfile(userId: string): Promise<void> {
 	const enrichedAt = user.profileEnrichedAt?.getTime() ?? 0;
 	if (now.getTime() - enrichedAt < ENRICHMENT_TTL_MS) return;
 
-	// Parallel Graph calls: profile + manager
+	console.log(`[enrichment] Starting for ${user.entraId}`);
+
 	const [profile, manager] = await Promise.all([
 		getUserProfile(user.entraId),
 		getUserManager(user.entraId),
 	]);
 
-	// No Graph client (dev mode) — skip
-	if (!profile) return;
+	if (!profile) {
+		console.log("[enrichment] No Graph client (dev mode), skipping");
+		return;
+	}
+	console.log(`[enrichment] Got profile: ${profile.displayName}, ${profile.department}`);
 
 	// Resolve managerId if the manager has a ThoughtBox user record
 	let managerId: string | null = null;
@@ -75,11 +79,16 @@ export async function enrichUserProfile(userId: string): Promise<void> {
 		if (photo) {
 			await mkdir(PHOTOS_DIR, { recursive: true });
 			const filename = `${user.entraId}.jpg`;
-			await writeFile(join(PHOTOS_DIR, filename), photo);
+			const photoPath = join(PHOTOS_DIR, filename);
+			await writeFile(photoPath, photo);
 			updates.photoUrl = `/api/users/${user.id}/photo`;
+			console.log(`[enrichment] Photo saved: ${photoPath} (${photo.length} bytes)`);
+		} else {
+			console.log("[enrichment] No photo returned from Graph");
 		}
 		updates.photoLastFetched = now;
 	}
 
 	await db.update(users).set(updates).where(eq(users.id, user.id));
+	console.log(`[enrichment] Done for ${user.entraId}, photoUrl=${updates.photoUrl ?? "none"}`);
 }
