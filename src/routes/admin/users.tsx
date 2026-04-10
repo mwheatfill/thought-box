@@ -149,14 +149,14 @@ function UsersPage() {
 		},
 		{
 			accessorKey: "department",
-			header: "Department",
+			header: ({ column }) => <SortableHeader column={column}>Department</SortableHeader>,
 			cell: ({ row }) => (
 				<span className="text-muted-foreground">{row.original.department ?? "—"}</span>
 			),
 		},
 		{
 			accessorKey: "role",
-			header: "Role",
+			header: ({ column }) => <SortableHeader column={column}>Role</SortableHeader>,
 			cell: ({ row }) => {
 				const u = row.original;
 				return (
@@ -194,7 +194,7 @@ function UsersPage() {
 		},
 		{
 			accessorKey: "active",
-			header: "Status",
+			header: ({ column }) => <SortableHeader column={column}>Status</SortableHeader>,
 			cell: ({ row }) => (
 				<Badge variant={row.original.active ? "default" : "outline"}>
 					{row.original.active ? "Active" : "Inactive"}
