@@ -1,10 +1,13 @@
+import { createServerFn } from "@tanstack/react-start";
 import { createElement } from "react";
+import { z } from "zod";
 import IdeaAssigned from "#/emails/IdeaAssigned";
 import IdeaReassigned from "#/emails/IdeaReassigned";
 import IdeaSubmitted from "#/emails/IdeaSubmitted";
 import NewMessage from "#/emails/NewMessage";
 import StatusChanged from "#/emails/StatusChanged";
 import { sendEmail } from "#/server/lib/email";
+import { adminMiddleware } from "#/server/middleware/auth";
 
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 
@@ -146,3 +149,142 @@ export async function sendIdeaReassignedEmail(params: {
 		}),
 	});
 }
+
+// ── Test email ───────────────────────────────────────────────────────────
+
+const TEST_TEMPLATES = [
+	"idea_submitted",
+	"idea_assigned",
+	"status_under_review",
+	"status_accepted",
+	"status_declined",
+	"idea_reassigned",
+	"message_from_leader",
+	"message_from_submitter",
+] as const;
+
+export type TestEmailTemplate = (typeof TEST_TEMPLATES)[number];
+
+export const sendTestEmail = createServerFn({ method: "POST" })
+	.middleware([adminMiddleware])
+	.inputValidator(z.object({ template: z.enum(TEST_TEMPLATES) }))
+	.handler(async ({ context, data }) => {
+		const to = context.user.email;
+		const firstName = context.user.displayName.split(" ")[0];
+		const viewUrl = ideaUrl("TB-0000");
+
+		const sample = {
+			submissionId: "TB-0000",
+			ideaTitle: "Simplify the new account opening process",
+			categoryName: "Process Improvement",
+		};
+
+		const templates: Record<TestEmailTemplate, { subject: string; template: React.ReactElement }> =
+			{
+				idea_submitted: {
+					subject: `[TEST] Your idea has been submitted: ${sample.submissionId}`,
+					template: createElement(IdeaSubmitted, {
+						submitterFirstName: firstName,
+						submissionId: sample.submissionId,
+						ideaTitle: sample.ideaTitle,
+						categoryName: sample.categoryName,
+						ideaCount: 3,
+						viewUrl,
+					}),
+				},
+				idea_assigned: {
+					subject: `[TEST] New idea assigned to you: ${sample.submissionId}`,
+					template: createElement(IdeaAssigned, {
+						leaderFirstName: firstName,
+						submissionId: sample.submissionId,
+						ideaTitle: sample.ideaTitle,
+						categoryName: sample.categoryName,
+						submitterName: "Sarah Chen",
+						submitterDepartment: "Retail Banking",
+						viewUrl,
+					}),
+				},
+				status_under_review: {
+					subject: `[TEST] Your idea is being reviewed: ${sample.submissionId}`,
+					template: createElement(StatusChanged, {
+						submitterFirstName: firstName,
+						submissionId: sample.submissionId,
+						ideaTitle: sample.ideaTitle,
+						newStatus: "under_review",
+						leaderFirstName: "Michelle",
+						leaderNotes: null,
+						rejectionReason: null,
+						viewUrl,
+					}),
+				},
+				status_accepted: {
+					subject: `[TEST] Great news about your idea: ${sample.submissionId}`,
+					template: createElement(StatusChanged, {
+						submitterFirstName: firstName,
+						submissionId: sample.submissionId,
+						ideaTitle: sample.ideaTitle,
+						newStatus: "accepted",
+						leaderFirstName: "Michelle",
+						leaderNotes:
+							"This is a great idea. We're going to pilot it at the Scottsdale branch next quarter.",
+						rejectionReason: null,
+						viewUrl,
+					}),
+				},
+				status_declined: {
+					subject: `[TEST] Update on your idea: ${sample.submissionId}`,
+					template: createElement(StatusChanged, {
+						submitterFirstName: firstName,
+						submissionId: sample.submissionId,
+						ideaTitle: sample.ideaTitle,
+						newStatus: "declined",
+						leaderFirstName: "Michelle",
+						leaderNotes: "We appreciate the suggestion but this is already in progress.",
+						rejectionReason: "already_in_progress",
+						viewUrl,
+					}),
+				},
+				idea_reassigned: {
+					subject: `[TEST] Idea reassigned to you: ${sample.submissionId}`,
+					template: createElement(IdeaReassigned, {
+						leaderFirstName: firstName,
+						submissionId: sample.submissionId,
+						ideaTitle: sample.ideaTitle,
+						categoryName: sample.categoryName,
+						submitterName: "Sarah Chen",
+						reassignedByName: "Nubia Ruiz",
+						viewUrl,
+					}),
+				},
+				message_from_leader: {
+					subject: `[TEST] A leader has a question about your idea: ${sample.ideaTitle}`,
+					template: createElement(NewMessage, {
+						recipientFirstName: firstName,
+						senderName: "Michelle Murray",
+						submissionId: sample.submissionId,
+						ideaTitle: sample.ideaTitle,
+						messagePreview:
+							"Can you share more details about the current process? Specifically, which steps take the longest?",
+						isFromLeader: true,
+						viewUrl,
+					}),
+				},
+				message_from_submitter: {
+					subject: `[TEST] The submitter responded on: ${sample.ideaTitle}`,
+					template: createElement(NewMessage, {
+						recipientFirstName: firstName,
+						senderName: "Sarah Chen",
+						submissionId: sample.submissionId,
+						ideaTitle: sample.ideaTitle,
+						messagePreview:
+							"The ID verification step takes about 15 minutes per account. If we could automate the address validation that would cut it in half.",
+						isFromLeader: false,
+						viewUrl,
+					}),
+				},
+			};
+
+		const { subject, template } = templates[data.template];
+		await sendEmail({ to, subject, template });
+		return { success: true, sentTo: to };
+	});

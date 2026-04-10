@@ -1,13 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Check } from "lucide-react";
+import { Check, Mail } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "#/components/ui/card";
 import { Input } from "#/components/ui/input";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "#/components/ui/select";
 import { Textarea } from "#/components/ui/textarea";
+import { sendTestEmail } from "#/server/functions/email";
+import type { TestEmailTemplate } from "#/server/functions/email";
 import { getSettings, updateSetting } from "#/server/functions/settings";
 
 export const Route = createFileRoute("/admin/settings")({
@@ -40,6 +49,7 @@ function SettingsPage() {
 			</div>
 
 			<div className="space-y-6">
+				<TestEmailSetting />
 				<SystemPromptSetting value={settings.system_prompt ?? ""} queryClient={queryClient} />
 				<SuggestedPromptsSetting
 					value={settings.suggested_prompts ?? "[]"}
@@ -211,6 +221,61 @@ function NumberSetting({
 					>
 						<Check className="mr-2 size-4" />
 						{mutation.isPending ? "Saving..." : "Save"}
+					</Button>
+				</div>
+			</CardContent>
+		</Card>
+	);
+}
+
+const EMAIL_TEMPLATE_OPTIONS: { value: TestEmailTemplate; label: string }[] = [
+	{ value: "idea_submitted", label: "Idea Submitted (to submitter)" },
+	{ value: "idea_assigned", label: "Idea Assigned (to leader)" },
+	{ value: "status_under_review", label: "Status: Under Review" },
+	{ value: "status_accepted", label: "Status: Accepted" },
+	{ value: "status_declined", label: "Status: Declined" },
+	{ value: "idea_reassigned", label: "Idea Reassigned" },
+	{ value: "message_from_leader", label: "Message from Leader" },
+	{ value: "message_from_submitter", label: "Message from Submitter" },
+];
+
+function TestEmailSetting() {
+	const [template, setTemplate] = useState<TestEmailTemplate>("idea_submitted");
+	const sendFn = useServerFn(sendTestEmail);
+
+	const mutation = useMutation({
+		mutationFn: () => sendFn({ data: { template } }),
+		onSuccess: (result) => {
+			toast.success(`Test email sent to ${result.sentTo}`);
+		},
+		onError: (err) => toast.error(err.message || "Failed to send test email"),
+	});
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Test Email</CardTitle>
+				<CardDescription>
+					Send a test email to your account to verify email delivery and template rendering.
+				</CardDescription>
+			</CardHeader>
+			<CardContent className="space-y-3">
+				<div className="flex items-center gap-3">
+					<Select value={template} onValueChange={(v) => setTemplate(v as TestEmailTemplate)}>
+						<SelectTrigger className="w-[280px]">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{EMAIL_TEMPLATE_OPTIONS.map((opt) => (
+								<SelectItem key={opt.value} value={opt.value}>
+									{opt.label}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					<Button onClick={() => mutation.mutate()} disabled={mutation.isPending} variant="outline">
+						<Mail className="mr-2 size-4" />
+						{mutation.isPending ? "Sending..." : "Send Test"}
 					</Button>
 				</div>
 			</CardContent>
