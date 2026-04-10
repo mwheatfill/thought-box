@@ -216,7 +216,7 @@ export const getIdeaDetail = createServerFn()
 			where: eq(ideaEvents.ideaId, idea.id),
 			orderBy: (e, { asc }) => [asc(e.createdAt)],
 			with: {
-				actor: { columns: { displayName: true } },
+				actor: { columns: { displayName: true, photoUrl: true } },
 			},
 		});
 
@@ -254,6 +254,7 @@ export const getIdeaDetail = createServerFn()
 				id: e.id,
 				eventType: e.eventType,
 				actorName: e.actor.displayName,
+				actorPhotoUrl: e.actor.photoUrl,
 				oldValue: e.oldValue,
 				newValue: e.newValue,
 				note: e.note,

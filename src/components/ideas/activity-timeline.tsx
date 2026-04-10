@@ -1,5 +1,6 @@
 import { formatDistanceToNow } from "date-fns";
 import { ArrowRight, MessageSquare, PenLine, RefreshCw, Zap } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { STATUS_LABELS } from "#/lib/constants";
 import { cn } from "#/lib/utils";
 
@@ -7,6 +8,7 @@ interface TimelineEvent {
 	id: string;
 	eventType: string;
 	actorName: string;
+	actorPhotoUrl: string | null;
 	oldValue: string | null;
 	newValue: string | null;
 	note: string | null;
@@ -38,23 +40,27 @@ export function ActivityTimeline({ events }: ActivityTimelineProps) {
 
 				return (
 					<div key={event.id} className="flex gap-3">
-						{/* Vertical line + icon */}
+						{/* Vertical line + avatar */}
 						<div className="flex flex-col items-center">
-							<div
-								className={cn(
-									"flex size-7 shrink-0 items-center justify-center rounded-full",
-									event.eventType === "message" ? "bg-blue-100 dark:bg-blue-900/30" : "bg-muted",
+							<Avatar className="size-7 shrink-0">
+								{event.actorPhotoUrl && (
+									<AvatarImage src={event.actorPhotoUrl} alt={event.actorName} />
 								)}
-							>
-								<Icon
+								<AvatarFallback
 									className={cn(
-										"size-3.5",
+										"text-[10px]",
 										event.eventType === "message"
-											? "text-blue-600 dark:text-blue-400"
-											: "text-muted-foreground",
+											? "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+											: "bg-muted text-muted-foreground",
 									)}
-								/>
-							</div>
+								>
+									{event.actorName
+										.split(" ")
+										.map((n) => n[0])
+										.join("")
+										.slice(0, 2)}
+								</AvatarFallback>
+							</Avatar>
 							{!isLast && <div className="w-px flex-1 bg-border" />}
 						</div>
 

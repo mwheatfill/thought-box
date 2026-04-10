@@ -25,6 +25,7 @@ export async function enrichUserProfile(userId: string): Promise<void> {
 		columns: {
 			id: true,
 			entraId: true,
+			photoUrl: true,
 			profileEnrichedAt: true,
 			photoLastFetched: true,
 		},
@@ -34,47 +35,57 @@ export async function enrichUserProfile(userId: string): Promise<void> {
 
 	const now = new Date();
 	const enrichedAt = user.profileEnrichedAt?.getTime() ?? 0;
-	if (now.getTime() - enrichedAt < ENRICHMENT_TTL_MS) return;
+	const profileStale = now.getTime() - enrichedAt >= ENRICHMENT_TTL_MS;
+	const photoMissing = !user.photoUrl;
+	const photoStale = now.getTime() - (user.photoLastFetched?.getTime() ?? 0) >= PHOTO_TTL_MS;
 
-	console.log(`[enrichment] Starting for ${user.entraId}`);
+	// Nothing to do
+	if (!profileStale && !photoMissing && !photoStale) return;
 
-	const [profile, manager] = await Promise.all([
-		getUserProfile(user.entraId),
-		getUserManager(user.entraId),
-	]);
+	console.log(
+		`[enrichment] Starting for ${user.entraId} (profile=${profileStale ? "stale" : "ok"}, photo=${photoMissing ? "missing" : photoStale ? "stale" : "ok"})`,
+	);
 
-	if (!profile) {
-		console.log("[enrichment] No Graph client (dev mode), skipping");
-		return;
-	}
-	console.log(`[enrichment] Got profile: ${profile.displayName}, ${profile.department}`);
+	const updates: Record<string, unknown> = { updatedAt: now };
 
-	// Resolve managerId if the manager has a ThoughtBox user record
-	let managerId: string | null = null;
-	if (manager) {
-		const managerUser = await db.query.users.findFirst({
-			where: eq(users.entraId, manager.entraId),
-			columns: { id: true },
+	// Profile + manager enrichment (24hr TTL)
+	if (profileStale) {
+		const [profile, manager] = await Promise.all([
+			getUserProfile(user.entraId),
+			getUserManager(user.entraId),
+		]);
+
+		if (!profile) {
+			console.log("[enrichment] No Graph client (dev mode), skipping");
+			return;
+		}
+
+		console.log(`[enrichment] Got profile: ${profile.displayName}, ${profile.department}`);
+
+		let managerId: string | null = null;
+		if (manager) {
+			const managerUser = await db.query.users.findFirst({
+				where: eq(users.entraId, manager.entraId),
+				columns: { id: true },
+			});
+			managerId = managerUser?.id ?? null;
+		}
+
+		Object.assign(updates, {
+			displayName: profile.displayName,
+			email: profile.email,
+			jobTitle: profile.jobTitle,
+			department: profile.department,
+			officeLocation: profile.officeLocation,
+			managerEntraId: manager?.entraId ?? null,
+			managerDisplayName: manager?.displayName ?? null,
+			managerId,
+			profileEnrichedAt: now,
 		});
-		managerId = managerUser?.id ?? null;
 	}
 
-	const updates: Record<string, unknown> = {
-		displayName: profile.displayName,
-		email: profile.email,
-		jobTitle: profile.jobTitle,
-		department: profile.department,
-		officeLocation: profile.officeLocation,
-		managerEntraId: manager?.entraId ?? null,
-		managerDisplayName: manager?.displayName ?? null,
-		managerId,
-		profileEnrichedAt: now,
-		updatedAt: now,
-	};
-
-	// Fetch photo if stale (>7 days) or never fetched
-	const photoFetchedAt = user.photoLastFetched?.getTime() ?? 0;
-	if (now.getTime() - photoFetchedAt >= PHOTO_TTL_MS) {
+	// Photo fetch — retry if missing, refresh if stale
+	if (photoMissing || photoStale) {
 		const photo = await getUserPhoto(user.entraId);
 		if (photo) {
 			await mkdir(PHOTOS_DIR, { recursive: true });
@@ -82,13 +93,18 @@ export async function enrichUserProfile(userId: string): Promise<void> {
 			const photoPath = join(PHOTOS_DIR, filename);
 			await writeFile(photoPath, photo);
 			updates.photoUrl = `/api/users/${user.id}/photo`;
+			updates.photoLastFetched = now;
 			console.log(`[enrichment] Photo saved: ${photoPath} (${photo.length} bytes)`);
 		} else {
+			// Only set photoLastFetched if we confirmed no photo exists (not on error).
+			// getUserPhoto returns null for 404 AND for errors, so we set a short TTL
+			// to retry errors sooner. A successful "no photo" returns null with a 404 log.
 			console.log("[enrichment] No photo returned from Graph");
 		}
-		updates.photoLastFetched = now;
 	}
 
 	await db.update(users).set(updates).where(eq(users.id, user.id));
-	console.log(`[enrichment] Done for ${user.entraId}, photoUrl=${updates.photoUrl ?? "none"}`);
+	console.log(
+		`[enrichment] Done for ${user.entraId}, photoUrl=${updates.photoUrl ?? user.photoUrl ?? "none"}`,
+	);
 }
