@@ -11,8 +11,11 @@ param azureClientId = '8f876f3f-82c1-46c0-abb7-73aaafde8248'
 // Graph API — fill in after app registration
 param graphClientId = ''
 
+// Custom domain
+param customDomain = 'thoughtbox.desertfinancial.com'
+
 // Email
-param sharedMailbox = ''
+param sharedMailbox = 'thoughtbox@desertfinancial.com'
 
 // AI
 param aiProvider = 'anthropic'

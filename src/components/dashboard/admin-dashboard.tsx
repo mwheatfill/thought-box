@@ -105,6 +105,7 @@ interface AdminDashboardProps {
 	byMonth?: MonthlyData[];
 	outcomeDistribution?: OutcomeData[];
 	recentActivity?: ActivityEvent[];
+	hideKpi?: boolean;
 }
 
 // ── Chart configs ─────────────────────────────────────────────────────────
@@ -136,6 +137,7 @@ export function AdminDashboard({
 	byMonth,
 	outcomeDistribution,
 	recentActivity,
+	hideKpi,
 }: AdminDashboardProps) {
 	const kpiOnly = !ideas;
 
@@ -177,14 +179,18 @@ export function AdminDashboard({
 
 	return (
 		<div className="min-w-0 space-y-6">
-			{/* Program health badge */}
-			<div className="flex items-center gap-2">
-				<Activity className={cn("size-4", healthStatus.color)} />
-				<span className={cn("text-sm font-medium", healthStatus.color)}>{healthStatus.label}</span>
-				<span className="text-xs text-muted-foreground">{healthStatus.detail}</span>
-			</div>
-
-			<KpiRow stats={stats} />
+			{!hideKpi && (
+				<>
+					<div className="flex items-center gap-2">
+						<Activity className={cn("size-4", healthStatus.color)} />
+						<span className={cn("text-sm font-medium", healthStatus.color)}>
+							{healthStatus.label}
+						</span>
+						<span className="text-xs text-muted-foreground">{healthStatus.detail}</span>
+					</div>
+					<KpiRow stats={stats} />
+				</>
+			)}
 
 			{/* Charts row */}
 			<div className="grid gap-4 lg:grid-cols-2">

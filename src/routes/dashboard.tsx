@@ -107,6 +107,7 @@ function DashboardPage() {
 										byMonth={byMonth}
 										outcomeDistribution={outcomeDistribution}
 										recentActivity={recentActivity}
+										hideKpi
 									/>
 								)}
 							</Await>

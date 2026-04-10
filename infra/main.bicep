@@ -42,6 +42,9 @@ param sharedMailbox string = ''
 @description('AI provider: anthropic or azure-openai')
 param aiProvider string = 'anthropic'
 
+@description('Custom domain hostname (e.g., thoughtbox.desertfinancial.com). Leave empty to skip.')
+param customDomain string = ''
+
 @description('Anthropic API key')
 @secure()
 param anthropicApiKey string = ''
@@ -237,6 +240,7 @@ resource appSettings 'Microsoft.Web/sites/config@2024-04-01' = {
     THOUGHTBOX_SHARED_MAILBOX: sharedMailbox
     AI_PROVIDER: aiProvider
     ANTHROPIC_API_KEY: !empty(anthropicApiKey) ? '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=anthropic-api-key)' : ''
+    APP_URL: !empty(customDomain) ? 'https://${customDomain}' : 'https://${appService.properties.defaultHostName}'
     APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
     ApplicationInsightsAgent_EXTENSION_VERSION: '~3'
     SCM_DO_BUILD_DURING_DEPLOYMENT: 'false'
@@ -270,6 +274,28 @@ resource authSettings 'Microsoft.Web/sites/config@2024-04-01' = {
         enabled: true
       }
     }
+  }
+}
+
+// ── Custom Domain ──────────────────────────────────────────────────────────
+
+resource customHostname 'Microsoft.Web/sites/hostNameBindings@2024-04-01' = if (!empty(customDomain)) {
+  parent: appService
+  name: customDomain
+  properties: {
+    siteName: appService.name
+    hostNameType: 'Verified'
+    sslState: 'Disabled'
+  }
+}
+
+resource managedCert 'Microsoft.Web/certificates@2024-04-01' = if (!empty(customDomain)) {
+  name: '${customDomain}-cert'
+  location: location
+  dependsOn: [customHostname]
+  properties: {
+    serverFarmId: appServicePlan.id
+    canonicalName: customDomain
   }
 }
 
