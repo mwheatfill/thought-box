@@ -5,7 +5,12 @@ import { z } from "zod";
 import { db } from "#/server/db";
 import { categories, conversations, ideaEvents, ideas, users } from "#/server/db/schema";
 import type { ConversationMessage } from "#/server/db/schema";
-import { sendIdeaReassignedEmail, sendStatusChangedEmail } from "#/server/functions/email";
+import {
+	sendIdeaAssignedEmail,
+	sendIdeaReassignedEmail,
+	sendIdeaSubmittedEmail,
+	sendStatusChangedEmail,
+} from "#/server/functions/email";
 import { businessDaysRemaining, calculateSlaDueDate } from "#/server/lib/sla";
 import { nextSubmissionId } from "#/server/lib/submission-id";
 import { authMiddleware, leaderMiddleware } from "#/server/middleware/auth";
@@ -97,14 +102,44 @@ export const createIdea = createServerFn({ method: "POST" })
 			});
 		}
 
-		// Look up the assigned leader's name for the confirmation message
+		// Look up leader + count submitter's ideas for emails
 		let assignedLeaderName: string | null = null;
+		let leader: { displayName: string; email: string } | null = null;
 		if (category.defaultLeaderId) {
-			const leader = await db.query.users.findFirst({
+			const found = await db.query.users.findFirst({
 				where: eq(users.id, category.defaultLeaderId),
-				columns: { displayName: true },
+				columns: { displayName: true, email: true },
 			});
+			leader = found ?? null;
 			assignedLeaderName = leader?.displayName ?? null;
+		}
+
+		const submitterIdeas = await db.query.ideas.findMany({
+			where: eq(ideas.submitterId, context.user.id),
+			columns: { id: true },
+		});
+
+		// Fire-and-forget: send confirmation to submitter
+		sendIdeaSubmittedEmail({
+			submitterEmail: context.user.email,
+			submitterFirstName: context.user.displayName.split(" ")[0],
+			submissionId,
+			ideaTitle: data.title,
+			categoryName: category.name,
+			ideaCount: submitterIdeas.length,
+		});
+
+		// Fire-and-forget: notify assigned leader
+		if (leader) {
+			sendIdeaAssignedEmail({
+				leaderEmail: leader.email,
+				leaderFirstName: leader.displayName.split(" ")[0],
+				submissionId,
+				ideaTitle: data.title,
+				categoryName: category.name,
+				submitterName: context.user.displayName,
+				submitterDepartment: context.user.department,
+			});
 		}
 
 		return {
