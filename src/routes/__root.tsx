@@ -56,29 +56,39 @@ function RootComponent() {
 	const location = useLocation();
 	const isLandingPage = location.pathname === "/";
 
-	// Sidebar is forced closed on landing page, remembers user preference elsewhere
-	const [sidebarOpen, setSidebarOpen] = useState(false);
+	// Read initial sidebar state from cookie (for non-landing pages)
+	const [sidebarOpen, setSidebarOpen] = useState(() => {
+		if (typeof document === "undefined") return false;
+		const cookie = document.cookie.split("; ").find((c) => c.startsWith("sidebar_state="));
+		return cookie?.split("=")[1] === "true";
+	});
 
-	// When navigating away from landing page, restore from cookie
+	// Landing page resets to closed on navigation, non-landing restores from cookie
 	useEffect(() => {
-		if (!isLandingPage) {
-			const cookie = document.cookie.split("; ").find((c) => c.startsWith("sidebar_state="));
-			const stored = cookie?.split("=")[1];
-			if (stored === "true") setSidebarOpen(true);
-		} else {
+		if (isLandingPage) {
 			setSidebarOpen(false);
+		} else {
+			const cookie = document.cookie.split("; ").find((c) => c.startsWith("sidebar_state="));
+			const stored = cookie?.split("=")[1] === "true";
+			setSidebarOpen(stored);
 		}
 	}, [isLandingPage]);
 
-	const handleOpenChange = useCallback((open: boolean) => {
-		setSidebarOpen(open);
-		document.cookie = `sidebar_state=${open}; path=/; max-age=${60 * 60 * 24 * 7}`;
-	}, []);
+	const handleOpenChange = useCallback(
+		(open: boolean) => {
+			setSidebarOpen(open);
+			// Only persist to cookie on non-landing pages
+			if (!isLandingPage) {
+				document.cookie = `sidebar_state=${open}; path=/; max-age=${60 * 60 * 24 * 7}`;
+			}
+		},
+		[isLandingPage],
+	);
 
 	return (
 		<QueryClientProvider client={queryClient}>
 			<TooltipProvider>
-				<SidebarProvider open={isLandingPage ? false : sidebarOpen} onOpenChange={handleOpenChange}>
+				<SidebarProvider open={sidebarOpen} onOpenChange={handleOpenChange}>
 					<AppSidebar user={user} />
 					<SidebarInset>
 						<header className="relative z-10 flex h-12 shrink-0 items-center gap-2 px-4">
