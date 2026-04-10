@@ -95,7 +95,7 @@ function DashboardPage() {
 				</div>
 
 				{data.role === "admin" && (
-					<>
+					<div className="space-y-6">
 						<AdminDashboard stats={data.stats} />
 						<Suspense fallback={<DashboardSkeleton />}>
 							<Await promise={data.deferred}>
@@ -112,7 +112,7 @@ function DashboardPage() {
 								)}
 							</Await>
 						</Suspense>
-					</>
+					</div>
 				)}
 
 				{data.role === "leader" && (
