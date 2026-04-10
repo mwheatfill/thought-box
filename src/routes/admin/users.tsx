@@ -104,6 +104,11 @@ function UsersPage() {
 		role: "leader" | "admin";
 		displayName: string;
 	} | null>(null);
+	const [pendingInvite, setPendingInvite] = useState<{
+		userId: string;
+		displayName: string;
+		email: string;
+	} | null>(null);
 
 	const inviteFn = useServerFn(sendInvite);
 	const inviteMutation = useMutation({
@@ -224,7 +229,11 @@ function UsersPage() {
 							title="Send invite email"
 							onClick={(e) => {
 								e.stopPropagation();
-								inviteMutation.mutate(row.original.id);
+								setPendingInvite({
+									userId: row.original.id,
+									displayName: row.original.displayName,
+									email: row.original.email,
+								});
 							}}
 						>
 							<Mail className="size-3.5" />
@@ -300,6 +309,39 @@ function UsersPage() {
 					queryClient.invalidateQueries({ queryKey: ["admin-users"] });
 				}}
 			/>
+
+			{/* Invite confirmation dialog */}
+			<Dialog
+				open={!!pendingInvite}
+				onOpenChange={(open) => {
+					if (!open) setPendingInvite(null);
+				}}
+			>
+				<DialogContent className="max-w-sm">
+					<DialogHeader>
+						<DialogTitle>Send Invite</DialogTitle>
+						<DialogDescription>
+							Send a ThoughtBox invite email to {pendingInvite?.displayName} at{" "}
+							{pendingInvite?.email}?
+						</DialogDescription>
+					</DialogHeader>
+					<div className="flex justify-end gap-2">
+						<Button variant="outline" onClick={() => setPendingInvite(null)}>
+							Cancel
+						</Button>
+						<Button
+							disabled={inviteMutation.isPending}
+							onClick={() => {
+								if (!pendingInvite) return;
+								inviteMutation.mutate(pendingInvite.userId);
+								setPendingInvite(null);
+							}}
+						>
+							{inviteMutation.isPending ? "Sending..." : "Send Invite"}
+						</Button>
+					</div>
+				</DialogContent>
+			</Dialog>
 
 			{/* Promotion confirmation dialog */}
 			<Dialog
