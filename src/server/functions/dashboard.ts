@@ -40,7 +40,7 @@ export const getAssignedIdeas = createServerFn()
 			orderBy: (i, { asc }) => [asc(i.slaDueDate)],
 			with: {
 				category: { columns: { name: true } },
-				submitter: { columns: { displayName: true } },
+				submitter: { columns: { displayName: true, photoUrl: true } },
 			},
 		});
 
@@ -53,6 +53,7 @@ export const getAssignedIdeas = createServerFn()
 				status: idea.status,
 				categoryName: idea.category.name,
 				submitterName: idea.submitter.displayName,
+				submitterPhotoUrl: idea.submitter.photoUrl,
 				impactArea: idea.impactArea,
 				submittedAt: idea.submittedAt.toISOString(),
 				slaDueDate: idea.slaDueDate?.toISOString() ?? null,
@@ -164,7 +165,7 @@ export const getAllIdeas = createServerFn()
 			orderBy: (i, { desc }) => [desc(i.submittedAt)],
 			with: {
 				category: { columns: { name: true } },
-				submitter: { columns: { displayName: true } },
+				submitter: { columns: { displayName: true, photoUrl: true } },
 				assignedLeader: { columns: { displayName: true } },
 			},
 		});
@@ -179,6 +180,7 @@ export const getAllIdeas = createServerFn()
 				status: idea.status,
 				categoryName: idea.category.name,
 				submitterName: idea.submitter.displayName,
+				submitterPhotoUrl: idea.submitter.photoUrl,
 				assignedLeaderName: idea.assignedLeader?.displayName ?? null,
 				impactArea: idea.impactArea,
 				submittedAt: idea.submittedAt.toISOString(),

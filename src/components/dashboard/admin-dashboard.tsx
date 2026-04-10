@@ -23,6 +23,7 @@ import {
 	YAxis,
 } from "recharts";
 import { FadeIn } from "#/components/ui/animated";
+import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import {
@@ -62,6 +63,7 @@ interface AdminIdea {
 	status: string;
 	categoryName: string;
 	submitterName: string;
+	submitterPhotoUrl: string | null;
 	assignedLeaderName: string | null;
 	submittedAt: string;
 	slaDueDate: string | null;
@@ -421,7 +423,23 @@ export function AdminDashboard({
 													{idea.title}
 												</Link>
 											</TableCell>
-											<TableCell className="text-muted-foreground">{idea.submitterName}</TableCell>
+											<TableCell>
+												<div className="flex items-center gap-2">
+													<Avatar className="size-6">
+														{idea.submitterPhotoUrl && (
+															<AvatarImage src={idea.submitterPhotoUrl} alt={idea.submitterName} />
+														)}
+														<AvatarFallback className="text-[10px]">
+															{idea.submitterName
+																.split(" ")
+																.map((n) => n[0])
+																.join("")
+																.slice(0, 2)}
+														</AvatarFallback>
+													</Avatar>
+													<span className="text-muted-foreground">{idea.submitterName}</span>
+												</div>
+											</TableCell>
 											<TableCell className="text-muted-foreground">
 												{idea.assignedLeaderName ?? "—"}
 											</TableCell>

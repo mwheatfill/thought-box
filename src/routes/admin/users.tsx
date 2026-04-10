@@ -1,19 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import {
-	Building2,
-	Loader2,
-	Plus,
-	Power,
-	Search,
-	Shield,
-	ShieldCheck,
-	User,
-	UserPlus,
-} from "lucide-react";
+import { Building2, Loader2, Plus, Power, Search, UserPlus } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
+import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent } from "#/components/ui/card";
@@ -59,12 +50,6 @@ export const Route = createFileRoute("/admin/users")({
 	loader: () => getUsers(),
 	component: UsersPage,
 });
-
-const ROLE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-	admin: ShieldCheck,
-	leader: Shield,
-	submitter: User,
-};
 
 function UsersPage() {
 	const initialUsers = Route.useLoaderData();
@@ -126,67 +111,73 @@ function UsersPage() {
 							</TableRow>
 						</TableHeader>
 						<TableBody>
-							{userList.map((u) => {
-								const RoleIcon = ROLE_ICONS[u.role] ?? User;
-								return (
-									<TableRow key={u.id} className={cn(!u.active && "opacity-50")}>
-										<TableCell>
-											<div className="flex items-center gap-2">
-												<RoleIcon className="size-4 text-muted-foreground" />
-												<div>
-													<span className="font-medium">{u.displayName}</span>
-													{!u.firstSeen && (
-														<Badge variant="outline" className="ml-2 text-[10px]">
-															Not logged in
-														</Badge>
-													)}
-												</div>
+							{userList.map((u) => (
+								<TableRow key={u.id} className={cn(!u.active && "opacity-50")}>
+									<TableCell>
+										<div className="flex items-center gap-2">
+											<Avatar className="size-7">
+												{u.photoUrl && <AvatarImage src={u.photoUrl} alt={u.displayName} />}
+												<AvatarFallback className="text-[10px]">
+													{u.displayName
+														.split(" ")
+														.map((n: string) => n[0])
+														.join("")
+														.slice(0, 2)}
+												</AvatarFallback>
+											</Avatar>
+											<div>
+												<span className="font-medium">{u.displayName}</span>
+												{!u.firstSeen && (
+													<Badge variant="outline" className="ml-2 text-[10px]">
+														Not logged in
+													</Badge>
+												)}
 											</div>
-										</TableCell>
-										<TableCell className="text-muted-foreground">{u.email}</TableCell>
-										<TableCell className="text-muted-foreground">{u.department ?? "—"}</TableCell>
-										<TableCell>
-											<Select
-												value={u.role}
-												onValueChange={(role) =>
-													roleMutation.mutate({
-														userId: u.id,
-														role: role as "submitter" | "leader" | "admin",
-													})
-												}
-											>
-												<SelectTrigger className="h-8 w-[130px]">
-													<SelectValue />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectItem value="submitter">Submitter</SelectItem>
-													<SelectItem value="leader">Leader</SelectItem>
-													<SelectItem value="admin">Admin</SelectItem>
-												</SelectContent>
-											</Select>
-										</TableCell>
-										<TableCell>
-											<Badge variant={u.active ? "default" : "outline"}>
-												{u.active ? "Active" : "Inactive"}
-											</Badge>
-										</TableCell>
-										<TableCell>
-											<Button
-												variant="ghost"
-												size="icon"
-												onClick={() =>
-													toggleMutation.mutate({
-														userId: u.id,
-														active: !u.active,
-													})
-												}
-											>
-												<Power className="size-3.5" />
-											</Button>
-										</TableCell>
-									</TableRow>
-								);
-							})}
+										</div>
+									</TableCell>
+									<TableCell className="text-muted-foreground">{u.email}</TableCell>
+									<TableCell className="text-muted-foreground">{u.department ?? "—"}</TableCell>
+									<TableCell>
+										<Select
+											value={u.role}
+											onValueChange={(role) =>
+												roleMutation.mutate({
+													userId: u.id,
+													role: role as "submitter" | "leader" | "admin",
+												})
+											}
+										>
+											<SelectTrigger className="h-8 w-[130px]">
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="submitter">Submitter</SelectItem>
+												<SelectItem value="leader">Leader</SelectItem>
+												<SelectItem value="admin">Admin</SelectItem>
+											</SelectContent>
+										</Select>
+									</TableCell>
+									<TableCell>
+										<Badge variant={u.active ? "default" : "outline"}>
+											{u.active ? "Active" : "Inactive"}
+										</Badge>
+									</TableCell>
+									<TableCell>
+										<Button
+											variant="ghost"
+											size="icon"
+											onClick={() =>
+												toggleMutation.mutate({
+													userId: u.id,
+													active: !u.active,
+												})
+											}
+										>
+											<Power className="size-3.5" />
+										</Button>
+									</TableCell>
+								</TableRow>
+							))}
 						</TableBody>
 					</Table>
 				</CardContent>
