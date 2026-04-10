@@ -4,6 +4,9 @@ import { db } from "#/server/db";
 import { users } from "#/server/db/schema";
 import { enrichUserProfile } from "#/server/lib/enrichment";
 
+// Skip enrichment DB query if checked within the last 60 seconds
+const enrichmentCache = new Map<string, number>();
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export interface AuthUser {
@@ -126,10 +129,14 @@ export const authMiddleware = createMiddleware().server(async ({ next, request }
 		throw new Error("Account deactivated");
 	}
 
-	// Fire-and-forget Graph API enrichment (respects 24hr TTL internally)
-	enrichUserProfile(user.id).catch((err) =>
-		console.error("[enrichment] Failed for user", user.id, err),
-	);
+	// Fire-and-forget enrichment — in-memory debounce avoids DB query on every request
+	const lastEnriched = enrichmentCache.get(user.id);
+	if (!lastEnriched || Date.now() - lastEnriched > 60_000) {
+		enrichmentCache.set(user.id, Date.now());
+		enrichUserProfile(user.id).catch((err) =>
+			console.error("[enrichment] Failed for user", user.id, err),
+		);
+	}
 
 	const authUser: AuthUser = {
 		id: user.id,

@@ -9,7 +9,10 @@ import { Toaster } from "#/components/ui/sonner";
 import { TooltipProvider } from "#/components/ui/tooltip";
 import { getCurrentUser } from "#/server/functions/users";
 
+import type { AuthUser } from "#/server/middleware/auth";
 import appCss from "../styles/globals.css?url";
+
+let cachedUser: AuthUser | null = null;
 
 const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('theme');var mode=(stored==='light'||stored==='dark'||stored==='auto')?stored:'auto';var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=mode==='auto'?(prefersDark?'dark':'light'):mode;var root=document.documentElement;root.classList.remove('light','dark');root.classList.add(resolved);root.style.colorScheme=resolved;}catch(e){}})();`;
 
@@ -27,7 +30,14 @@ export const Route = createRootRoute({
 		links: [{ rel: "stylesheet", href: appCss }],
 	}),
 	beforeLoad: async () => {
+		// Cache user on client after first load — only changes on login/logout (full reload)
+		if (typeof window !== "undefined" && cachedUser) {
+			return { user: cachedUser };
+		}
 		const user = await getCurrentUser();
+		if (typeof window !== "undefined") {
+			cachedUser = user;
+		}
 		return { user };
 	},
 	component: RootComponent,
