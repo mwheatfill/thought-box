@@ -12,11 +12,13 @@ import { PeopleCard } from "#/components/ideas/people-card";
 import { PageTransition } from "#/components/ui/animated";
 import { Badge } from "#/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
+import { DropZone } from "#/components/ui/drop-zone";
 import { RouteError } from "#/components/ui/route-error";
 import { Separator } from "#/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import { IMPACT_AREAS } from "#/lib/constants";
 import type { IdeaStatus } from "#/lib/constants";
+import { getIdeaAttachments } from "#/server/functions/attachments";
 import {
 	getIdeaDetail,
 	getLeadersForReassign,
@@ -55,6 +57,15 @@ function IdeaDetailPage() {
 		queryKey: ["idea-messages", idea.id],
 		queryFn: () => getIdeaMessages({ data: { ideaId: idea.id } }),
 	});
+
+	// Attachments query
+	const { data: ideaAttachments = [] } = useQuery({
+		queryKey: ["idea-attachments", idea.id],
+		queryFn: () => getIdeaAttachments({ data: { ideaId: idea.id } }),
+	});
+
+	const lockedStatuses = ["accepted", "implemented", "declined"];
+	const isLocked = lockedStatuses.includes(idea.status) && !idea.canEdit;
 
 	// Update mutation
 	const updateFn = useServerFn(updateIdea);
@@ -190,6 +201,14 @@ function IdeaDetailPage() {
 												</Badge>
 											)}
 										</TabsTrigger>
+										<TabsTrigger value="attachments">
+											Attachments
+											{ideaAttachments.length > 0 && (
+												<Badge variant="secondary" className="ml-1.5">
+													{ideaAttachments.length}
+												</Badge>
+											)}
+										</TabsTrigger>
 									</TabsList>
 								</CardHeader>
 								<CardContent className="pt-4">
@@ -204,6 +223,19 @@ function IdeaDetailPage() {
 												await messageMutation.mutateAsync(content);
 											}}
 											isSending={messageMutation.isPending}
+										/>
+									</TabsContent>
+									<TabsContent value="attachments" className="mt-0">
+										<DropZone
+											ideaId={idea.id}
+											userId={user.id}
+											disabled={isLocked}
+											existingFiles={ideaAttachments}
+											onUpload={() => {
+												queryClient.invalidateQueries({
+													queryKey: ["idea-attachments", idea.id],
+												});
+											}}
 										/>
 									</TabsContent>
 								</CardContent>
