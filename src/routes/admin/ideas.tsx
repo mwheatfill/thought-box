@@ -17,6 +17,7 @@ import { getAllIdeas } from "#/server/functions/dashboard";
 const searchSchema = z.object({
 	filter: z.enum(["thisMonth", "open", "overdue", "thisYear"]).optional(),
 	category: z.string().optional(),
+	status: z.string().optional(),
 });
 
 export const Route = createFileRoute("/admin/ideas")({
@@ -92,9 +93,10 @@ function AdminIdeasPage() {
 		}
 	}, [ideas, activeKpi, startOfMonthMs, startOfYearMs]);
 
-	const initialColumnFilters = search.category
-		? [{ id: "categoryName", value: search.category }]
-		: undefined;
+	const initialColumnFilters = [
+		...(search.category ? [{ id: "categoryName", value: search.category }] : []),
+		...(search.status ? [{ id: "status", value: search.status }] : []),
+	];
 
 	return (
 		<main className="min-w-0 p-6">
@@ -165,7 +167,9 @@ function AdminIdeasPage() {
 			<Card>
 				<CardContent className="p-0 pt-2">
 					<DataTable
-						initialColumnFilters={initialColumnFilters}
+						initialColumnFilters={
+							initialColumnFilters.length > 0 ? initialColumnFilters : undefined
+						}
 						columns={adminIdeaColumns}
 						data={filteredIdeas}
 						searchPlaceholder="Search ideas..."

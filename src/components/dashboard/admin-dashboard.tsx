@@ -353,6 +353,13 @@ export function AdminDashboard({
 											<Cell
 												key={entry.status}
 												fill={STATUS_COLORS[entry.status] ?? "var(--color-chart-1)"}
+												className="cursor-pointer"
+												onClick={() =>
+													navigate({
+														to: "/admin/ideas",
+														search: { status: entry.status },
+													})
+												}
 											/>
 										))}
 									</Pie>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Building, Lightbulb, Mail, MapPin, Sparkles, UserCheck, Users } from "lucide-react";
+import { Building, Mail, MapPin, Users } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
@@ -108,22 +108,23 @@ export function UserCardPopover({ userId, children }: UserCardPopoverProps) {
 
 						{/* Idea stats */}
 						{user.stats.totalIdeas > 0 && (
-							<div className="flex gap-3 border-t px-5 py-3.5">
-								<div className="flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-									<Lightbulb className="size-3" />
-									{user.stats.totalIdeas} ideas
+							<div className="grid grid-cols-3 border-t text-center">
+								<div className="border-r py-3">
+									<p className="text-base font-semibold">{user.stats.totalIdeas}</p>
+									<p className="text-[11px] text-muted-foreground">Ideas</p>
 								</div>
-								{user.stats.implemented > 0 && (
-									<div className="flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-										<Sparkles className="size-3" />
-										{user.stats.implemented} implemented
-									</div>
-								)}
-								{user.stats.open > 0 && (
-									<div className="flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-										{user.stats.open} open
-									</div>
-								)}
+								<div className="border-r py-3">
+									<p className="text-base font-semibold text-emerald-600 dark:text-emerald-400">
+										{user.stats.implemented}
+									</p>
+									<p className="text-[11px] text-muted-foreground">Implemented</p>
+								</div>
+								<div className="py-3">
+									<p className="text-base font-semibold text-blue-600 dark:text-blue-400">
+										{user.stats.open}
+									</p>
+									<p className="text-[11px] text-muted-foreground">Open</p>
+								</div>
 							</div>
 						)}
 					</>
