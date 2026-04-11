@@ -3,6 +3,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { formatDistanceToNow } from "date-fns";
 import {
 	Activity,
+	AlertTriangle,
 	BarChart3,
 	CheckCircle,
 	Clock,
@@ -362,9 +363,14 @@ export function AdminDashboard({
 				{/* Submissions Over Time */}
 				<Card>
 					<CardHeader>
-						<CardTitle className="flex items-center gap-2 text-sm font-medium">
-							<TrendingUp className="size-4" />
-							Submissions Over Time
+						<CardTitle className="flex items-center justify-between text-sm font-medium">
+							<span className="flex items-center gap-2">
+								<TrendingUp className="size-4" />
+								Submissions Over Time
+							</span>
+							<span className="font-normal text-muted-foreground">
+								{stats.totalThisYear} in {new Date().getFullYear()}
+							</span>
 						</CardTitle>
 					</CardHeader>
 					<CardContent>
@@ -599,9 +605,8 @@ function KpiRow({ stats }: { stats: DashboardStats }) {
 			<FadeIn delay={0}>
 				<KpiCard
 					icon={Lightbulb}
-					label="This Month"
+					label="New This Month"
 					value={stats.totalThisMonth}
-					detail={`${stats.totalThisYear} this year`}
 					onClick={() => goToIdeas("thisMonth")}
 				/>
 			</FadeIn>
@@ -610,17 +615,16 @@ function KpiRow({ stats }: { stats: DashboardStats }) {
 					icon={Inbox}
 					label="Open Ideas"
 					value={stats.openCount}
-					detail={stats.overdueCount > 0 ? `${stats.overdueCount} overdue` : "none overdue"}
-					variant={stats.overdueCount > 0 ? "warning" : "default"}
 					onClick={() => goToIdeas("open")}
 				/>
 			</FadeIn>
 			<FadeIn delay={0.1}>
 				<KpiCard
-					icon={TrendingUp}
-					label="Total This Year"
-					value={stats.totalThisYear}
-					onClick={() => goToIdeas("thisYear")}
+					icon={AlertTriangle}
+					label="Overdue"
+					value={stats.overdueCount}
+					variant={stats.overdueCount > 0 ? "destructive" : "default"}
+					onClick={() => goToIdeas("overdue")}
 				/>
 			</FadeIn>
 		</div>
