@@ -65,6 +65,7 @@ interface DropZoneProps {
 	existingFiles?: UploadedFile[];
 	disabled?: boolean;
 	compact?: boolean;
+	readOnly?: boolean;
 }
 
 export function DropZone({
@@ -76,6 +77,7 @@ export function DropZone({
 	existingFiles,
 	disabled,
 	compact,
+	readOnly,
 }: DropZoneProps) {
 	const [isDragging, setIsDragging] = useState(false);
 	const [uploading, setUploading] = useState(false);
@@ -169,7 +171,7 @@ export function DropZone({
 
 	// Document-level drag detection — fires overlay when files dragged anywhere on page
 	useEffect(() => {
-		if (compact || disabled) return;
+		if (compact || disabled || readOnly) return;
 
 		let counter = 0;
 
@@ -253,6 +255,31 @@ export function DropZone({
 		},
 		[userId, existingFiles, onDelete],
 	);
+
+	if (readOnly) {
+		return displayFiles.length > 0 ? (
+			<div className="space-y-1.5">
+				{displayFiles.map((f) => (
+					<div key={f.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
+						<a
+							href={`/api/attachments/${f.id}`}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="flex min-w-0 flex-1 items-center gap-2"
+						>
+							<FileIcon contentType={f.contentType} />
+							<span className="min-w-0 flex-1 truncate">{f.filename}</span>
+							<span className="shrink-0 text-xs text-muted-foreground">
+								{formatFileSize(f.sizeBytes)}
+							</span>
+						</a>
+					</div>
+				))}
+			</div>
+		) : (
+			<p className="py-4 text-center text-sm text-muted-foreground">No attachments</p>
+		);
+	}
 
 	if (compact) {
 		return (

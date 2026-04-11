@@ -241,7 +241,7 @@ function IdeaDetailPage() {
 										<DropZone
 											ideaId={idea.id}
 											userId={user.id}
-											disabled={isLocked}
+											readOnly={isLocked}
 											existingFiles={ideaAttachments}
 											onUpload={() => {
 												queryClient.invalidateQueries({
