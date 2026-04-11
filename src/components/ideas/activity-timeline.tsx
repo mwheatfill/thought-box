@@ -93,9 +93,9 @@ function formatEventText(event: TimelineEvent): string {
 		case "reminder_sent":
 			return `received an SLA reminder (${event.newValue}-day threshold)`;
 		case "attachment_added":
-			return `attached ${event.note ?? "a file"}`;
+			return `attached "${event.note ?? "a file"}"`;
 		case "attachment_deleted":
-			return `removed ${event.note ?? "a file"}`;
+			return `removed "${event.note ?? "a file"}"`;
 		default:
 			return "updated this idea";
 	}
