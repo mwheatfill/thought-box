@@ -8,6 +8,7 @@ import {
 	Settings,
 	Shield,
 	Tags,
+	Trash2,
 	Users,
 } from "lucide-react";
 import { ThemeToggle } from "#/components/layout/theme-toggle";
@@ -45,6 +46,7 @@ const adminNav: NavItem[] = [
 	{ label: "Users", href: "/admin/users", icon: Users },
 	{ label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
 	{ label: "Audit Log", href: "/admin/audit", icon: ClipboardList },
+	{ label: "Recycle Bin", href: "/admin/recycle-bin", icon: Trash2 },
 	{ label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
