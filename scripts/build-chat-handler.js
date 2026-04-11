@@ -77,3 +77,18 @@ await esbuild.build({
 });
 
 console.log("Attachments handler built → dist/server/attachments.js");
+
+await esbuild.build({
+	entryPoints: ["src/server/api/init-email-log.ts"],
+	bundle: true,
+	platform: "node",
+	target: "node22",
+	format: "esm",
+	outfile: "dist/server/init-email-log.js",
+	packages: "external",
+	alias: {
+		"#/*": "./src/*",
+	},
+});
+
+console.log("Email log init built → dist/server/init-email-log.js");

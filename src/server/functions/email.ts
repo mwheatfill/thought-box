@@ -30,6 +30,7 @@ export async function sendIdeaSubmittedEmail(params: {
 	await sendEmail({
 		to: params.submitterEmail,
 		subject: `Your idea has been submitted: ${params.submissionId}`,
+		templateName: "IdeaSubmitted",
 		template: createElement(IdeaSubmitted, {
 			submitterFirstName: params.submitterFirstName,
 			submissionId: params.submissionId,
@@ -54,6 +55,7 @@ export async function sendIdeaAssignedEmail(params: {
 	await sendEmail({
 		to: params.leaderEmail,
 		subject: `New idea assigned to you: ${params.submissionId}`,
+		templateName: "IdeaAssigned",
 		template: createElement(IdeaAssigned, {
 			leaderFirstName: params.leaderFirstName,
 			submissionId: params.submissionId,
@@ -86,6 +88,7 @@ export async function sendStatusChangedEmail(params: {
 	await sendEmail({
 		to: params.submitterEmail,
 		subject: subjectMap[params.newStatus],
+		templateName: "StatusChanged",
 		template: createElement(StatusChanged, {
 			submitterFirstName: params.submitterFirstName,
 			submissionId: params.submissionId,
@@ -116,6 +119,7 @@ export async function sendNewMessageEmail(params: {
 	await sendEmail({
 		to: params.recipientEmail,
 		subject,
+		templateName: "NewMessage",
 		template: createElement(NewMessage, {
 			recipientFirstName: params.recipientFirstName,
 			senderName: params.senderName,
@@ -141,6 +145,7 @@ export async function sendIdeaReassignedEmail(params: {
 	await sendEmail({
 		to: params.leaderEmail,
 		subject: `Idea reassigned to you: ${params.submissionId}`,
+		templateName: "IdeaReassigned",
 		template: createElement(IdeaReassigned, {
 			leaderFirstName: params.leaderFirstName,
 			submissionId: params.submissionId,
@@ -171,6 +176,7 @@ export async function sendWatcherAlert(params: {
 	await sendEmail({
 		to: params.watcherEmail,
 		subject: `New ThoughtBox idea: ${params.submissionId} — ${params.ideaTitle}`,
+		templateName: "WatcherAlert",
 		template: createElement(WatcherAlert, {
 			submissionId: params.submissionId,
 			ideaTitle: params.ideaTitle,
@@ -199,6 +205,7 @@ export async function sendSlaReminderEmail(params: {
 	await sendEmail({
 		to: params.leaderEmail,
 		subject: `Reminder: ${params.submissionId} needs your review (${params.daysSinceSubmission} days)`,
+		templateName: "SlaReminder",
 		template: createElement(SlaReminder, {
 			leaderFirstName: params.leaderFirstName,
 			submissionId: params.submissionId,
@@ -223,6 +230,7 @@ export async function sendUserInviteEmail(params: {
 	await sendEmail({
 		to: params.recipientEmail,
 		subject: "You've been invited to ThoughtBox",
+		templateName: "UserInvite",
 		template: createElement(UserInvite, {
 			recipientFirstName: params.recipientFirstName,
 			role: params.role,

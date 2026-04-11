@@ -26,6 +26,9 @@ const { handleChatRequest } = await import("./dist/server/chat-handler.js");
 const { handlePhotoRequest } = await import("./dist/server/photo-handler.js");
 const { handleSlaCronRequest } = await import("./dist/server/sla-cron.js");
 const { handleHealthRequest } = await import("./dist/server/health.js");
+const { init: initEmailLog } = await import("./dist/server/init-email-log.js");
+initEmailLog();
+
 const { handleAttachmentUpload, handleAttachmentDownload, handleAttachmentDelete } = await import(
 	"./dist/server/attachments.js"
 );
