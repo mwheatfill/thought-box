@@ -298,9 +298,13 @@ export function AdminDashboard({
 										fill="var(--color-count)"
 										radius={4}
 										className="cursor-pointer"
+										// @ts-expect-error recharts onClick data has dynamic shape
 										onClick={(data) => {
 											if (data?.categoryName) {
-												navigate({ to: "/admin/ideas", search: { category: data.categoryName } });
+												navigate({
+													to: "/admin/ideas",
+													search: { category: String(data.categoryName) },
+												});
 											}
 										}}
 									/>
@@ -321,12 +325,12 @@ export function AdminDashboard({
 						</CardTitle>
 					</CardHeader>
 					<CardContent>
-						{outcomeDistribution.length > 0 ? (
+						{(outcomeDistribution ?? []).length > 0 ? (
 							<ChartContainer config={outcomeConfig} className="mx-auto h-[250px] w-full">
 								<PieChart>
 									<ChartTooltip content={<ChartTooltipContent nameKey="status" />} />
 									<Pie
-										data={outcomeDistribution.map((d) => ({
+										data={(outcomeDistribution ?? []).map((d) => ({
 											...d,
 											fill: STATUS_COLORS[d.status] ?? "var(--color-chart-1)",
 										}))}
@@ -338,7 +342,7 @@ export function AdminDashboard({
 										outerRadius={90}
 										paddingAngle={2}
 									>
-										{outcomeDistribution.map((entry) => (
+										{(outcomeDistribution ?? []).map((entry) => (
 											<Cell
 												key={entry.status}
 												fill={STATUS_COLORS[entry.status] ?? "var(--color-chart-1)"}
@@ -414,7 +418,7 @@ export function AdminDashboard({
 				</Card>
 
 				{/* Recent Activity */}
-				<ActivityFeed events={recentActivity} />
+				<ActivityFeed events={recentActivity ?? []} />
 			</div>
 		</div>
 	);
@@ -598,7 +602,8 @@ function HealthBar({
 
 function KpiRow({ stats }: { stats: DashboardStats }) {
 	const navigate = useNavigate();
-	const goToIdeas = (filter: string) => navigate({ to: "/admin/ideas", search: { filter } });
+	const goToIdeas = (filter: "thisMonth" | "open" | "overdue" | "thisYear") =>
+		navigate({ to: "/admin/ideas", search: { filter } });
 
 	return (
 		<div className="grid gap-6 sm:grid-cols-3">
@@ -640,6 +645,7 @@ function KpiCard({
 	value,
 	detail,
 	variant = "default",
+	color,
 	onClick,
 }: {
 	icon: React.ComponentType<{ className?: string }>;

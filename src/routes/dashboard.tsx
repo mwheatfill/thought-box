@@ -77,10 +77,8 @@ function DashboardPage() {
 function AdminSummary({
 	data,
 }: {
-	data: {
-		stats: Awaited<ReturnType<typeof getDashboardStats>>;
-		chartsDeferred: ReturnType<typeof defer<ReturnType<typeof Promise.all>>>;
-	};
+	// biome-ignore lint/suspicious/noExplicitAny: deferred promise type is complex
+	data: { stats: Awaited<ReturnType<typeof getDashboardStats>>; chartsDeferred: any };
 }) {
 	return (
 		<div className="space-y-6">
@@ -90,16 +88,20 @@ function AdminSummary({
 			{/* Charts + activity stream in */}
 			<Suspense fallback={<DashboardSkeleton />}>
 				<Await promise={data.chartsDeferred}>
-					{([byCategory, byMonth, outcomeDistribution, recentActivity]) => (
-						<AdminDashboard
-							stats={data.stats}
-							byCategory={byCategory}
-							byMonth={byMonth}
-							outcomeDistribution={outcomeDistribution}
-							recentActivity={recentActivity}
-							hideKpi
-						/>
-					)}
+					{(result: unknown) => {
+						// biome-ignore lint/suspicious/noExplicitAny: deferred promise returns untyped tuple
+						const [byCategory, byMonth, outcomeDistribution, recentActivity] = result as any[];
+						return (
+							<AdminDashboard
+								stats={data.stats}
+								byCategory={byCategory}
+								byMonth={byMonth}
+								outcomeDistribution={outcomeDistribution}
+								recentActivity={recentActivity}
+								hideKpi
+							/>
+						);
+					}}
 				</Await>
 			</Suspense>
 
