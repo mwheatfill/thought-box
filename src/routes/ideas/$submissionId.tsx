@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { StatusBadge } from "#/components/dashboard/status-badge";
 import { ActivityTimeline } from "#/components/ideas/activity-timeline";
@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { DropZone } from "#/components/ui/drop-zone";
 import { RouteError } from "#/components/ui/route-error";
 import { Separator } from "#/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import { UserCardPopover } from "#/components/ui/user-card";
 import { IMPACT_AREAS } from "#/lib/constants";
 import type { IdeaStatus } from "#/lib/constants";
@@ -227,70 +228,70 @@ function IdeaDetailPage() {
 							</CardContent>
 						</Card>
 
-						{/* Messages */}
+						{/* Messages & Attachments */}
 						<Card>
-							<CardHeader>
-								<CardTitle className="text-sm font-medium">
-									Messages
-									{messages.length > 0 && (
-										<Badge variant="secondary" className="ml-1.5">
-											{messages.length}
-										</Badge>
-									)}
-								</CardTitle>
-							</CardHeader>
-							<CardContent>
-								<MessageThread
-									messages={messages}
-									currentUserId={user.id}
-									ideaId={idea.id}
-									onSend={async (content) => {
-										return await messageMutation.mutateAsync(content);
-									}}
-									onAttachmentUpload={() => {
-										queryClient.invalidateQueries({
-											queryKey: ["idea-attachments", idea.id],
-										});
-									}}
-									isSending={messageMutation.isPending}
-								/>
-							</CardContent>
-						</Card>
-
-						{/* Attachments (compact) */}
-						<Card>
-							<CardHeader className="pb-2">
-								<CardTitle className="text-sm font-medium text-muted-foreground">
-									Attachments
-									{ideaAttachments.length > 0 && (
-										<span className="ml-1.5 text-xs font-normal">({ideaAttachments.length})</span>
-									)}
-								</CardTitle>
-							</CardHeader>
-							<CardContent>
-								<DropZone
-									ideaId={idea.id}
-									userId={user.id}
-									readOnly={isLocked}
-									existingFiles={ideaAttachments}
-									onUpload={() => {
-										queryClient.invalidateQueries({
-											queryKey: ["idea-attachments", idea.id],
-										});
-										queryClient.invalidateQueries({
-											queryKey: ["idea", submissionId],
-										});
-									}}
-									onDelete={() => {
-										queryClient.invalidateQueries({
-											queryKey: ["idea-attachments", idea.id],
-										});
-										queryClient.invalidateQueries({
-											queryKey: ["idea", submissionId],
-										});
-									}}
-								/>
-							</CardContent>
+							<Tabs defaultValue="messages">
+								<CardHeader className="pb-0">
+									<TabsList>
+										<TabsTrigger value="messages">
+											Messages
+											{messages.length > 0 && (
+												<Badge variant="secondary" className="ml-1.5">
+													{messages.length}
+												</Badge>
+											)}
+										</TabsTrigger>
+										<TabsTrigger value="attachments" className="gap-1">
+											<Paperclip className="size-3.5" />
+											{ideaAttachments.length > 0 && (
+												<Badge variant="secondary">{ideaAttachments.length}</Badge>
+											)}
+										</TabsTrigger>
+									</TabsList>
+								</CardHeader>
+								<CardContent className="pt-4">
+									<TabsContent value="messages" className="mt-0">
+										<MessageThread
+											messages={messages}
+											currentUserId={user.id}
+											ideaId={idea.id}
+											onSend={async (content) => {
+												return await messageMutation.mutateAsync(content);
+											}}
+											onAttachmentUpload={() => {
+												queryClient.invalidateQueries({
+													queryKey: ["idea-attachments", idea.id],
+												});
+											}}
+											isSending={messageMutation.isPending}
+										/>
+									</TabsContent>
+									<TabsContent value="attachments" className="mt-0">
+										<DropZone
+											ideaId={idea.id}
+											userId={user.id}
+											readOnly={isLocked}
+											existingFiles={ideaAttachments}
+											onUpload={() => {
+												queryClient.invalidateQueries({
+													queryKey: ["idea-attachments", idea.id],
+												});
+												queryClient.invalidateQueries({
+													queryKey: ["idea", submissionId],
+												});
+											}}
+											onDelete={() => {
+												queryClient.invalidateQueries({
+													queryKey: ["idea-attachments", idea.id],
+												});
+												queryClient.invalidateQueries({
+													queryKey: ["idea", submissionId],
+												});
+											}}
+										/>
+									</TabsContent>
+								</CardContent>
+							</Tabs>
 						</Card>
 					</div>
 
