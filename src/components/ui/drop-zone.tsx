@@ -313,7 +313,7 @@ export function DropZone({
 							{!disabled && (
 								<button
 									type="button"
-									className="shrink-0 rounded p-0.5 text-destructive opacity-0 transition-opacity hover:bg-destructive/10 group-hover:opacity-100"
+									className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-foreground/10 hover:text-foreground group-hover:opacity-100"
 									title="Delete file"
 									onClick={async () => {
 										const res = await fetch(`/api/attachments/${f.id}`, {
