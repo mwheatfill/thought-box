@@ -22,7 +22,8 @@ param aiProvider = 'anthropic'
 
 // Monitoring — alert notifications
 param alertEmail = 'thoughtbox@desertfinancial.com'
-param appInsightsApiKey = 'sraj4m77fyo7ysxeoxfdiyxnebm4sseq78zk74k0'
+// Supplied at deployment time — do not hardcode
+param appInsightsApiKey = ''
 
 // Easy Auth client secret — supplied at deployment time
 param easyAuthClientSecret = ''

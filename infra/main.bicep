@@ -139,6 +139,22 @@ resource secretAnthropicApiKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = 
   }
 }
 
+resource secretAppInsightsApiKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(appInsightsApiKey)) {
+  parent: keyVault
+  name: 'appinsights-api-key'
+  properties: {
+    value: appInsightsApiKey
+  }
+}
+
+resource secretEasyAuthClientSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(easyAuthClientSecret)) {
+  parent: keyVault
+  name: 'easy-auth-client-secret'
+  properties: {
+    value: easyAuthClientSecret
+  }
+}
+
 // ── PostgreSQL Flexible Server ─────────────────────────────────────────────
 
 resource postgresServer 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' = {
@@ -318,9 +334,9 @@ resource appSettings 'Microsoft.Web/sites/config@2024-04-01' = {
     ANTHROPIC_API_KEY: !empty(anthropicApiKey) ? '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=anthropic-api-key)' : ''
     APP_URL: !empty(customDomain) ? 'https://${customDomain}' : 'https://${appService.properties.defaultHostName}'
     APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
-    APPINSIGHTS_API_KEY: appInsightsApiKey
+    APPINSIGHTS_API_KEY: !empty(appInsightsApiKey) ? '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=appinsights-api-key)' : ''
     ApplicationInsightsAgent_EXTENSION_VERSION: '~3'
-    MICROSOFT_PROVIDER_AUTHENTICATION_SECRET: easyAuthClientSecret
+    MICROSOFT_PROVIDER_AUTHENTICATION_SECRET: !empty(easyAuthClientSecret) ? '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=easy-auth-client-secret)' : ''
     SCM_DO_BUILD_DURING_DEPLOYMENT: 'false'
     WEBSITE_RUN_FROM_PACKAGE: '1'
     WEBSITE_HTTPLOGGING_RETENTION_DAYS: '3'
