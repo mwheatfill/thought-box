@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Building, Mail, MapPin, MessageSquare, Users } from "lucide-react";
+import { Building, MapPin, Users } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
@@ -125,8 +125,11 @@ export function UserCardPopover({ userId, children }: UserCardPopoverProps) {
 								href={`mailto:${user.email}`}
 								className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
 							>
-								<Mail className="size-3.5" />
-								Email
+								<svg className="size-4" viewBox="0 0 24 24" fill="none">
+									<path d="M22 6.5V17.5C22 18.88 20.88 20 19.5 20H4.5C3.12 20 2 18.88 2 17.5V6.5C2 5.12 3.12 4 4.5 4H19.5C20.88 4 22 5.12 22 6.5Z" fill="#0078D4" />
+									<path d="M22 6.5L12 13L2 6.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+								</svg>
+								Outlook
 							</a>
 							<a
 								href={`https://teams.microsoft.com/l/chat/0/0?users=${encodeURIComponent(user.email)}`}
@@ -134,8 +137,14 @@ export function UserCardPopover({ userId, children }: UserCardPopoverProps) {
 								rel="noopener noreferrer"
 								className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
 							>
-								<MessageSquare className="size-3.5" />
-								Teams Chat
+								<svg className="size-4" viewBox="0 0 24 24" fill="none">
+									<path d="M20.5 7H16V3.5C16 2.67 16.67 2 17.5 2H19C19.83 2 20.5 2.67 20.5 3.5V7Z" fill="#5B5FC7" />
+									<path d="M16 7H3.5C2.67 7 2 7.67 2 8.5V18.5C2 19.33 2.67 20 3.5 20H16.5C17.33 20 18 19.33 18 18.5V9C18 7.9 17.1 7 16 7Z" fill="#5B5FC7" />
+									<path d="M22 9.5V16.5C22 17.33 21.33 18 20.5 18H18V9C18 7.9 17.1 7 16 7H20.5C21.33 7 22 7.67 22 8.5V9.5Z" fill="#7B83EB" />
+									<circle cx="19.5" cy="4.5" r="2" fill="#7B83EB" />
+									<path d="M6 13H14M6 16H11" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+								</svg>
+								Teams
 							</a>
 						</div>
 
