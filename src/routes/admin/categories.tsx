@@ -318,13 +318,16 @@ function CategoriesPage() {
 
 			{/* Recently deleted toggle */}
 			{deletedCats.length > 0 && (
-				<div className="mt-4">
+				<div className="mt-4 flex justify-end">
 					<button
 						type="button"
 						onClick={() => setShowDeleted(!showDeleted)}
-						className="text-xs text-muted-foreground hover:text-foreground"
+						className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
 					>
-						{showDeleted ? "Hide" : "Show"} recently deleted ({deletedCats.length})
+						Recently deleted
+						<Badge variant="secondary" className="text-[10px]">
+							{deletedCats.length}
+						</Badge>
 					</button>
 					{showDeleted && (
 						<Card className="mt-2">
