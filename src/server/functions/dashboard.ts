@@ -40,7 +40,7 @@ export const getAssignedIdeas = createServerFn()
 			orderBy: (i, { asc }) => [asc(i.slaDueDate)],
 			with: {
 				category: { columns: { name: true } },
-				submitter: { columns: { displayName: true, photoUrl: true } },
+				submitter: { columns: { id: true, displayName: true, photoUrl: true } },
 			},
 		});
 
@@ -52,6 +52,7 @@ export const getAssignedIdeas = createServerFn()
 				title: idea.title,
 				status: idea.status,
 				categoryName: idea.category.name,
+				submitterId: idea.submitter.id,
 				submitterName: idea.submitter.displayName,
 				submitterPhotoUrl: idea.submitter.photoUrl,
 				impactArea: idea.impactArea,
@@ -165,8 +166,8 @@ export const getAllIdeas = createServerFn()
 			orderBy: (i, { desc }) => [desc(i.submittedAt)],
 			with: {
 				category: { columns: { name: true } },
-				submitter: { columns: { displayName: true, photoUrl: true } },
-				assignedLeader: { columns: { displayName: true } },
+				submitter: { columns: { id: true, displayName: true, photoUrl: true } },
+				assignedLeader: { columns: { id: true, displayName: true } },
 			},
 		});
 
@@ -179,8 +180,10 @@ export const getAllIdeas = createServerFn()
 				description: idea.description,
 				status: idea.status,
 				categoryName: idea.category.name,
+				submitterId: idea.submitter.id,
 				submitterName: idea.submitter.displayName,
 				submitterPhotoUrl: idea.submitter.photoUrl,
+				assignedLeaderId: idea.assignedLeader?.id ?? null,
 				assignedLeaderName: idea.assignedLeader?.displayName ?? null,
 				impactArea: idea.impactArea,
 				submittedAt: idea.submittedAt.toISOString(),

@@ -15,6 +15,7 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "#/components/ui/button";
 import { Textarea } from "#/components/ui/textarea";
+import { UserCardPopover } from "#/components/ui/user-card";
 import { cn } from "#/lib/utils";
 
 const ALLOWED_TYPES = new Set([
@@ -256,7 +257,16 @@ export function MessageThread({
 										isOwn ? "bg-primary text-primary-foreground" : "bg-muted",
 									)}
 								>
-									{!isOwn && <p className="mb-0.5 text-xs font-medium">{msg.actorName}</p>}
+									{!isOwn && msg.actorId && (
+										<UserCardPopover userId={msg.actorId}>
+											<button
+												type="button"
+												className="mb-0.5 text-xs font-medium hover:text-primary hover:underline"
+											>
+												{msg.actorName}
+											</button>
+										</UserCardPopover>
+									)}
 									{msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
 									{msg.attachments && msg.attachments.length > 0 && (
 										<div className={cn("space-y-1", msg.content && "mt-1.5")}>

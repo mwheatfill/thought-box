@@ -1,11 +1,13 @@
 import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
+import { UserCardPopover } from "#/components/ui/user-card";
 import { STATUS_LABELS } from "#/lib/constants";
 import { cn } from "#/lib/utils";
 
 interface TimelineEvent {
 	id: string;
 	eventType: string;
+	actorId: string;
 	actorName: string;
 	actorPhotoUrl: string | null;
 	oldValue: string | null;
@@ -57,7 +59,12 @@ export function ActivityTimeline({ events }: ActivityTimelineProps) {
 						{/* Content */}
 						<div className={cn("pb-4", isLast && "pb-0")}>
 							<p className="text-sm">
-								<span className="font-medium">{event.actorName}</span> {formatEventText(event)}
+								<UserCardPopover userId={event.actorId}>
+									<button type="button" className="font-medium hover:text-primary hover:underline">
+										{event.actorName}
+									</button>
+								</UserCardPopover>{" "}
+								{formatEventText(event)}
 							</p>
 							{event.eventType === "message" && event.note && (
 								<div className="mt-1 rounded-md bg-muted px-3 py-2 text-sm">{event.note}</div>

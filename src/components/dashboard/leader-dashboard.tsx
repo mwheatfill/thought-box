@@ -16,6 +16,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "#/components/ui/select";
+import { UserCardPopover } from "#/components/ui/user-card";
 import { OPEN_STATUSES, STATUS_LABELS } from "#/lib/constants";
 import { cn } from "#/lib/utils";
 import { SlaIndicator } from "./sla-indicator";
@@ -27,6 +28,7 @@ interface LeaderIdea {
 	title: string;
 	status: string;
 	categoryName: string;
+	submitterId: string;
 	submitterName: string;
 	submitterPhotoUrl: string | null;
 	submittedAt: string;
@@ -78,21 +80,23 @@ const leaderColumns: ColumnDef<LeaderIdea, unknown>[] = [
 		accessorKey: "submitterName",
 		header: ({ column }) => <SortableHeader column={column}>Submitter</SortableHeader>,
 		cell: ({ row }) => (
-			<div className="flex items-center gap-2">
-				<Avatar className="size-6">
-					{row.original.submitterPhotoUrl && (
-						<AvatarImage src={row.original.submitterPhotoUrl} alt={row.original.submitterName} />
-					)}
-					<AvatarFallback className="text-[10px]">
-						{row.original.submitterName
-							.split(" ")
-							.map((n) => n[0])
-							.join("")
-							.slice(0, 2)}
-					</AvatarFallback>
-				</Avatar>
-				<span className="text-muted-foreground">{row.original.submitterName}</span>
-			</div>
+			<UserCardPopover userId={row.original.submitterId}>
+				<button type="button" className="flex items-center gap-2 hover:text-primary">
+					<Avatar className="size-6">
+						{row.original.submitterPhotoUrl && (
+							<AvatarImage src={row.original.submitterPhotoUrl} alt={row.original.submitterName} />
+						)}
+						<AvatarFallback className="text-[10px]">
+							{row.original.submitterName
+								.split(" ")
+								.map((n) => n[0])
+								.join("")
+								.slice(0, 2)}
+						</AvatarFallback>
+					</Avatar>
+					<span className="text-muted-foreground">{row.original.submitterName}</span>
+				</button>
+			</UserCardPopover>
 		),
 	},
 	{

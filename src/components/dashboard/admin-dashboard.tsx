@@ -58,8 +58,10 @@ export interface AdminIdea {
 	title: string;
 	status: string;
 	categoryName: string;
+	submitterId: string;
 	submitterName: string;
 	submitterPhotoUrl: string | null;
+	assignedLeaderId: string | null;
 	assignedLeaderName: string | null;
 	submittedAt: string;
 	slaDueDate: string | null;
@@ -153,29 +155,38 @@ export const adminIdeaColumns: ColumnDef<AdminIdea, unknown>[] = [
 		accessorKey: "submitterName",
 		header: ({ column }) => <SortableHeader column={column}>Submitter</SortableHeader>,
 		cell: ({ row }) => (
-			<div className="flex items-center gap-2">
-				<Avatar className="size-6">
-					{row.original.submitterPhotoUrl && (
-						<AvatarImage src={row.original.submitterPhotoUrl} alt={row.original.submitterName} />
-					)}
-					<AvatarFallback className="text-[10px]">
-						{row.original.submitterName
-							.split(" ")
-							.map((n) => n[0])
-							.join("")
-							.slice(0, 2)}
-					</AvatarFallback>
-				</Avatar>
-				<span className="text-muted-foreground">{row.original.submitterName}</span>
-			</div>
+			<UserCardPopover userId={row.original.submitterId}>
+				<button type="button" className="flex items-center gap-2 hover:text-primary">
+					<Avatar className="size-6">
+						{row.original.submitterPhotoUrl && (
+							<AvatarImage src={row.original.submitterPhotoUrl} alt={row.original.submitterName} />
+						)}
+						<AvatarFallback className="text-[10px]">
+							{row.original.submitterName
+								.split(" ")
+								.map((n) => n[0])
+								.join("")
+								.slice(0, 2)}
+						</AvatarFallback>
+					</Avatar>
+					<span className="text-muted-foreground">{row.original.submitterName}</span>
+				</button>
+			</UserCardPopover>
 		),
 	},
 	{
 		accessorKey: "assignedLeaderName",
 		header: ({ column }) => <SortableHeader column={column}>Assigned To</SortableHeader>,
-		cell: ({ row }) => (
-			<span className="text-muted-foreground">{row.original.assignedLeaderName ?? "—"}</span>
-		),
+		cell: ({ row }) =>
+			row.original.assignedLeaderId ? (
+				<UserCardPopover userId={row.original.assignedLeaderId}>
+					<button type="button" className="text-muted-foreground hover:text-primary">
+						{row.original.assignedLeaderName}
+					</button>
+				</UserCardPopover>
+			) : (
+				<span className="text-muted-foreground">—</span>
+			),
 	},
 	{
 		accessorKey: "categoryName",

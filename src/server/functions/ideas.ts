@@ -270,6 +270,7 @@ export const getIdeaDetail = createServerFn()
 			events: events.map((e) => ({
 				id: e.id,
 				eventType: e.eventType,
+				actorId: e.actorId,
 				actorName: e.actor.displayName,
 				actorPhotoUrl: e.actor.photoUrl,
 				oldValue: e.oldValue,
