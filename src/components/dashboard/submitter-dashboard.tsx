@@ -37,7 +37,7 @@ const submitterColumns: ColumnDef<SubmitterIdea, unknown>[] = [
 			<Link
 				to="/ideas/$submissionId"
 				params={{ submissionId: row.original.submissionId }}
-				className="font-medium hover:underline"
+				className="font-medium"
 				onClick={(e) => e.stopPropagation()}
 			>
 				{row.original.title}
