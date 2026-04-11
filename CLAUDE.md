@@ -636,29 +636,54 @@ Everything else in this file (TanStack Start patterns, coding standards, React p
 - System prompt and category taxonomy loaded from database on each conversation
 - Suggested prompt pills from settings
 
-**Dashboard:**
-- Role-based tabs: Program (admin), My Queue (leader), My Ideas (submitter)
-- Admin sees all three tabs, leader sees queue + ideas, submitter sees ideas only
-- Streaming SSR: KPI cards render instantly, charts/tables stream in with skeleton loading
-- DataTable component (TanStack Table + shadcn) with search, sort, faceted filters, pagination
+**Dashboard & Navigation:**
+- Summary-only dashboard: admin sees KPIs + charts + activity + link cards, leader sees KPIs + queue preview + link, submitter redirects to /my-ideas
+- Dedicated routes: `/my-ideas` (submitter), `/queue` (leader), `/admin/ideas` (admin full table)
+- Role-aware sidebar: admin (Submit, Dashboard, All Ideas, My Queue, My Ideas + admin section), leader (Submit, Dashboard, My Queue), submitter (Submit, My Ideas)
+- Clickable KPI cards as filters across all pages — click to filter table, ring highlight on active, click again to clear
+- KPI colors: amber (new/ideas), blue (open/in progress), red (overdue), emerald (implemented/closed/total year), purple (total assigned)
+- Shared KpiCard component (`src/components/ui/kpi-card.tsx`) with color, variant, onClick, isActive props
+- Dashboard KPIs navigate to `/admin/ideas?filter=X` with search param support
+- Chart bars clickable — category bar chart navigates to `/admin/ideas?category=X`, pie chart slices navigate to `/admin/ideas?status=X`
+- Recent Activity: expandable (show all N events), idea IDs link to detail, actor names open UserCardPopover
+- Health status bar with inline SLA compliance + avg close time metrics
+- Streaming SSR: KPI cards render instantly, charts stream in with skeleton loading
+- DataTable component (TanStack Table + shadcn) with global search across all columns, sort, faceted filters, pagination, initialColumnFilters prop for URL-driven filtering
 - Full-row click navigation to idea detail
-- Leader queue has checkbox row selection with bulk status update
+- Leader queue: checkbox row selection, bulk status update, clickable KPIs (My Open default, Overdue, Closed, Total Assigned)
+- My Ideas: clickable stat cards (Ideas This Year, In Progress, Implemented) as filters, status pipeline visualization
 - Export CSV on admin table
 
 **Idea Detail Page:**
-- Two-column layout: idea content + leader actions sidebar
-- People card with photo, job title, department, manager
-- Activity timeline with actor avatars
-- Messages tab with chat-style thread (leader-submitter communication)
+- Two-column layout: idea content (left) + SLA/actions/activity (right)
+- Compact submitter row with avatar + clickable name (UserCardPopover) + date
+- Colored pills for category (purple) and impact area (amber)
+- SLA progress bars (green → yellow → red based on elapsed calendar time)
+- Activity timeline in right sidebar with expand/collapse (first 5, then "Show all")
+- Messages + Attachments in tabs — Messages default, Attachments as paperclip icon tab
+- File attachments: read-only mode on locked ideas (files viewable, not editable)
 - Leader actions: status update, notes, rejection reason, reassignment, "Send Update" message
+- UserCardPopover on submitter name, assigned leader, activity actors, message senders
+- Browser history back navigation (not hardcoded /dashboard)
 - Per-route error boundary (not-found variant)
 
+**UserCardPopover** (`src/components/ui/user-card.tsx`):
+- Reusable popover on any user name — wired into tables, activity feeds, messages, audit log, idea detail
+- Lazy-loaded via TanStack Query (fetches on open, 60s stale time)
+- Teams presence indicator (Graph API `/users/{entraId}/presence`, requires `Presence.Read.All`)
+- Presence dot: plain colored dot for Available/Busy/Away, dot with icon for DND/Offline
+- Action buttons: Outlook (web compose deep link) + Teams Chat (teams.microsoft.com deep link)
+- Profile: photo, name, job title, colored role pill (purple admin, blue leader, green submitter)
+- Details: department, office, manager, email
+- Idea stats grid: total / implemented / open
+- Server function: `getUserCard` with parallel user + ideas queries
+
 **Admin Pages:**
-- Categories: CRUD, sort order, routing type (thoughtbox/redirect), default leader assignment
-- Users: DataTable with search/sort/filter, directory search (Entra ID), role management, activate/deactivate
+- Categories: CRUD, sort order, routing type (thoughtbox/redirect), default leader assignment, search across name/description/leader
+- Users: DataTable with global search (name, email, department, job title), sort/filter, directory search (Entra ID), role management, activate/deactivate
 - Users: invite email on add (checkbox, default checked for leader/admin), resend invite button with confirmation dialog, promotion dialog with invite option
 - Settings: system prompt, suggested prompts, system notifications email, SLA business days, SLA reminder thresholds (New 5/14 days, Under Review 30 days), social proof threshold, test email sender (all 12 templates)
-- Audit Log: searchable/filterable DataTable of all platform actions (idea CRUD, user changes, settings updates)
+- Audit Log: searchable/filterable DataTable, actor names with UserCardPopover, resource column links to ideas/users/categories
 - Analytics: KPI cards (unique users, requests, errors, error rate) + daily traffic chart from App Insights API
 
 **Email System:**
@@ -667,6 +692,15 @@ Everything else in this file (TanStack Start patterns, coding standards, React p
 - Shared mailbox: thoughtbox@desertfinancial.com
 - APP_URL configured for email links
 - Test email sender on admin settings page
+
+**File Attachments:**
+- Azure Blob Storage (`stdfthoughtboxprod/attachments`) with managed identity (ManagedIdentityCredential)
+- Upload API with drag-and-drop, paste, browse — full-viewport drag overlay
+- File type validation (images, PDFs, Office docs, CSV, text) + 10MB max + magic byte validation
+- Soft delete with deletedAt/deletedById
+- Read-only mode on locked ideas (files viewable, not uploadable/deletable)
+- Batch upload toasts (single toast for multi-file drops)
+- Profile photos migrated from filesystem to Blob Storage (`stdfthoughtboxprod/photos`)
 
 **SLA Reminders:**
 - In-process timer runs every minute, triggers at 8am Phoenix time (UTC-7)
@@ -684,6 +718,10 @@ Everything else in this file (TanStack Start patterns, coding standards, React p
 **Monitoring & Analytics:**
 - App Insights Node SDK: auto-collects requests, exceptions, dependencies, performance
 - App Insights browser SDK: client-side page views and sessions (via connection string)
+- App Insights trackEvent at key business moments: IdeaSubmitted, IdeaStatusChanged, BulkStatusChanged, EmailSent, EmailFailed, UserAdded, UserRoleChanged, ChatStarted, FileUploaded (via callback pattern in `src/server/lib/telemetry.ts`)
+- Azure Monitor alerts (Bicep IaC): HTTP 5xx, failed dependencies, exceptions, slow response time, availability test on /health (3 US locations), PostgreSQL CPU/storage
+- Easy Auth `excludedPaths` for `/health` so availability tests pass
+- Email log table: tracks every send attempt (sent/failed/dev_skipped) with template, recipient, error
 - Clarity: session recordings, heatmaps, rage clicks (project ID: w9sdqqjw4a)
 - Health endpoint: GET /health — DB ping, returns 200/503, Azure health check configured
 - Analytics admin page queries App Insights REST API (needs APPINSIGHTS_API_KEY app setting)
@@ -692,7 +730,8 @@ Everything else in this file (TanStack Start patterns, coding standards, React p
 - Azure App Service Easy Auth (Entra ID)
 - Auth middleware: parses x-ms-client-principal header, auto-creates users on first login, refreshes displayName/email from claims
 - Profile enrichment via Graph API: profile fields, manager, photo (fire-and-forget, 24hr/7day TTLs, 60s in-memory debounce)
-- Profile photos cached to /home/photos/ on Azure, served via /api/users/:id/photo endpoint
+- Profile photos cached in Azure Blob Storage (`stdfthoughtboxprod/photos`), served via /api/users/:id/photo endpoint
+- Teams presence via Graph API (`Presence.Read.All` application permission)
 - SVG initials avatar fallback with hash-based consistent color
 - Enrichment triggers on login AND admin user add/update
 - Graceful auth expiry: client-side navigation with expired session triggers full reload → Easy Auth redirect
@@ -708,6 +747,14 @@ Everything else in this file (TanStack Start patterns, coding standards, React p
 - Blue primary color in both themes
 - Green Active badges on users table
 
+**Infrastructure (Bicep IaC):**
+- Storage account with blob soft delete (14 days), container soft delete (14 days), blob versioning
+- Storage Blob Data Contributor RBAC for App Service managed identity
+- Shared key access disabled (managed identity only)
+- PostgreSQL backup retention: 14 days
+- Azure Monitor: action group, availability test (3 US locations), log alerts (5xx, dependencies, exceptions, response time), metric alerts (PostgreSQL CPU, storage)
+- Easy Auth excludedPaths for /health
+
 **Performance:**
 - Client-side user cache (skips getCurrentUser() server call on navigations)
 - Prefetch on intent with 30s stale time
@@ -722,7 +769,7 @@ Everything else in this file (TanStack Start patterns, coding standards, React p
 3. Import in `server-adapter.js`
 4. Route match before the TanStack Start fallback
 
-Currently four custom routes: `/api/chat` (chat-handler.js), `/api/users/:id/photo` (photo-handler.js), `/api/cron/sla` (sla-cron.js), and `/health` (health.js).
+Currently six custom routes: `/api/chat` (chat-handler.js), `/api/users/:id/photo` (photo-handler.js), `/api/cron/sla` (sla-cron.js), `/health` (health.js), `/api/attachments` (attachments.js), plus `init-email-log.js` (server startup init for email logging + telemetry callbacks).
 
 **Never use `process.env.*` for runtime checks in vite-bundled server code.** Vite replaces `process.env.X` with the build-time value (usually `undefined`). Use `process.cwd()` or other runtime values. Example: `process.cwd().startsWith("/home/site")` to detect Azure App Service.
 
@@ -731,10 +778,9 @@ Currently four custom routes: `/api/chat` (chat-handler.js), `/api/users/:id/pho
 ### Backlog (Phase 2)
 
 1. **SLA escalation chain** — escalate past leader to manager → HR/AVP/VP. Needs business rules for escalation thresholds and recipients.
-2. **File attachments on ideas** — Azure Blob Storage for uploads (browse, drag-and-drop, paste screenshots). Also migrate profile photos from /home/ filesystem to Blob Storage.
-3. **Abandoned conversation saving** — save AI chat conversations on page unmount or 30s inactivity. Captures data currently being lost.
-4. **Watcher subscriptions per-category** — let admins configure different notification DLs per category instead of one global DL.
-5. **Full notification system** — per-idea follow/subscribe, in-app notification bell with unread counts, notification preferences per user.
-- Azure Blob Storage for photos (currently filesystem)
-- Keystone conditional fields
-- AI-powered insights for admins
+2. **Abandoned conversation saving** — save AI chat conversations on page unmount or 30s inactivity. Captures data currently being lost.
+3. **Watcher subscriptions per-category** — let admins configure different notification DLs per category instead of one global DL.
+4. **Full notification system** — per-idea follow/subscribe, in-app notification bell with unread counts, notification preferences per user.
+5. **AI-powered insights for admins** — trend analysis, category recommendations, idea clustering.
+6. **Admin email log page** — UI for viewing email_log table (who got emails, which failed).
+7. **Deploy Azure Monitor alerts** — run `az deployment group create -g rg-df-thoughtbox-prod -f infra/main.bicep -p infra/parameters/prod.bicepparam` to provision alerts, availability test, and storage account defined in Bicep.
