@@ -607,6 +607,7 @@ function KpiRow({ stats }: { stats: DashboardStats }) {
 					icon={Lightbulb}
 					label="New This Month"
 					value={stats.totalThisMonth}
+					color="amber"
 					onClick={() => goToIdeas("thisMonth")}
 				/>
 			</FadeIn>
@@ -615,6 +616,7 @@ function KpiRow({ stats }: { stats: DashboardStats }) {
 					icon={Inbox}
 					label="Open Ideas"
 					value={stats.openCount}
+					color="blue"
 					onClick={() => goToIdeas("open")}
 				/>
 			</FadeIn>
@@ -624,6 +626,7 @@ function KpiRow({ stats }: { stats: DashboardStats }) {
 					label="Overdue"
 					value={stats.overdueCount}
 					variant={stats.overdueCount > 0 ? "destructive" : "default"}
+					color={stats.overdueCount > 0 ? "red" : undefined}
 					onClick={() => goToIdeas("overdue")}
 				/>
 			</FadeIn>
@@ -644,9 +647,10 @@ function KpiCard({
 	value: number | string;
 	detail?: string;
 	variant?: "default" | "success" | "warning" | "destructive";
+	color?: "amber" | "blue" | "red";
 	onClick?: () => void;
 }) {
-	const colorMap = {
+	const variantColors = {
 		default: { bg: "bg-muted", icon: "text-muted-foreground", value: "" },
 		success: {
 			bg: "bg-green-100 dark:bg-green-900/30",
@@ -665,7 +669,14 @@ function KpiCard({
 		},
 	};
 
-	const colors = colorMap[variant];
+	const colorOverrides: Record<string, { bg: string; icon: string }> = {
+		amber: { bg: "bg-amber-100 dark:bg-amber-900/30", icon: "text-amber-600 dark:text-amber-400" },
+		blue: { bg: "bg-blue-100 dark:bg-blue-900/30", icon: "text-blue-600 dark:text-blue-400" },
+		red: { bg: "bg-red-100 dark:bg-red-900/30", icon: "text-red-600 dark:text-red-400" },
+	};
+
+	const base = variantColors[variant];
+	const colors = color ? { ...base, ...colorOverrides[color] } : base;
 	const Wrapper = onClick ? "button" : "div";
 
 	return (
