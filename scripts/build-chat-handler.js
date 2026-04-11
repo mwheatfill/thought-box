@@ -47,3 +47,18 @@ await esbuild.build({
 });
 
 console.log("SLA cron handler built → dist/server/sla-cron.js");
+
+await esbuild.build({
+	entryPoints: ["src/server/api/health.ts"],
+	bundle: true,
+	platform: "node",
+	target: "node22",
+	format: "esm",
+	outfile: "dist/server/health.js",
+	packages: "external",
+	alias: {
+		"#/*": "./src/*",
+	},
+});
+
+console.log("Health handler built → dist/server/health.js");

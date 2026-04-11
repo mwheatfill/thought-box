@@ -25,6 +25,7 @@ const { fetch: fetchHandler } = serverModule.default;
 const { handleChatRequest } = await import("./dist/server/chat-handler.js");
 const { handlePhotoRequest } = await import("./dist/server/photo-handler.js");
 const { handleSlaCronRequest } = await import("./dist/server/sla-cron.js");
+const { handleHealthRequest } = await import("./dist/server/health.js");
 
 const PORT = process.env.PORT || 3000;
 const CLIENT_DIR = join(__dirname, "dist", "client");
@@ -120,6 +121,12 @@ async function sendWebResponse(webResponse, res) {
 const server = createServer(async (req, res) => {
 	try {
 		if (await tryServeStaticFile(req, res)) return;
+
+		// Health check — lightweight DB ping, no auth required
+		if (req.url === "/health") {
+			await sendWebResponse(await handleHealthRequest(), res);
+			return;
+		}
 
 		const webRequest = toWebRequest(req);
 
