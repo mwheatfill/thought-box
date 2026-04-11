@@ -92,7 +92,8 @@ const config = defineConfig({
 							if (value) headers.set(key, Array.isArray(value) ? value[0] : value);
 						}
 
-						const request = new Request(`http://localhost${req.url}`, {
+						const fullPath = req.originalUrl || `/api/attachments${req.url}`;
+						const request = new Request(`http://localhost${fullPath}`, {
 							method: req.method,
 							headers,
 							body: req.method === "GET" ? undefined : body,
