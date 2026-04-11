@@ -294,6 +294,7 @@ export const getRecentProgramActivity = createServerFn()
 		return events.map((e) => ({
 			id: e.id,
 			eventType: e.eventType,
+			actorId: e.actorId,
 			actorName: e.actor.displayName,
 			ideaSubmissionId: e.idea.submissionId,
 			ideaTitle: e.idea.title,

@@ -33,6 +33,7 @@ import {
 	ChartTooltipContent,
 } from "#/components/ui/chart";
 import { SortableHeader } from "#/components/ui/data-table";
+import { UserCardPopover } from "#/components/ui/user-card";
 import { STATUS_LABELS } from "#/lib/constants";
 import { cn } from "#/lib/utils";
 import { SlaIndicator } from "./sla-indicator";
@@ -83,6 +84,7 @@ interface OutcomeData {
 interface ActivityEvent {
 	id: string;
 	eventType: string;
+	actorId: string;
 	actorName: string;
 	ideaSubmissionId: string;
 	ideaTitle: string;
@@ -513,7 +515,14 @@ function ActivityFeed({ events }: { events: ActivityEvent[] }) {
 							<div key={event.id} className="flex items-start gap-3 text-sm">
 								<div className="mt-0.5 size-2 shrink-0 rounded-full bg-muted-foreground" />
 								<div className="flex-1">
-									<span className="font-medium">{event.actorName}</span>{" "}
+									<UserCardPopover userId={event.actorId}>
+										<button
+											type="button"
+											className="font-medium hover:text-primary hover:underline"
+										>
+											{event.actorName}
+										</button>
+									</UserCardPopover>{" "}
 									{formatEventDescription(event)}{" "}
 									<Link
 										to="/ideas/$submissionId"
