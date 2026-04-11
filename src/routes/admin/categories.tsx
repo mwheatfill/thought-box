@@ -7,7 +7,6 @@ import {
 	ExternalLink,
 	MoveDown,
 	MoveUp,
-	Pencil,
 	Plus,
 	RotateCcw,
 	Trash2,
@@ -102,6 +101,7 @@ function CategoriesPage() {
 	const queryClient = useQueryClient();
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
+	const [showDeleted, setShowDeleted] = useState(false);
 	const [form, setForm] = useState<CategoryForm>(emptyForm);
 	const [leaderPopoverOpen, setLeaderPopoverOpen] = useState(false);
 
@@ -246,9 +246,14 @@ function CategoriesPage() {
 						</TableHeader>
 						<TableBody>
 							{cats.map((cat, idx) => (
-								<TableRow key={cat.id} className={cn(!cat.active && "opacity-50")}>
+								<TableRow
+									key={cat.id}
+									className={cn("group cursor-pointer", !cat.active && "opacity-50")}
+									onClick={() => openEdit(cat)}
+								>
 									<TableCell>
-										<div className="flex items-center gap-0.5">
+										{/* biome-ignore lint/a11y/useKeyWithClickEvents: order buttons are interactive */}
+										<div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
 											<Button
 												variant="ghost"
 												size="icon"
@@ -291,19 +296,18 @@ function CategoriesPage() {
 										{cat.defaultLeaderName ?? "—"}
 									</TableCell>
 									<TableCell>
-										<div className="flex gap-1">
-											<Button variant="ghost" size="icon" onClick={() => openEdit(cat)}>
-												<Pencil className="size-3.5" />
-											</Button>
-											<Button
-												variant="ghost"
-												size="icon"
-												title="Delete category"
-												onClick={() => deleteMutation.mutate(cat.id)}
-											>
-												<Trash2 className="size-3.5" />
-											</Button>
-										</div>
+										<Button
+											variant="ghost"
+											size="icon"
+											title="Delete category"
+											className="opacity-0 group-hover:opacity-100 transition-opacity"
+											onClick={(e) => {
+												e.stopPropagation();
+												deleteMutation.mutate(cat.id);
+											}}
+										>
+											<Trash2 className="size-3.5" />
+										</Button>
 									</TableCell>
 								</TableRow>
 							))}
@@ -312,38 +316,50 @@ function CategoriesPage() {
 				</CardContent>
 			</Card>
 
-			{/* Recently deleted */}
+			{/* Recently deleted toggle */}
 			{deletedCats.length > 0 && (
-				<Card className="mt-6">
-					<CardContent className="pt-6">
-						<p className="mb-3 text-sm font-medium text-muted-foreground">Recently Deleted</p>
-						<div className="space-y-2">
-							{deletedCats.map((cat) => (
-								<div
-									key={cat.id}
-									className="flex items-center justify-between rounded-md border border-dashed px-3 py-2 text-sm"
-								>
-									<div>
-										<span className="font-medium">{cat.name}</span>
-										<span className="ml-2 text-xs text-muted-foreground">
-											deleted{" "}
-											{cat.deletedAt ? new Date(cat.deletedAt).toLocaleDateString() : "recently"}
-										</span>
-									</div>
-									<Button
-										variant="ghost"
-										size="sm"
-										onClick={() => restoreMutation.mutate(cat.id)}
-										disabled={restoreMutation.isPending}
-									>
-										<RotateCcw className="mr-1 size-3.5" />
-										Restore
-									</Button>
+				<div className="mt-4">
+					<button
+						type="button"
+						onClick={() => setShowDeleted(!showDeleted)}
+						className="text-xs text-muted-foreground hover:text-foreground"
+					>
+						{showDeleted ? "Hide" : "Show"} recently deleted ({deletedCats.length})
+					</button>
+					{showDeleted && (
+						<Card className="mt-2">
+							<CardContent className="pt-4">
+								<div className="space-y-2">
+									{deletedCats.map((cat) => (
+										<div
+											key={cat.id}
+											className="flex items-center justify-between rounded-md border border-dashed px-3 py-2 text-sm"
+										>
+											<div>
+												<span className="font-medium">{cat.name}</span>
+												<span className="ml-2 text-xs text-muted-foreground">
+													deleted{" "}
+													{cat.deletedAt
+														? new Date(cat.deletedAt).toLocaleDateString()
+														: "recently"}
+												</span>
+											</div>
+											<Button
+												variant="ghost"
+												size="sm"
+												onClick={() => restoreMutation.mutate(cat.id)}
+												disabled={restoreMutation.isPending}
+											>
+												<RotateCcw className="mr-1 size-3.5" />
+												Restore
+											</Button>
+										</div>
+									))}
 								</div>
-							))}
-						</div>
-					</CardContent>
-				</Card>
+							</CardContent>
+						</Card>
+					)}
+				</div>
 			)}
 
 			{/* Create/Edit Dialog */}
@@ -452,16 +468,33 @@ function CategoriesPage() {
 							</div>
 						)}
 					</div>
-					<DialogFooter>
-						<Button variant="outline" onClick={() => setDialogOpen(false)}>
-							Cancel
-						</Button>
-						<Button
-							onClick={() => saveMutation.mutate()}
-							disabled={!form.name || !form.description || saveMutation.isPending}
-						>
-							{saveMutation.isPending ? "Saving..." : editingId ? "Update" : "Create"}
-						</Button>
+					<DialogFooter className="flex-row justify-between sm:justify-between">
+						{editingId ? (
+							<Button
+								variant="ghost"
+								className="text-destructive hover:text-destructive hover:bg-destructive/10"
+								onClick={() => {
+									deleteMutation.mutate(editingId);
+									setDialogOpen(false);
+								}}
+							>
+								<Trash2 className="mr-2 size-3.5" />
+								Delete
+							</Button>
+						) : (
+							<div />
+						)}
+						<div className="flex gap-2">
+							<Button variant="outline" onClick={() => setDialogOpen(false)}>
+								Cancel
+							</Button>
+							<Button
+								onClick={() => saveMutation.mutate()}
+								disabled={!form.name || !form.description || saveMutation.isPending}
+							>
+								{saveMutation.isPending ? "Saving..." : editingId ? "Update" : "Create"}
+							</Button>
+						</div>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
