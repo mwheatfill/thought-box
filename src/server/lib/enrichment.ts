@@ -3,13 +3,13 @@ import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { db } from "#/server/db";
 import { users } from "#/server/db/schema";
+import { uploadBlob } from "#/server/lib/blob";
 import { getUserManager, getUserPhoto, getUserProfile } from "#/server/lib/graph";
 
 const ENRICHMENT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const PHOTO_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-// Azure App Service app dir is read-only. /home/ is persistent and writable.
-// Writable check: /home/site/wwwroot is cwd on Azure, /home/ is writable.
+// Filesystem fallback for local dev (no Blob Storage)
 const isAzure = process.cwd().startsWith("/home/site");
 const PHOTOS_DIR = isAzure ? "/home/photos" : join(process.cwd(), "photos");
 
@@ -67,11 +67,16 @@ export async function diagnoseEnrichment(userId: string): Promise<string[]> {
 		const photo = await getUserPhoto(user.entraId);
 		if (photo) {
 			log.push(`Photo: ${photo.length} bytes`);
-			log.push(`PHOTOS_DIR: ${PHOTOS_DIR}`);
-			await mkdir(PHOTOS_DIR, { recursive: true });
-			const photoPath = join(PHOTOS_DIR, `${user.entraId}.jpg`);
-			await writeFile(photoPath, photo);
-			log.push(`Written to: ${photoPath}`);
+			const filename = `${user.entraId}.jpg`;
+			const blobUrl = await uploadBlob("photos", filename, photo, "image/jpeg");
+			if (blobUrl) {
+				log.push(`Uploaded to Blob: ${filename}`);
+			} else {
+				log.push("Blob Storage not configured, using filesystem");
+				await mkdir(PHOTOS_DIR, { recursive: true });
+				await writeFile(join(PHOTOS_DIR, filename), photo);
+				log.push(`Written to filesystem: ${join(PHOTOS_DIR, filename)}`);
+			}
 			const photoUrl = `/api/users/${user.id}/photo`;
 			await db
 				.update(users)
@@ -167,17 +172,21 @@ export async function enrichUserProfile(userId: string): Promise<void> {
 	if (photoMissing || photoStale) {
 		const photo = await getUserPhoto(user.entraId);
 		if (photo) {
-			await mkdir(PHOTOS_DIR, { recursive: true });
 			const filename = `${user.entraId}.jpg`;
-			const photoPath = join(PHOTOS_DIR, filename);
-			await writeFile(photoPath, photo);
+
+			// Try Blob Storage first, filesystem fallback for local dev
+			const blobUrl = await uploadBlob("photos", filename, photo, "image/jpeg");
+			if (blobUrl) {
+				console.log(`[enrichment] Photo uploaded to Blob: ${filename} (${photo.length} bytes)`);
+			} else {
+				await mkdir(PHOTOS_DIR, { recursive: true });
+				await writeFile(join(PHOTOS_DIR, filename), photo);
+				console.log(`[enrichment] Photo saved to filesystem: ${filename} (${photo.length} bytes)`);
+			}
+
 			updates.photoUrl = `/api/users/${user.id}/photo`;
 			updates.photoLastFetched = now;
-			console.log(`[enrichment] Photo saved: ${photoPath} (${photo.length} bytes)`);
 		} else {
-			// Only set photoLastFetched if we confirmed no photo exists (not on error).
-			// getUserPhoto returns null for 404 AND for errors, so we set a short TTL
-			// to retry errors sooner. A successful "no photo" returns null with a 404 log.
 			console.log("[enrichment] No photo returned from Graph");
 		}
 	}

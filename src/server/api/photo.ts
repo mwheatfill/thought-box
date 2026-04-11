@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { db } from "#/server/db";
 import { users } from "#/server/db/schema";
+import { downloadBlob } from "#/server/lib/blob";
 
 const isAzure = process.cwd().startsWith("/home/site");
 const PHOTOS_DIR = isAzure ? "/home/photos" : join(process.cwd(), "photos");
@@ -17,7 +18,6 @@ function generateInitialsAvatar(displayName: string, userId: string): string {
 		.join("")
 		.toUpperCase();
 
-	// Hash user ID to pick a consistent hue
 	let hash = 0;
 	for (const char of userId) {
 		hash = (hash * 31 + char.charCodeAt(0)) | 0;
@@ -33,7 +33,7 @@ function generateInitialsAvatar(displayName: string, userId: string): string {
 
 /**
  * Handle GET /api/users/:id/photo
- * Serves cached JPEG or generates an SVG initials avatar.
+ * Tries Blob Storage first, then filesystem fallback, then SVG initials.
  */
 export async function handlePhotoRequest(request: Request): Promise<Response> {
 	const url = new URL(request.url);
@@ -49,8 +49,19 @@ export async function handlePhotoRequest(request: Request): Promise<Response> {
 
 	if (!user) return new Response("Not found", { status: 404 });
 
-	// Try to serve cached photo
 	if (user.photoUrl) {
+		// Try Blob Storage first
+		const blob = await downloadBlob("photos", `${user.entraId}.jpg`);
+		if (blob) {
+			return new Response(blob.data, {
+				headers: {
+					"Content-Type": "image/jpeg",
+					"Cache-Control": "public, max-age=86400",
+				},
+			});
+		}
+
+		// Filesystem fallback (legacy / local dev)
 		try {
 			const photoPath = join(PHOTOS_DIR, `${user.entraId}.jpg`);
 			const photo = await readFile(photoPath);
@@ -61,7 +72,7 @@ export async function handlePhotoRequest(request: Request): Promise<Response> {
 				},
 			});
 		} catch {
-			// Photo file missing — fall through to initials
+			// Fall through to initials
 		}
 	}
 
