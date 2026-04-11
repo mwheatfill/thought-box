@@ -166,7 +166,8 @@ export async function getUserPresence(entraId: string): Promise<PresenceAvailabi
 	try {
 		const presence = await client.api(`/users/${entraId}/presence`).get();
 		return presence.availability ?? null;
-	} catch {
+	} catch (err) {
+		console.error("[graph] Presence failed for", entraId, err instanceof Error ? err.message : err);
 		return null;
 	}
 }
