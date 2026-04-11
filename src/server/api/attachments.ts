@@ -56,13 +56,17 @@ export async function handleAttachmentUpload(request: Request): Promise<Response
 
 		// Validate magic bytes for images
 		if (file.type.startsWith("image/")) {
-			const { fileTypeFromBuffer } = await import("file-type");
-			const detected = await fileTypeFromBuffer(buffer);
-			if (detected && !isAllowedType(detected.mime)) {
-				return new Response(
-					JSON.stringify({ error: "File content does not match its extension." }),
-					{ status: 400, headers: { "Content-Type": "application/json" } },
-				);
+			try {
+				const { fileTypeFromBuffer } = await import("file-type");
+				const detected = await fileTypeFromBuffer(buffer);
+				if (detected && !isAllowedType(detected.mime)) {
+					return new Response(
+						JSON.stringify({ error: "File content does not match its extension." }),
+						{ status: 400, headers: { "Content-Type": "application/json" } },
+					);
+				}
+			} catch {
+				// file-type may not be available in all environments
 			}
 		}
 
@@ -104,8 +108,9 @@ export async function handleAttachmentUpload(request: Request): Promise<Response
 			{ headers: { "Content-Type": "application/json" } },
 		);
 	} catch (err) {
-		console.error("[attachments] Upload failed:", err);
-		return new Response(JSON.stringify({ error: "Upload failed" }), {
+		const message = err instanceof Error ? err.message : String(err);
+		console.error("[attachments] Upload failed:", message, err);
+		return new Response(JSON.stringify({ error: message }), {
 			status: 500,
 			headers: { "Content-Type": "application/json" },
 		});
