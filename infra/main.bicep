@@ -61,6 +61,7 @@ var postgresServerName = 'psql-${prefix}'
 var appInsightsName = 'appi-${prefix}'
 var logWorkspaceName = 'log-${prefix}'
 var keyVaultName = 'kv-${prefix}'
+var storageAccountName = 'stdfthoughtbox${environmentName}'
 var databaseName = 'thoughtbox'
 
 // ── Log Analytics Workspace ────────────────────────────────────────────────
@@ -148,7 +149,7 @@ resource postgresServer 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' =
       storageSizeGB: 32
     }
     backup: {
-      backupRetentionDays: 7
+      backupRetentionDays: 14
       geoRedundantBackup: 'Disabled'
     }
     highAvailability: {
@@ -172,6 +173,57 @@ resource postgresDatabase 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2
   properties: {
     charset: 'UTF8'
     collation: 'en_US.utf8'
+  }
+}
+
+// ── Storage Account ────────────────────────────────────────────────────────
+// Blob storage for profile photos and file attachments.
+// Shared key access disabled — App Service uses managed identity (RBAC).
+
+resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: storageAccountName
+  location: location
+  kind: 'StorageV2'
+  sku: {
+    name: 'Standard_LRS'
+  }
+  properties: {
+    allowBlobPublicAccess: false
+    allowSharedKeyAccess: false
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+  }
+}
+
+resource blobServices 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
+  parent: storageAccount
+  name: 'default'
+  properties: {
+    deleteRetentionPolicy: {
+      enabled: true
+      days: 14
+    }
+    containerDeleteRetentionPolicy: {
+      enabled: true
+      days: 14
+    }
+    isVersioningEnabled: true
+  }
+}
+
+resource photosContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: blobServices
+  name: 'photos'
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
+resource attachmentsContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: blobServices
+  name: 'attachments'
+  properties: {
+    publicAccess: 'None'
   }
 }
 
@@ -226,16 +278,30 @@ resource kvRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' =
   }
 }
 
+// ── Storage Role Assignment ────────────────────────────────────────────────
+// Grant the App Service managed identity "Storage Blob Data Contributor" role
+
+resource storageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccount.id, appService.id, 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+  scope: storageAccount
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+    principalId: appService.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // ── App Settings ───────────────────────────────────────────────────────────
 // Separate from siteConfig to ensure managed identity exists before KV refs resolve
 
 resource appSettings 'Microsoft.Web/sites/config@2024-04-01' = {
   parent: appService
   name: 'appsettings'
-  dependsOn: [kvRoleAssignment, secretDatabaseUrl]
+  dependsOn: [kvRoleAssignment, storageRoleAssignment, secretDatabaseUrl]
   properties: {
     NODE_ENV: 'production'
     DATABASE_URL: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=database-url)'
+    AZURE_STORAGE_ACCOUNT: storageAccount.name
     AZURE_CLIENT_ID: azureClientId
     AZURE_TENANT_ID: azureTenantId
     GRAPH_CLIENT_ID: graphClientId
