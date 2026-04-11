@@ -4,10 +4,16 @@ import { useQuery } from "@tanstack/react-query";
 import { Building, Lightbulb, Mail, MapPin, Sparkles, UserCheck, Users } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
-import { Badge } from "#/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
 import { Skeleton } from "#/components/ui/skeleton";
+import { cn } from "#/lib/utils";
 import { getUserCard } from "#/server/functions/users";
+
+const ROLE_STYLES: Record<string, string> = {
+	admin: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+	leader: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+	submitter: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+};
 
 interface UserCardPopoverProps {
 	userId: string;
@@ -27,28 +33,30 @@ export function UserCardPopover({ userId, children }: UserCardPopoverProps) {
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>{children}</PopoverTrigger>
-			<PopoverContent className="w-72 p-0" align="start">
+			<PopoverContent className="w-80 p-0" align="start">
 				{isLoading || !user ? (
-					<div className="space-y-3 p-4">
-						<div className="flex items-center gap-3">
-							<Skeleton className="size-10 rounded-full" />
-							<div className="space-y-1.5">
-								<Skeleton className="h-4 w-28" />
-								<Skeleton className="h-3 w-20" />
+					<div className="space-y-4 p-5">
+						<div className="flex items-center gap-4">
+							<Skeleton className="size-12 rounded-full" />
+							<div className="space-y-2">
+								<Skeleton className="h-4 w-32" />
+								<Skeleton className="h-5 w-16 rounded-full" />
 							</div>
 						</div>
-						<Skeleton className="h-3 w-full" />
-						<Skeleton className="h-3 w-3/4" />
+						<div className="space-y-2">
+							<Skeleton className="h-3.5 w-full" />
+							<Skeleton className="h-3.5 w-3/4" />
+						</div>
 					</div>
 				) : (
 					<>
 						{/* Header */}
-						<div className="flex items-center gap-3 border-b p-4">
-							<Avatar className="size-10">
+						<div className="flex items-center gap-4 p-5 pb-4">
+							<Avatar className="size-12">
 								{user.photoUrl && (
 									<AvatarImage src={user.photoUrl} alt={user.displayName} />
 								)}
-								<AvatarFallback>
+								<AvatarFallback className="text-sm">
 									{user.displayName
 										.split(" ")
 										.map((n) => n[0])
@@ -57,60 +65,64 @@ export function UserCardPopover({ userId, children }: UserCardPopoverProps) {
 								</AvatarFallback>
 							</Avatar>
 							<div className="min-w-0">
-								<p className="font-medium leading-none">{user.displayName}</p>
-								<Badge variant="outline" className="mt-1 text-[10px] capitalize">
+								<p className="text-base font-semibold leading-tight">{user.displayName}</p>
+								{user.jobTitle && (
+									<p className="mt-0.5 text-sm text-muted-foreground">{user.jobTitle}</p>
+								)}
+								<span
+									className={cn(
+										"mt-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium capitalize",
+										ROLE_STYLES[user.role] ?? ROLE_STYLES.submitter,
+									)}
+								>
 									{user.role}
-								</Badge>
+								</span>
 							</div>
 						</div>
 
 						{/* Details */}
-						<div className="space-y-2 p-4 text-sm">
-							{user.jobTitle && (
-								<div className="flex items-center gap-2 text-muted-foreground">
-									<UserCheck className="size-3.5 shrink-0" />
-									<span className="truncate">{user.jobTitle}</span>
-								</div>
-							)}
+						<div className="space-y-2.5 border-t px-5 py-4 text-sm">
 							{user.department && (
-								<div className="flex items-center gap-2 text-muted-foreground">
-									<Building className="size-3.5 shrink-0" />
-									<span className="truncate">{user.department}</span>
+								<div className="flex items-center gap-2.5 text-muted-foreground">
+									<Building className="size-4 shrink-0" />
+									<span>{user.department}</span>
 								</div>
 							)}
 							{user.officeLocation && (
-								<div className="flex items-center gap-2 text-muted-foreground">
-									<MapPin className="size-3.5 shrink-0" />
-									<span className="truncate">{user.officeLocation}</span>
+								<div className="flex items-center gap-2.5 text-muted-foreground">
+									<MapPin className="size-4 shrink-0" />
+									<span>{user.officeLocation}</span>
 								</div>
 							)}
 							{user.managerDisplayName && (
-								<div className="flex items-center gap-2 text-muted-foreground">
-									<Users className="size-3.5 shrink-0" />
-									<span className="truncate">{user.managerDisplayName}</span>
+								<div className="flex items-center gap-2.5 text-muted-foreground">
+									<Users className="size-4 shrink-0" />
+									<span>Reports to {user.managerDisplayName}</span>
 								</div>
 							)}
-							<div className="flex items-center gap-2 text-muted-foreground">
-								<Mail className="size-3.5 shrink-0" />
+							<div className="flex items-center gap-2.5 text-muted-foreground">
+								<Mail className="size-4 shrink-0" />
 								<span className="truncate">{user.email}</span>
 							</div>
 						</div>
 
 						{/* Idea stats */}
 						{user.stats.totalIdeas > 0 && (
-							<div className="flex items-center gap-4 border-t px-4 py-3 text-xs text-muted-foreground">
-								<span className="flex items-center gap-1">
+							<div className="flex gap-3 border-t px-5 py-3.5">
+								<div className="flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
 									<Lightbulb className="size-3" />
 									{user.stats.totalIdeas} ideas
-								</span>
+								</div>
 								{user.stats.implemented > 0 && (
-									<span className="flex items-center gap-1">
+									<div className="flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
 										<Sparkles className="size-3" />
 										{user.stats.implemented} implemented
-									</span>
+									</div>
 								)}
 								{user.stats.open > 0 && (
-									<span>{user.stats.open} open</span>
+									<div className="flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+										{user.stats.open} open
+									</div>
 								)}
 							</div>
 						)}
