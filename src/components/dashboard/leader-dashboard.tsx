@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import { formatDistanceToNow } from "date-fns";
-import { AlertTriangle, CheckCircle, Clock, Inbox, X } from "lucide-react";
+import { AlertTriangle, CheckCircle, Clock, Inbox } from "lucide-react";
 import { useMemo, useState } from "react";
 import { FadeIn } from "#/components/ui/animated";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
@@ -160,14 +160,6 @@ export function LeaderDashboard({
 		setRowSelection({});
 	};
 
-	const filterLabels: Record<NonNullable<QueueFilter>, string> = {
-		open: "My Open",
-		overdue: "Overdue",
-		closed: "Closed",
-		all: "Total Assigned",
-	};
-	const filterLabel = kpiFilter ? filterLabels[kpiFilter] : null;
-
 	return (
 		<div className="space-y-6">
 			{/* KPI row */}
@@ -210,24 +202,6 @@ export function LeaderDashboard({
 					/>
 				</FadeIn>
 			</div>
-
-			{/* Active filter chip */}
-			{filterLabel && (
-				<div className="flex items-center gap-2">
-					<span className="text-sm text-muted-foreground">Showing:</span>
-					<button
-						type="button"
-						onClick={() => setKpiFilter(null)}
-						className="inline-flex items-center gap-1 rounded-full border bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
-					>
-						{filterLabel}
-						<X className="size-3" />
-					</button>
-					<span className="text-xs text-muted-foreground">
-						{displayIdeas.length} {displayIdeas.length === 1 ? "idea" : "ideas"}
-					</span>
-				</div>
-			)}
 
 			{/* Ideas table */}
 			{displayIdeas.length === 0 && !kpiFilter ? (

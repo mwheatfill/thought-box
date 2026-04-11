@@ -32,14 +32,9 @@ interface MyIdea {
 	submittedAt: string;
 }
 
-type FilterKey = "all" | "active" | "completed" | "closed";
+type KpiFilter = "all" | "active" | "implemented" | null;
 
-const FILTERS: { key: FilterKey; label: string; statuses: string[] | null }[] = [
-	{ key: "all", label: "All", statuses: null },
-	{ key: "active", label: "Active", statuses: ["new", "under_review", "in_progress"] },
-	{ key: "completed", label: "Completed", statuses: ["accepted", "implemented"] },
-	{ key: "closed", label: "Closed", statuses: ["declined", "redirected"] },
-];
+const ACTIVE_STATUSES = ["new", "under_review", "in_progress"];
 
 const columns: ColumnDef<MyIdea, unknown>[] = [
 	{
@@ -52,7 +47,7 @@ const columns: ColumnDef<MyIdea, unknown>[] = [
 		accessorKey: "title",
 		header: ({ column }) => <SortableHeader column={column}>Title</SortableHeader>,
 		cell: ({ row }) => (
-			<span className="font-medium max-w-[400px] line-clamp-1">{row.original.title}</span>
+			<span className="max-w-[400px] font-medium line-clamp-1">{row.original.title}</span>
 		),
 	},
 	{
@@ -88,36 +83,24 @@ const columns: ColumnDef<MyIdea, unknown>[] = [
 function MyIdeasPage() {
 	const { ideas, yearlyCount } = Route.useLoaderData();
 	const navigate = useNavigate();
-	const [filter, setFilter] = useState<FilterKey>("all");
+	const [kpiFilter, setKpiFilter] = useState<KpiFilter>(null);
 
 	const stats = useMemo(() => {
-		const inProgress = ideas.filter((i) =>
-			["new", "under_review", "in_progress"].includes(i.status),
-		).length;
+		const active = ideas.filter((i) => ACTIVE_STATUSES.includes(i.status)).length;
 		const implemented = ideas.filter((i) => i.status === "implemented").length;
-		return { inProgress, implemented };
+		return { active, implemented };
 	}, [ideas]);
 
 	const filteredIdeas = useMemo(() => {
-		const f = FILTERS.find((f) => f.key === filter);
-		if (!f?.statuses) return ideas;
-		return ideas.filter((i) => f.statuses?.includes(i.status));
-	}, [ideas, filter]);
+		if (!kpiFilter) return ideas;
+		if (kpiFilter === "active") return ideas.filter((i) => ACTIVE_STATUSES.includes(i.status));
+		if (kpiFilter === "implemented") return ideas.filter((i) => i.status === "implemented");
+		return ideas; // "all"
+	}, [ideas, kpiFilter]);
 
-	const filterCounts = useMemo(() => {
-		const counts: Record<FilterKey, number> = {
-			all: ideas.length,
-			active: 0,
-			completed: 0,
-			closed: 0,
-		};
-		for (const idea of ideas) {
-			if (["new", "under_review", "in_progress"].includes(idea.status)) counts.active++;
-			else if (["accepted", "implemented"].includes(idea.status)) counts.completed++;
-			else counts.closed++;
-		}
-		return counts;
-	}, [ideas]);
+	const toggleKpi = (key: KpiFilter) => {
+		setKpiFilter((prev) => (prev === key ? null : key));
+	};
 
 	if (ideas.length === 0) {
 		return (
@@ -149,63 +132,32 @@ function MyIdeasPage() {
 		<main className="min-w-0 p-6">
 			<h1 className="mb-6 text-2xl font-bold">My Ideas</h1>
 
-			{/* Stat strip */}
+			{/* Clickable stat cards */}
 			<div className="mb-6 grid gap-4 sm:grid-cols-3">
-				<Card>
-					<CardContent className="flex items-center gap-3 p-4">
-						<div className="rounded-full bg-amber-100 p-2 dark:bg-amber-900/30">
-							<Lightbulb className="size-4 text-amber-600 dark:text-amber-400" />
-						</div>
-						<div>
-							<p className="text-xl font-bold">{yearlyCount}</p>
-							<p className="text-xs text-muted-foreground">
-								{yearlyCount === 1 ? "Idea this year" : "Ideas this year"}
-							</p>
-						</div>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardContent className="flex items-center gap-3 p-4">
-						<div className="rounded-full bg-blue-100 p-2 dark:bg-blue-900/30">
-							<Clock className="size-4 text-blue-600 dark:text-blue-400" />
-						</div>
-						<div>
-							<p className="text-xl font-bold">{stats.inProgress}</p>
-							<p className="text-xs text-muted-foreground">In progress</p>
-						</div>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardContent className="flex items-center gap-3 p-4">
-						<div className="rounded-full bg-emerald-100 p-2 dark:bg-emerald-900/30">
-							<CheckCircle className="size-4 text-emerald-600 dark:text-emerald-400" />
-						</div>
-						<div>
-							<p className="text-xl font-bold">{stats.implemented}</p>
-							<p className="text-xs text-muted-foreground">Implemented</p>
-						</div>
-					</CardContent>
-				</Card>
-			</div>
-
-			{/* Filter pills */}
-			<div className="mb-4 flex gap-2">
-				{FILTERS.map((f) => (
-					<button
-						key={f.key}
-						type="button"
-						onClick={() => setFilter(f.key)}
-						className={cn(
-							"rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-							filter === f.key
-								? "border-primary bg-primary text-primary-foreground"
-								: "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
-						)}
-					>
-						{f.label}
-						<span className="ml-1 opacity-60">{filterCounts[f.key]}</span>
-					</button>
-				))}
+				<KpiCard
+					icon={Lightbulb}
+					label={yearlyCount === 1 ? "Idea this year" : "Ideas this year"}
+					value={yearlyCount}
+					color="amber"
+					onClick={() => toggleKpi("all")}
+					isActive={kpiFilter === "all"}
+				/>
+				<KpiCard
+					icon={Clock}
+					label="In progress"
+					value={stats.active}
+					color="blue"
+					onClick={() => toggleKpi("active")}
+					isActive={kpiFilter === "active"}
+				/>
+				<KpiCard
+					icon={CheckCircle}
+					label="Implemented"
+					value={stats.implemented}
+					color="emerald"
+					onClick={() => toggleKpi("implemented")}
+					isActive={kpiFilter === "implemented"}
+				/>
 			</div>
 
 			{/* Ideas table */}
@@ -226,5 +178,62 @@ function MyIdeasPage() {
 				</CardContent>
 			</Card>
 		</main>
+	);
+}
+
+// ── KPI Card ──────────────────────────────────────────────────────────────
+
+const COLOR_STYLES = {
+	amber: {
+		bg: "bg-amber-100 dark:bg-amber-900/30",
+		icon: "text-amber-600 dark:text-amber-400",
+	},
+	blue: {
+		bg: "bg-blue-100 dark:bg-blue-900/30",
+		icon: "text-blue-600 dark:text-blue-400",
+	},
+	emerald: {
+		bg: "bg-emerald-100 dark:bg-emerald-900/30",
+		icon: "text-emerald-600 dark:text-emerald-400",
+	},
+};
+
+function KpiCard({
+	icon: Icon,
+	label,
+	value,
+	color,
+	onClick,
+	isActive,
+}: {
+	icon: React.ComponentType<{ className?: string }>;
+	label: string;
+	value: number;
+	color: keyof typeof COLOR_STYLES;
+	onClick: () => void;
+	isActive: boolean;
+}) {
+	const styles = COLOR_STYLES[color];
+
+	return (
+		<button type="button" onClick={onClick} className="w-full text-left">
+			<Card
+				className={cn(
+					"h-full transition-all",
+					isActive && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+					!isActive && "hover:border-primary/30 hover:bg-muted/30",
+				)}
+			>
+				<CardContent className="flex items-center gap-3 p-4">
+					<div className={cn("rounded-full p-2", styles.bg)}>
+						<Icon className={cn("size-4", styles.icon)} />
+					</div>
+					<div>
+						<p className="text-xl font-bold">{value}</p>
+						<p className="text-xs text-muted-foreground">{label}</p>
+					</div>
+				</CardContent>
+			</Card>
+		</button>
 	);
 }

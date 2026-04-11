@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { AlertTriangle, Calendar, Download, Inbox, TrendingUp, X } from "lucide-react";
+import { AlertTriangle, Calendar, Download, Inbox, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
 	type AdminIdea,
@@ -84,8 +84,6 @@ function AdminIdeasPage() {
 		}
 	}, [ideas, activeKpi, startOfMonthMs, startOfYearMs]);
 
-	const activeLabel = activeKpi ? KPI_DEFS.find((k) => k.key === activeKpi)?.label : null;
-
 	return (
 		<main className="min-w-0 p-6">
 			<div className="mb-6 flex items-center justify-between">
@@ -150,24 +148,6 @@ function AdminIdeasPage() {
 					);
 				})}
 			</div>
-
-			{/* Active filter chip */}
-			{activeLabel && (
-				<div className="mb-4 flex items-center gap-2">
-					<span className="text-sm text-muted-foreground">Showing:</span>
-					<button
-						type="button"
-						onClick={() => setActiveKpi(null)}
-						className="inline-flex items-center gap-1 rounded-full border bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
-					>
-						{activeLabel}
-						<X className="size-3" />
-					</button>
-					<span className="text-xs text-muted-foreground">
-						{filteredIdeas.length} {filteredIdeas.length === 1 ? "idea" : "ideas"}
-					</span>
-				</div>
-			)}
 
 			{/* Ideas table */}
 			<Card>
