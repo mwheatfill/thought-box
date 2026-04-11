@@ -237,13 +237,13 @@ export function DropZone({
 		>
 			{/* Full-viewport drag overlay */}
 			{isDragging && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-primary/5 backdrop-blur-sm">
-					<div className="flex flex-col items-center gap-3">
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-6">
+					<div className="flex h-full w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-primary bg-primary/5">
 						<div className="rounded-full bg-primary/10 p-5">
 							<FileUp className="size-10 text-primary" />
 						</div>
-						<p className="text-lg font-semibold text-primary">Drop anywhere to upload</p>
-						<p className="text-sm text-muted-foreground">Images, PDFs, documents up to 10MB</p>
+						<p className="mt-3 text-lg font-semibold text-primary">Drop anywhere to upload</p>
+						<p className="mt-1 text-sm text-muted-foreground">Images, PDFs, documents up to 10MB</p>
 					</div>
 				</div>
 			)}
