@@ -29,6 +29,13 @@
       "when": 1775782800000,
       "tag": "0003_add_submission_id_sequence",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1775869200000,
+      "tag": "0004_add_reminder_sent_event_type",
+      "breakpoints": true
     }
   ]
 }

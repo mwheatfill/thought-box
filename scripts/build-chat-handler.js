@@ -32,3 +32,18 @@ await esbuild.build({
 });
 
 console.log("Photo handler built → dist/server/photo-handler.js");
+
+await esbuild.build({
+	entryPoints: ["src/server/api/sla-cron.ts"],
+	bundle: true,
+	platform: "node",
+	target: "node22",
+	format: "esm",
+	outfile: "dist/server/sla-cron.js",
+	packages: "external",
+	alias: {
+		"#/*": "./src/*",
+	},
+});
+
+console.log("SLA cron handler built → dist/server/sla-cron.js");

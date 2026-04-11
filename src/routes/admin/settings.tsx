@@ -71,6 +71,40 @@ function SettingsPage() {
 					value={settings.sla_business_days ?? "15"}
 					queryClient={queryClient}
 				/>
+				<Card>
+					<CardHeader>
+						<CardTitle>SLA Reminders</CardTitle>
+						<CardDescription>
+							Automated email reminders sent to assigned leaders when ideas are overdue.
+						</CardDescription>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						<NumberSetting
+							settingKey="sla_new_first_reminder_days"
+							title="First Reminder (New)"
+							description="Days after submission to send first reminder when status is still New."
+							value={settings.sla_new_first_reminder_days ?? "5"}
+							queryClient={queryClient}
+							inline
+						/>
+						<NumberSetting
+							settingKey="sla_new_second_reminder_days"
+							title="Second Reminder (New)"
+							description="Days after submission to send second reminder when status is still New."
+							value={settings.sla_new_second_reminder_days ?? "14"}
+							queryClient={queryClient}
+							inline
+						/>
+						<NumberSetting
+							settingKey="sla_review_reminder_days"
+							title="Reminder (Under Review)"
+							description="Days after submission to remind when status is still Under Review."
+							value={settings.sla_review_reminder_days ?? "30"}
+							queryClient={queryClient}
+							inline
+						/>
+					</CardContent>
+				</Card>
 				<NumberSetting
 					settingKey="social_proof_min_threshold"
 					title="Social Proof Threshold"
@@ -190,12 +224,14 @@ function NumberSetting({
 	description,
 	value,
 	queryClient,
+	inline,
 }: {
 	settingKey: string;
 	title: string;
 	description: string;
 	value: string;
 	queryClient: ReturnType<typeof useQueryClient>;
+	inline?: boolean;
 }) {
 	const [draft, setDraft] = useState(value);
 	const saveFn = useServerFn(updateSetting);
@@ -209,31 +245,42 @@ function NumberSetting({
 		onError: () => toast.error("Failed to save"),
 	});
 
+	const content = (
+		<div className="flex items-center gap-3">
+			{inline && (
+				<div className="min-w-0 flex-1">
+					<p className="text-sm font-medium">{title}</p>
+					<p className="text-xs text-muted-foreground">{description}</p>
+				</div>
+			)}
+			<Input
+				type="number"
+				value={draft}
+				onChange={(e) => setDraft(e.target.value)}
+				className="w-[80px]"
+			/>
+			<span className="text-xs text-muted-foreground">days</span>
+			<Button
+				onClick={() => mutation.mutate()}
+				disabled={draft === value || mutation.isPending}
+				variant="outline"
+				size="sm"
+			>
+				<Check className="mr-2 size-4" />
+				{mutation.isPending ? "Saving..." : "Save"}
+			</Button>
+		</div>
+	);
+
+	if (inline) return content;
+
 	return (
 		<Card>
 			<CardHeader>
 				<CardTitle>{title}</CardTitle>
 				<CardDescription>{description}</CardDescription>
 			</CardHeader>
-			<CardContent className="space-y-3">
-				<div className="flex items-center gap-3">
-					<Input
-						type="number"
-						value={draft}
-						onChange={(e) => setDraft(e.target.value)}
-						className="w-[120px]"
-					/>
-					<Button
-						onClick={() => mutation.mutate()}
-						disabled={draft === value || mutation.isPending}
-						variant="outline"
-						size="sm"
-					>
-						<Check className="mr-2 size-4" />
-						{mutation.isPending ? "Saving..." : "Save"}
-					</Button>
-				</div>
-			</CardContent>
+			<CardContent>{content}</CardContent>
 		</Card>
 	);
 }
@@ -303,6 +350,7 @@ const EMAIL_TEMPLATE_OPTIONS: { value: TestEmailTemplate; label: string }[] = [
 	{ value: "idea_reassigned", label: "Idea Reassigned" },
 	{ value: "message_from_leader", label: "Message from Leader" },
 	{ value: "message_from_submitter", label: "Message from Submitter" },
+	{ value: "sla_reminder", label: "SLA Reminder" },
 	{ value: "watcher_alert", label: "System Notification (new submission)" },
 	{ value: "user_invite_leader", label: "Invite (Leader)" },
 	{ value: "user_invite_admin", label: "Invite (Admin)" },

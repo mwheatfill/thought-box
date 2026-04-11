@@ -5,6 +5,7 @@ import IdeaAssigned from "#/emails/IdeaAssigned";
 import IdeaReassigned from "#/emails/IdeaReassigned";
 import IdeaSubmitted from "#/emails/IdeaSubmitted";
 import NewMessage from "#/emails/NewMessage";
+import SlaReminder from "#/emails/SlaReminder";
 import StatusChanged from "#/emails/StatusChanged";
 import UserInvite from "#/emails/UserInvite";
 import WatcherAlert from "#/emails/WatcherAlert";
@@ -183,6 +184,34 @@ export async function sendWatcherAlert(params: {
 	});
 }
 
+// ── SLA reminder ─────────────────────────────────────────────────────────
+
+export async function sendSlaReminderEmail(params: {
+	leaderEmail: string;
+	leaderFirstName: string;
+	submissionId: string;
+	ideaTitle: string;
+	submitterName: string;
+	categoryName: string;
+	currentStatus: string;
+	daysSinceSubmission: number;
+}) {
+	await sendEmail({
+		to: params.leaderEmail,
+		subject: `Reminder: ${params.submissionId} needs your review (${params.daysSinceSubmission} days)`,
+		template: createElement(SlaReminder, {
+			leaderFirstName: params.leaderFirstName,
+			submissionId: params.submissionId,
+			ideaTitle: params.ideaTitle,
+			submitterName: params.submitterName,
+			categoryName: params.categoryName,
+			currentStatus: params.currentStatus,
+			daysSinceSubmission: params.daysSinceSubmission,
+			viewUrl: ideaUrl(params.submissionId),
+		}),
+	});
+}
+
 // ── User invite ──────────────────────────────────────────────────────────
 
 export async function sendUserInviteEmail(params: {
@@ -215,6 +244,7 @@ const TEST_TEMPLATES = [
 	"message_from_leader",
 	"message_from_submitter",
 	"watcher_alert",
+	"sla_reminder",
 	"user_invite_leader",
 	"user_invite_admin",
 ] as const;
@@ -349,6 +379,19 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						submitterName: "Sarah Chen",
 						submitterDepartment: "Retail Banking",
 						assignedLeaderName: "Michelle Murray",
+						viewUrl,
+					}),
+				},
+				sla_reminder: {
+					subject: `[TEST] Reminder: ${sample.submissionId} needs your review (5 days)`,
+					template: createElement(SlaReminder, {
+						leaderFirstName: firstName,
+						submissionId: sample.submissionId,
+						ideaTitle: sample.ideaTitle,
+						submitterName: "Sarah Chen",
+						categoryName: sample.categoryName,
+						currentStatus: "New",
+						daysSinceSubmission: 5,
 						viewUrl,
 					}),
 				},

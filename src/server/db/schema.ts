@@ -51,6 +51,7 @@ export const eventTypeEnum = pgEnum("event_type", [
 	"note_added",
 	"message",
 	"communicated",
+	"reminder_sent",
 ]);
 
 export const routingOutcomeEnum = pgEnum("routing_outcome", [

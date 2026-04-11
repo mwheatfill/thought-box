@@ -90,6 +90,8 @@ function formatEventText(event: TimelineEvent): string {
 			return "sent a message";
 		case "communicated":
 			return "communicated with the employee";
+		case "reminder_sent":
+			return `received an SLA reminder (${event.newValue}-day threshold)`;
 		default:
 			return "updated this idea";
 	}

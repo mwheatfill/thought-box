@@ -10,6 +10,7 @@ const serverModule = await import("./dist/server/server.js");
 const { fetch: fetchHandler } = serverModule.default;
 const { handleChatRequest } = await import("./dist/server/chat-handler.js");
 const { handlePhotoRequest } = await import("./dist/server/photo-handler.js");
+const { handleSlaCronRequest } = await import("./dist/server/sla-cron.js");
 
 const PORT = process.env.PORT || 3000;
 const CLIENT_DIR = join(__dirname, "dist", "client");
@@ -135,6 +136,27 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, () => {
 	console.log(`ThoughtBox running on http://localhost:${PORT}`);
 	console.log(`Static files: ${CLIENT_DIR}`);
+
+	// SLA reminder check — runs every hour, executes at 8am Phoenix time (MST/UTC-7)
+	const SLA_CHECK_HOUR = 8;
+	let lastSlaCheckDate = "";
+
+	setInterval(async () => {
+		const now = new Date();
+		// Phoenix is UTC-7 (no daylight saving)
+		const phoenixHour = (now.getUTCHours() - 7 + 24) % 24;
+		const today = now.toISOString().slice(0, 10);
+
+		if (phoenixHour === SLA_CHECK_HOUR && lastSlaCheckDate !== today) {
+			lastSlaCheckDate = today;
+			console.log("[sla-cron] Running daily SLA check...");
+			try {
+				await handleSlaCronRequest();
+			} catch (err) {
+				console.error("[sla-cron] Failed:", err);
+			}
+		}
+	}, 60_000); // Check every minute
 });
 
 process.on("SIGTERM", () => {
