@@ -3,11 +3,6 @@ import { db } from "#/server/db";
 import { ideaEvents, ideas, settings } from "#/server/db/schema";
 import { sendSlaReminderEmail } from "#/server/functions/email";
 
-const STATUS_LABELS: Record<string, string> = {
-	new: "New",
-	under_review: "Under Review",
-};
-
 /**
  * Check all open ideas against SLA reminder thresholds and send emails.
  * Idempotent — checks idea_events for existing reminder_sent at each threshold.

@@ -43,6 +43,13 @@
       "when": 1775872800000,
       "tag": "0005_create_audit_log",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1775876400000,
+      "tag": "0006_create_attachments",
+      "breakpoints": true
     }
   ]
 }

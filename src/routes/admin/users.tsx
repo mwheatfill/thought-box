@@ -383,12 +383,10 @@ function UsersPage() {
 }
 
 function PromotionActions({
-	pendingPromotion,
 	onConfirm,
 	onCancel,
 	isPending,
 }: {
-	pendingPromotion: { userId: string; role: string; displayName: string } | null;
 	onConfirm: (sendInvite: boolean) => void;
 	onCancel: () => void;
 	isPending: boolean;

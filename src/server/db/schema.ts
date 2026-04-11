@@ -154,6 +154,18 @@ export const keystoneDetails = pgTable("keystone_details", {
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const attachments = pgTable("attachments", {
+	id: varchar("id", { length: 128 }).$defaultFn(createId).primaryKey(),
+	ideaId: varchar("idea_id", { length: 128 }).notNull(),
+	messageId: varchar("message_id", { length: 128 }),
+	filename: varchar("filename", { length: 500 }).notNull(),
+	contentType: varchar("content_type", { length: 255 }).notNull(),
+	sizeBytes: integer("size_bytes").notNull(),
+	blobName: varchar("blob_name", { length: 500 }).notNull(),
+	uploadedById: varchar("uploaded_by_id", { length: 128 }).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const auditLog = pgTable("audit_log", {
 	id: varchar("id", { length: 128 }).$defaultFn(createId).primaryKey(),
 	actorId: varchar("actor_id", { length: 128 }),
@@ -210,6 +222,18 @@ export const ideasRelations = relations(ideas, ({ one, many }) => ({
 	events: many(ideaEvents),
 	conversations: many(conversations),
 	keystoneDetails: one(keystoneDetails),
+	attachments: many(attachments),
+}));
+
+export const attachmentsRelations = relations(attachments, ({ one }) => ({
+	idea: one(ideas, {
+		fields: [attachments.ideaId],
+		references: [ideas.id],
+	}),
+	uploadedBy: one(users, {
+		fields: [attachments.uploadedById],
+		references: [users.id],
+	}),
 }));
 
 export const ideaEventsRelations = relations(ideaEvents, ({ one }) => ({

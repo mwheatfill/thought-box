@@ -26,6 +26,9 @@ const { handleChatRequest } = await import("./dist/server/chat-handler.js");
 const { handlePhotoRequest } = await import("./dist/server/photo-handler.js");
 const { handleSlaCronRequest } = await import("./dist/server/sla-cron.js");
 const { handleHealthRequest } = await import("./dist/server/health.js");
+const { handleAttachmentUpload, handleAttachmentDownload } = await import(
+	"./dist/server/attachments.js"
+);
 
 const PORT = process.env.PORT || 3000;
 const CLIENT_DIR = join(__dirname, "dist", "client");
@@ -139,6 +142,18 @@ const server = createServer(async (req, res) => {
 		// Photo endpoint (separately built, same as chat handler)
 		if (req.url.match(/^\/api\/users\/[^/]+\/photo$/)) {
 			await sendWebResponse(await handlePhotoRequest(webRequest), res);
+			return;
+		}
+
+		// Attachment upload
+		if (req.url === "/api/attachments" && req.method === "POST") {
+			await sendWebResponse(await handleAttachmentUpload(webRequest), res);
+			return;
+		}
+
+		// Attachment download
+		if (req.url.match(/^\/api\/attachments\/[^/]+$/) && req.method === "GET") {
+			await sendWebResponse(await handleAttachmentDownload(webRequest), res);
 			return;
 		}
 

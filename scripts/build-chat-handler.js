@@ -62,3 +62,18 @@ await esbuild.build({
 });
 
 console.log("Health handler built → dist/server/health.js");
+
+await esbuild.build({
+	entryPoints: ["src/server/api/attachments.ts"],
+	bundle: true,
+	platform: "node",
+	target: "node22",
+	format: "esm",
+	outfile: "dist/server/attachments.js",
+	packages: "external",
+	alias: {
+		"#/*": "./src/*",
+	},
+});
+
+console.log("Attachments handler built → dist/server/attachments.js");
