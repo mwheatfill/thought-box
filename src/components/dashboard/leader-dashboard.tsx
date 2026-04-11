@@ -144,7 +144,7 @@ export function LeaderDashboard({
 	const closedIdeas = ideas.filter((i) => !openStatuses.includes(i.status));
 	const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 	const [bulkStatus, setBulkStatus] = useState("under_review");
-	const [kpiFilter, setKpiFilter] = useState<QueueFilter>(null);
+	const [kpiFilter, setKpiFilter] = useState<QueueFilter>(enableKpiFilter ? "open" : null);
 
 	const displayIdeas = useMemo(() => {
 		if (!kpiFilter) return openIdeas;
