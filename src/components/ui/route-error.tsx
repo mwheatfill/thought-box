@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { useRouter } from "@tanstack/react-router";
 import { AlertTriangle, ArrowLeft, RefreshCw, SearchX } from "lucide-react";
 import { Button } from "#/components/ui/button";
 
@@ -8,7 +8,16 @@ interface RouteErrorProps {
 }
 
 export function RouteError({ error, variant = "generic" }: RouteErrorProps) {
+	const router = useRouter();
 	const isNotFound = variant === "not-found" || error.message.includes("Not found");
+
+	const goBack = () => {
+		if (window.history.length > 1) {
+			router.history.back();
+		} else {
+			window.location.href = "/";
+		}
+	};
 
 	if (isNotFound) {
 		return (
@@ -20,11 +29,9 @@ export function RouteError({ error, variant = "generic" }: RouteErrorProps) {
 				<p className="mb-6 max-w-md text-sm text-muted-foreground">
 					This page doesn't exist or you don't have access to it.
 				</p>
-				<Button asChild variant="outline">
-					<Link to="/dashboard">
-						<ArrowLeft className="mr-2 size-4" />
-						Back to Dashboard
-					</Link>
+				<Button variant="outline" onClick={goBack}>
+					<ArrowLeft className="mr-2 size-4" />
+					Go back
 				</Button>
 			</main>
 		);
@@ -37,18 +44,16 @@ export function RouteError({ error, variant = "generic" }: RouteErrorProps) {
 			</div>
 			<h2 className="mb-2 text-xl font-semibold">Something went wrong</h2>
 			<p className="mb-6 max-w-md text-sm text-muted-foreground">
-				An unexpected error occurred. Try refreshing, or head back to the dashboard.
+				An unexpected error occurred. Try refreshing, or go back to where you were.
 			</p>
 			<div className="flex gap-3">
 				<Button variant="outline" onClick={() => window.location.reload()}>
 					<RefreshCw className="mr-2 size-4" />
 					Refresh
 				</Button>
-				<Button asChild>
-					<Link to="/dashboard">
-						<ArrowLeft className="mr-2 size-4" />
-						Dashboard
-					</Link>
+				<Button onClick={goBack}>
+					<ArrowLeft className="mr-2 size-4" />
+					Go back
 				</Button>
 			</div>
 		</main>
