@@ -41,6 +41,7 @@ function QueuePage() {
 					await bulkMutation.mutateAsync({ ideaIds, status });
 				}}
 				isBulkUpdating={bulkMutation.isPending}
+				enableKpiFilter
 			/>
 		</main>
 	);

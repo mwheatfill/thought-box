@@ -1,8 +1,8 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import { formatDistanceToNow } from "date-fns";
-import { AlertTriangle, CheckCircle, Clock, Inbox } from "lucide-react";
-import { useState } from "react";
+import { AlertTriangle, CheckCircle, Clock, Inbox, X } from "lucide-react";
+import { useMemo, useState } from "react";
 import { FadeIn } from "#/components/ui/animated";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Button } from "#/components/ui/button";
@@ -39,11 +39,14 @@ interface LeaderStats {
 	totalAssigned: number;
 }
 
+type QueueFilter = "open" | "overdue" | null;
+
 interface LeaderDashboardProps {
 	ideas: LeaderIdea[];
 	stats: LeaderStats;
 	onBulkUpdate?: (ideaIds: string[], status: string) => Promise<void>;
 	isBulkUpdating?: boolean;
+	enableKpiFilter?: boolean;
 }
 
 // ── Column definitions ────────────────────────────────────────────────────
@@ -133,19 +136,41 @@ export function LeaderDashboard({
 	stats,
 	onBulkUpdate,
 	isBulkUpdating,
+	enableKpiFilter,
 }: LeaderDashboardProps) {
 	const navigate = useNavigate();
 	const openStatuses = ["new", "under_review", "in_progress"];
 	const openIdeas = ideas.filter((i) => openStatuses.includes(i.status));
 	const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 	const [bulkStatus, setBulkStatus] = useState("under_review");
+	const [kpiFilter, setKpiFilter] = useState<QueueFilter>(null);
+
+	const displayIdeas = useMemo(() => {
+		if (!kpiFilter) return openIdeas;
+		if (kpiFilter === "overdue") return openIdeas.filter((i) => i.slaStatus === "overdue");
+		return openIdeas; // "open" is the default view
+	}, [openIdeas, kpiFilter]);
+
+	const toggleKpi = (key: QueueFilter) => {
+		if (!enableKpiFilter) return;
+		setKpiFilter((prev) => (prev === key ? null : key));
+		setRowSelection({});
+	};
+
+	const filterLabel = kpiFilter === "overdue" ? "Overdue" : kpiFilter === "open" ? "My Open" : null;
 
 	return (
 		<div className="space-y-6">
 			{/* KPI row */}
 			<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
 				<FadeIn delay={0}>
-					<KpiCard icon={Inbox} label="My Open" value={stats.openCount} />
+					<KpiCard
+						icon={Inbox}
+						label="My Open"
+						value={stats.openCount}
+						onClick={enableKpiFilter ? () => toggleKpi("open") : undefined}
+						isActive={kpiFilter === "open"}
+					/>
 				</FadeIn>
 				<FadeIn delay={0.05}>
 					<KpiCard
@@ -153,6 +178,8 @@ export function LeaderDashboard({
 						label="Overdue"
 						value={stats.overdueCount}
 						variant={stats.overdueCount > 0 ? "destructive" : "default"}
+						onClick={enableKpiFilter ? () => toggleKpi("overdue") : undefined}
+						isActive={kpiFilter === "overdue"}
 					/>
 				</FadeIn>
 				<FadeIn delay={0.1}>
@@ -170,6 +197,24 @@ export function LeaderDashboard({
 					/>
 				</FadeIn>
 			</div>
+
+			{/* Active filter chip */}
+			{filterLabel && (
+				<div className="flex items-center gap-2">
+					<span className="text-sm text-muted-foreground">Showing:</span>
+					<button
+						type="button"
+						onClick={() => setKpiFilter(null)}
+						className="inline-flex items-center gap-1 rounded-full border bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+					>
+						{filterLabel}
+						<X className="size-3" />
+					</button>
+					<span className="text-xs text-muted-foreground">
+						{displayIdeas.length} {displayIdeas.length === 1 ? "idea" : "ideas"}
+					</span>
+				</div>
+			)}
 
 			{/* Ideas table */}
 			{openIdeas.length === 0 ? (
@@ -192,7 +237,7 @@ export function LeaderDashboard({
 					<CardContent>
 						<DataTable
 							columns={leaderColumns}
-							data={openIdeas}
+							data={displayIdeas}
 							searchPlaceholder="Search ideas..."
 							searchColumn="title"
 							enableSelection
@@ -212,10 +257,12 @@ export function LeaderDashboard({
 								{
 									columnId: "categoryName",
 									label: "Category",
-									options: [...new Set(openIdeas.map((i) => i.categoryName))].sort().map((c) => ({
-										value: c,
-										label: c,
-									})),
+									options: [...new Set(displayIdeas.map((i) => i.categoryName))]
+										.sort()
+										.map((c) => ({
+											value: c,
+											label: c,
+										})),
 								},
 							]}
 							onRowClick={(idea) =>
@@ -272,42 +319,59 @@ function KpiCard({
 	label,
 	value,
 	variant = "default",
+	onClick,
+	isActive,
 }: {
 	icon: React.ComponentType<{ className?: string }>;
 	label: string;
 	value: number | string;
 	variant?: "default" | "destructive";
+	onClick?: () => void;
+	isActive?: boolean;
 }) {
+	const isDestructive = variant === "destructive";
+	const Wrapper = onClick ? "button" : "div";
+
 	return (
-		<Card className="h-full">
-			<CardContent className="flex h-full items-center gap-4 p-4">
-				<div
-					className={cn(
-						"rounded-full p-2",
-						variant === "destructive" ? "bg-red-100 dark:bg-red-900/30" : "bg-muted",
-					)}
-				>
-					<Icon
+		<Wrapper
+			type={onClick ? "button" : undefined}
+			onClick={onClick}
+			className={onClick ? "text-left" : undefined}
+		>
+			<Card
+				className={cn(
+					"h-full transition-all",
+					isActive && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+					onClick && !isActive && "hover:border-primary/30 hover:bg-muted/30",
+				)}
+			>
+				<CardContent className="flex h-full items-center gap-4 p-4">
+					<div
 						className={cn(
-							"size-4",
-							variant === "destructive"
-								? "text-red-600 dark:text-red-400"
-								: "text-muted-foreground",
-						)}
-					/>
-				</div>
-				<div>
-					<p
-						className={cn(
-							"text-2xl font-bold",
-							variant === "destructive" && "text-red-600 dark:text-red-400",
+							"rounded-full p-2",
+							isDestructive ? "bg-red-100 dark:bg-red-900/30" : "bg-muted",
 						)}
 					>
-						{value}
-					</p>
-					<p className="text-xs text-muted-foreground">{label}</p>
-				</div>
-			</CardContent>
-		</Card>
+						<Icon
+							className={cn(
+								"size-4",
+								isDestructive ? "text-red-600 dark:text-red-400" : "text-muted-foreground",
+							)}
+						/>
+					</div>
+					<div>
+						<p
+							className={cn(
+								"text-2xl font-bold",
+								isDestructive && "text-red-600 dark:text-red-400",
+							)}
+						>
+							{value}
+						</p>
+						<p className="text-xs text-muted-foreground">{label}</p>
+					</div>
+				</CardContent>
+			</Card>
+		</Wrapper>
 	);
 }
