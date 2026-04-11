@@ -7,14 +7,13 @@ import { StatusBadge } from "#/components/dashboard/status-badge";
 import { ActivityTimeline } from "#/components/ideas/activity-timeline";
 import { LeaderActions } from "#/components/ideas/leader-actions";
 import { MessageThread } from "#/components/ideas/message-thread";
-import { PeopleCard } from "#/components/ideas/people-card";
 import { PageTransition } from "#/components/ui/animated";
+import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Badge } from "#/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { DropZone } from "#/components/ui/drop-zone";
 import { RouteError } from "#/components/ui/route-error";
 import { Separator } from "#/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import { UserCardPopover } from "#/components/ui/user-card";
 import { IMPACT_AREAS } from "#/lib/constants";
 import type { IdeaStatus } from "#/lib/constants";
@@ -191,85 +190,108 @@ function IdeaDetailPage() {
 							</CardContent>
 						</Card>
 
-						{/* Submitter card */}
-						<PeopleCard person={idea.submitter} title="Submitter" submittedAt={idea.submittedAt} />
+						{/* Submitter (compact) */}
+						<div className="flex items-center gap-3">
+							<Avatar className="size-8">
+								{idea.submitter.photoUrl && (
+									<AvatarImage src={idea.submitter.photoUrl} alt={idea.submitter.displayName} />
+								)}
+								<AvatarFallback className="text-xs">
+									{idea.submitter.displayName
+										.split(" ")
+										.map((n: string) => n[0])
+										.join("")
+										.slice(0, 2)}
+								</AvatarFallback>
+							</Avatar>
+							<div className="text-sm">
+								<UserCardPopover userId={idea.submitter.id}>
+									<button type="button" className="font-medium hover:text-primary hover:underline">
+										{idea.submitter.displayName}
+									</button>
+								</UserCardPopover>
+								<span className="text-muted-foreground">
+									{" "}
+									submitted{" "}
+									{new Date(idea.submittedAt).toLocaleDateString("en-US", {
+										month: "short",
+										day: "numeric",
+										year: "numeric",
+									})}
+								</span>
+							</div>
+						</div>
 
-						{/* Activity & Messages tabs */}
+						{/* Messages */}
 						<Card>
-							<Tabs defaultValue="activity">
-								<CardHeader className="pb-0">
-									<TabsList>
-										<TabsTrigger value="activity">Activity</TabsTrigger>
-										<TabsTrigger value="messages">
-											Messages
-											{messages.length > 0 && (
-												<Badge variant="secondary" className="ml-1.5">
-													{messages.length}
-												</Badge>
-											)}
-										</TabsTrigger>
-										<TabsTrigger value="attachments">
-											Attachments
-											{ideaAttachments.length > 0 && (
-												<Badge variant="secondary" className="ml-1.5">
-													{ideaAttachments.length}
-												</Badge>
-											)}
-										</TabsTrigger>
-									</TabsList>
-								</CardHeader>
-								<CardContent className="pt-4">
-									<TabsContent value="activity" className="mt-0">
-										<ActivityTimeline events={idea.events} />
-									</TabsContent>
-									<TabsContent value="messages" className="mt-0">
-										<MessageThread
-											messages={messages}
-											currentUserId={user.id}
-											ideaId={idea.id}
-											onSend={async (content) => {
-												return await messageMutation.mutateAsync(content);
-											}}
-											onAttachmentUpload={() => {
-												queryClient.invalidateQueries({
-													queryKey: ["idea-attachments", idea.id],
-												});
-											}}
-											isSending={messageMutation.isPending}
-										/>
-									</TabsContent>
-									<TabsContent value="attachments" className="mt-0">
-										<DropZone
-											ideaId={idea.id}
-											userId={user.id}
-											readOnly={isLocked}
-											existingFiles={ideaAttachments}
-											onUpload={() => {
-												queryClient.invalidateQueries({
-													queryKey: ["idea-attachments", idea.id],
-												});
-												queryClient.invalidateQueries({
-													queryKey: ["idea", submissionId],
-												});
-											}}
-											onDelete={() => {
-												queryClient.invalidateQueries({
-													queryKey: ["idea-attachments", idea.id],
-												});
-												queryClient.invalidateQueries({
-													queryKey: ["idea", submissionId],
-												});
-											}}
-										/>
-									</TabsContent>
-								</CardContent>
-							</Tabs>
+							<CardHeader>
+								<CardTitle className="text-sm font-medium">
+									Messages
+									{messages.length > 0 && (
+										<Badge variant="secondary" className="ml-1.5">
+											{messages.length}
+										</Badge>
+									)}
+								</CardTitle>
+							</CardHeader>
+							<CardContent>
+								<MessageThread
+									messages={messages}
+									currentUserId={user.id}
+									ideaId={idea.id}
+									onSend={async (content) => {
+										return await messageMutation.mutateAsync(content);
+									}}
+									onAttachmentUpload={() => {
+										queryClient.invalidateQueries({
+											queryKey: ["idea-attachments", idea.id],
+										});
+									}}
+									isSending={messageMutation.isPending}
+								/>
+							</CardContent>
+						</Card>
+
+						{/* Attachments (compact) */}
+						<Card>
+							<CardHeader className="pb-2">
+								<CardTitle className="text-sm font-medium text-muted-foreground">
+									Attachments
+									{ideaAttachments.length > 0 && (
+										<span className="ml-1.5 text-xs font-normal">({ideaAttachments.length})</span>
+									)}
+								</CardTitle>
+							</CardHeader>
+							<CardContent>
+								<DropZone
+									ideaId={idea.id}
+									userId={user.id}
+									readOnly={isLocked}
+									existingFiles={ideaAttachments}
+									onUpload={() => {
+										queryClient.invalidateQueries({
+											queryKey: ["idea-attachments", idea.id],
+										});
+										queryClient.invalidateQueries({
+											queryKey: ["idea", submissionId],
+										});
+									}}
+									onDelete={() => {
+										queryClient.invalidateQueries({
+											queryKey: ["idea-attachments", idea.id],
+										});
+										queryClient.invalidateQueries({
+											queryKey: ["idea", submissionId],
+										});
+									}}
+								/>
+							</CardContent>
 						</Card>
 					</div>
 
-					{/* Right column - Leader actions (only if can edit) */}
+					{/* Right column */}
 					{idea.canEdit && (
-						<div className="lg:sticky lg:top-6 lg:self-start">
+						<div className="space-y-6">
 							<LeaderActions
 								ideaId={idea.id}
 								currentStatus={idea.status}
@@ -297,12 +319,22 @@ function IdeaDetailPage() {
 								isReassigning={reassignMutation.isPending}
 								isCommunicating={messageMutation.isPending}
 							/>
+
+							{/* Activity */}
+							<Card>
+								<CardHeader className="pb-3">
+									<CardTitle className="text-sm font-medium">Activity</CardTitle>
+								</CardHeader>
+								<CardContent>
+									<ActivityTimeline events={idea.events} />
+								</CardContent>
+							</Card>
 						</div>
 					)}
 
-					{/* Right column - Read-only status for submitters */}
+					{/* Right column - Read-only for submitters */}
 					{!idea.canEdit && (
-						<div className="lg:sticky lg:top-6 lg:self-start">
+						<div className="space-y-6">
 							<Card>
 								<CardHeader className="pb-3">
 									<CardTitle className="text-sm font-medium">Status & Assignment</CardTitle>
@@ -331,6 +363,16 @@ function IdeaDetailPage() {
 											<span className="text-sm">{idea.rejectionReason.replace(/_/g, " ")}</span>
 										</div>
 									)}
+								</CardContent>
+							</Card>
+
+							{/* Activity */}
+							<Card>
+								<CardHeader className="pb-3">
+									<CardTitle className="text-sm font-medium">Activity</CardTitle>
+								</CardHeader>
+								<CardContent>
+									<ActivityTimeline events={idea.events} />
 								</CardContent>
 							</Card>
 						</div>
