@@ -1,4 +1,4 @@
-import { ClientSecretCredential } from "@azure/identity";
+import { ClientSecretCredential, ManagedIdentityCredential } from "@azure/identity";
 import { Client } from "@microsoft/microsoft-graph-client";
 import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials/index.js";
 
@@ -59,6 +59,18 @@ const MOCK_DIRECTORY: DirectoryUser[] = [
 // ── Graph client ──────────────────────────────────────────────────────────
 
 function getGraphClient(): Client | null {
+	// Azure: use managed identity (no client secret needed, never expires)
+	// ManagedIdentityCredential() without args avoids AZURE_CLIENT_ID conflict with Easy Auth
+	const isAzure = process.cwd().startsWith("/home/site");
+	if (isAzure) {
+		const credential = new ManagedIdentityCredential();
+		const authProvider = new TokenCredentialAuthenticationProvider(credential, {
+			scopes: ["https://graph.microsoft.com/.default"],
+		});
+		return Client.initWithMiddleware({ authProvider });
+	}
+
+	// Dev: fall back to client secret if configured
 	const tenantId = process.env.AZURE_TENANT_ID;
 	const clientId = process.env.GRAPH_CLIENT_ID;
 	const clientSecret = process.env.GRAPH_CLIENT_SECRET;
