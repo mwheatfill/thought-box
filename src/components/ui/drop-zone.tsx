@@ -10,9 +10,8 @@ import {
 	Paperclip,
 	Presentation,
 	Trash2,
-	X,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "#/components/ui/button";
 import { cn } from "#/lib/utils";
@@ -74,15 +73,19 @@ export function DropZone({
 	messageId,
 	onUpload,
 	onDelete,
-	existingFiles = [],
+	existingFiles,
 	disabled,
 	compact,
 }: DropZoneProps) {
 	const [isDragging, setIsDragging] = useState(false);
 	const [uploading, setUploading] = useState(false);
 	const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+	const [localFiles, setLocalFiles] = useState<UploadedFile[]>([]);
 	const inputRef = useRef<HTMLInputElement>(null);
-	const dragCounter = useRef(0);
+	const uploadingRef = useRef(false);
+
+	// Use existingFiles from parent if provided, otherwise track locally
+	const displayFiles = existingFiles ?? localFiles;
 
 	const validateFile = (file: File): string | null => {
 		if (!ALLOWED_TYPES.has(file.type)) {
@@ -94,16 +97,11 @@ export function DropZone({
 		return null;
 	};
 
-	const uploadFile = useCallback(
-		async (file: File) => {
-			const error = validateFile(file);
-			if (error) {
-				toast.error(error);
-				return;
-			}
-
-			setUploading(true);
-			setUploadProgress(file.name);
+	// Core upload — no toasts, no state management (caller handles that)
+	const doUpload = useCallback(
+		async (file: File): Promise<{ success: boolean; name: string; error?: string; data?: UploadedFile }> => {
+			const validationError = validateFile(file);
+			if (validationError) return { success: false, name: file.name, error: validationError };
 
 			try {
 				const formData = new FormData();
@@ -118,68 +116,104 @@ export function DropZone({
 				});
 
 				if (!res.ok) {
-					const data = await res.json();
-					throw new Error(data.error || "Upload failed");
+					const body = await res.json();
+					return { success: false, name: file.name, error: body.error || "Upload failed" };
 				}
 
-				const uploaded = await res.json();
+				const uploaded: UploadedFile = await res.json();
 				onUpload?.(uploaded);
-				toast.success(`${file.name} uploaded`);
+				if (!existingFiles) {
+					setLocalFiles((prev) => [...prev, uploaded]);
+				}
+				return { success: true, name: file.name, data: uploaded };
 			} catch (err) {
-				toast.error(err instanceof Error ? err.message : "Upload failed");
-			} finally {
-				setUploading(false);
-				setUploadProgress(null);
+				return { success: false, name: file.name, error: err instanceof Error ? err.message : "Upload failed" };
 			}
 		},
-		[ideaId, userId, messageId, onUpload],
+		[ideaId, userId, messageId, onUpload, existingFiles],
 	);
 
 	const handleFiles = useCallback(
-		(files: FileList | File[]) => {
-			for (const file of Array.from(files)) {
-				uploadFile(file);
+		async (files: FileList | File[]) => {
+			const fileArray = Array.from(files);
+			if (fileArray.length === 0) return;
+
+			setUploading(true);
+			uploadingRef.current = true;
+
+			if (fileArray.length === 1) {
+				setUploadProgress(fileArray[0].name);
+				const result = await doUpload(fileArray[0]);
+				if (result.success) toast.success(`${result.name} uploaded`);
+				else toast.error(result.error || "Upload failed");
+			} else {
+				setUploadProgress(`${fileArray.length} files`);
+				const results = await Promise.all(fileArray.map((f) => doUpload(f)));
+				const succeeded = results.filter((r) => r.success).length;
+				const failed = results.filter((r) => !r.success);
+				if (succeeded > 0 && failed.length === 0) {
+					toast.success(`${succeeded} files uploaded`);
+				} else if (succeeded > 0) {
+					toast.warning(`${succeeded} uploaded, ${failed.length} failed`);
+				} else {
+					toast.error(failed[0]?.error || `Failed to upload ${failed.length} files`);
+				}
 			}
+
+			setUploading(false);
+			uploadingRef.current = false;
+			setUploadProgress(null);
 		},
-		[uploadFile],
+		[doUpload],
 	);
 
-	const handleDragEnter = useCallback((e: React.DragEvent) => {
-		e.preventDefault();
-		e.stopPropagation();
-		dragCounter.current++;
-		if (dragCounter.current === 1) {
-			setIsDragging(true);
-		}
-	}, []);
+	// Document-level drag detection — fires overlay when files dragged anywhere on page
+	useEffect(() => {
+		if (compact || disabled) return;
 
-	const handleDragLeave = useCallback((e: React.DragEvent) => {
-		e.preventDefault();
-		e.stopPropagation();
-		dragCounter.current--;
-		if (dragCounter.current === 0) {
-			setIsDragging(false);
-		}
-	}, []);
+		let counter = 0;
 
-	const handleDragOver = useCallback((e: React.DragEvent) => {
-		e.preventDefault();
-		e.stopPropagation();
-	}, []);
-
-	const handleDrop = useCallback(
-		(e: React.DragEvent) => {
+		const onDragEnter = (e: DragEvent) => {
+			if (!e.dataTransfer?.types.includes("Files")) return;
 			e.preventDefault();
-			e.stopPropagation();
-			dragCounter.current = 0;
+			counter++;
+			if (counter === 1) setIsDragging(true);
+		};
+
+		const onDragLeave = (e: DragEvent) => {
+			e.preventDefault();
+			counter--;
+			if (counter <= 0) {
+				counter = 0;
+				setIsDragging(false);
+			}
+		};
+
+		const onDragOver = (e: DragEvent) => {
+			e.preventDefault();
+		};
+
+		const onDrop = (e: DragEvent) => {
+			e.preventDefault();
+			counter = 0;
 			setIsDragging(false);
-			if (disabled || uploading) return;
-			if (e.dataTransfer.files.length > 0) {
+			if (!uploadingRef.current && e.dataTransfer?.files.length) {
 				handleFiles(e.dataTransfer.files);
 			}
-		},
-		[disabled, uploading, handleFiles],
-	);
+		};
+
+		document.addEventListener("dragenter", onDragEnter);
+		document.addEventListener("dragleave", onDragLeave);
+		document.addEventListener("dragover", onDragOver);
+		document.addEventListener("drop", onDrop);
+
+		return () => {
+			document.removeEventListener("dragenter", onDragEnter);
+			document.removeEventListener("dragleave", onDragLeave);
+			document.removeEventListener("dragover", onDragOver);
+			document.removeEventListener("drop", onDrop);
+		};
+	}, [compact, disabled, handleFiles]);
 
 	const handlePaste = useCallback(
 		(e: React.ClipboardEvent) => {
@@ -198,6 +232,26 @@ export function DropZone({
 			}
 		},
 		[disabled, uploading, handleFiles],
+	);
+
+	const handleDelete = useCallback(
+		async (file: UploadedFile) => {
+			const res = await fetch(`/api/attachments/${file.id}`, {
+				method: "DELETE",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ userId }),
+			});
+			if (res.ok) {
+				toast.success(`${file.filename} deleted`);
+				if (!existingFiles) {
+					setLocalFiles((prev) => prev.filter((f) => f.id !== file.id));
+				}
+				onDelete?.();
+			} else {
+				toast.error("Failed to delete file");
+			}
+		},
+		[userId, existingFiles, onDelete],
 	);
 
 	if (compact) {
@@ -229,10 +283,6 @@ export function DropZone({
 
 	return (
 		<div
-			onDragEnter={handleDragEnter}
-			onDragLeave={handleDragLeave}
-			onDragOver={handleDragOver}
-			onDrop={handleDrop}
 			onPaste={handlePaste}
 			className="relative"
 			// biome-ignore lint/a11y/noNoninteractiveTabindex: needed for paste events
@@ -294,9 +344,9 @@ export function DropZone({
 			</div>
 
 			{/* File list */}
-			{existingFiles.length > 0 && (
+			{displayFiles.length > 0 && (
 				<div className="mt-3 space-y-1.5">
-					{existingFiles.map((f) => (
+					{displayFiles.map((f) => (
 						<div key={f.id} className="group flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
 							<a
 								href={`/api/attachments/${f.id}`}
@@ -315,19 +365,7 @@ export function DropZone({
 									type="button"
 									className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-foreground/10 hover:text-foreground group-hover:opacity-100"
 									title="Delete file"
-									onClick={async () => {
-										const res = await fetch(`/api/attachments/${f.id}`, {
-											method: "DELETE",
-											headers: { "Content-Type": "application/json" },
-											body: JSON.stringify({ userId }),
-										});
-										if (res.ok) {
-											toast.success(`${f.filename} deleted`);
-											onDelete?.();
-										} else {
-											toast.error("Failed to delete file");
-										}
-									}}
+									onClick={() => handleDelete(f)}
 								>
 									<Trash2 className="size-3.5" />
 								</button>
