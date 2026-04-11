@@ -728,14 +728,13 @@ Currently four custom routes: `/api/chat` (chat-handler.js), `/api/users/:id/pho
 
 **Azure App Service filesystem:** App directory (`/home/site/wwwroot`) is read-only with WEBSITE_RUN_FROM_PACKAGE=1. Use `/home/` for writable persistent storage (photos).
 
-### What's NOT built (Phase 2 / deferred)
+### Backlog (Phase 2)
 
-- SLA escalation chain (leader → manager → HR/AVP/VP)
-- File attachments on ideas
-- Watcher subscriptions per-category (currently one DL for all)
-- Full notification system / per-idea follow
-- Abandoned conversation saving (30s inactivity)
-- Azure Blob Storage for photos (currently /home/ filesystem)
+1. **SLA escalation chain** — escalate past leader to manager → HR/AVP/VP. Needs business rules for escalation thresholds and recipients.
+2. **File attachments on ideas** — Azure Blob Storage for uploads (browse, drag-and-drop, paste screenshots). Also migrate profile photos from /home/ filesystem to Blob Storage.
+3. **Abandoned conversation saving** — save AI chat conversations on page unmount or 30s inactivity. Captures data currently being lost.
+4. **Watcher subscriptions per-category** — let admins configure different notification DLs per category instead of one global DL.
+5. **Full notification system** — per-idea follow/subscribe, in-app notification bell with unread counts, notification preferences per user.
 - Azure Blob Storage for photos (currently filesystem)
 - Keystone conditional fields
 - AI-powered insights for admins
