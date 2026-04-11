@@ -39,7 +39,7 @@ interface LeaderStats {
 	totalAssigned: number;
 }
 
-type QueueFilter = "open" | "overdue" | null;
+type QueueFilter = "open" | "overdue" | "closed" | null;
 
 interface LeaderDashboardProps {
 	ideas: LeaderIdea[];
@@ -141,6 +141,7 @@ export function LeaderDashboard({
 	const navigate = useNavigate();
 	const openStatuses = ["new", "under_review", "in_progress"];
 	const openIdeas = ideas.filter((i) => openStatuses.includes(i.status));
+	const closedIdeas = ideas.filter((i) => !openStatuses.includes(i.status));
 	const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 	const [bulkStatus, setBulkStatus] = useState("under_review");
 	const [kpiFilter, setKpiFilter] = useState<QueueFilter>(null);
@@ -148,8 +149,9 @@ export function LeaderDashboard({
 	const displayIdeas = useMemo(() => {
 		if (!kpiFilter) return openIdeas;
 		if (kpiFilter === "overdue") return openIdeas.filter((i) => i.slaStatus === "overdue");
-		return openIdeas; // "open" is the default view
-	}, [openIdeas, kpiFilter]);
+		if (kpiFilter === "closed") return closedIdeas;
+		return openIdeas; // "open"
+	}, [openIdeas, closedIdeas, kpiFilter]);
 
 	const toggleKpi = (key: QueueFilter) => {
 		if (!enableKpiFilter) return;
@@ -157,7 +159,12 @@ export function LeaderDashboard({
 		setRowSelection({});
 	};
 
-	const filterLabel = kpiFilter === "overdue" ? "Overdue" : kpiFilter === "open" ? "My Open" : null;
+	const filterLabels: Record<NonNullable<QueueFilter>, string> = {
+		open: "My Open",
+		overdue: "Overdue",
+		closed: "Closed",
+	};
+	const filterLabel = kpiFilter ? filterLabels[kpiFilter] : null;
 
 	return (
 		<div className="space-y-6">
@@ -183,18 +190,16 @@ export function LeaderDashboard({
 					/>
 				</FadeIn>
 				<FadeIn delay={0.1}>
-					<KpiCard icon={CheckCircle} label="Total Assigned" value={stats.totalAssigned} />
+					<KpiCard
+						icon={CheckCircle}
+						label="Closed"
+						value={closedIdeas.length}
+						onClick={enableKpiFilter ? () => toggleKpi("closed") : undefined}
+						isActive={kpiFilter === "closed"}
+					/>
 				</FadeIn>
 				<FadeIn delay={0.15}>
-					<KpiCard
-						icon={Clock}
-						label="Open Rate"
-						value={
-							stats.totalAssigned > 0
-								? `${Math.round((stats.openCount / stats.totalAssigned) * 100)}%`
-								: "—"
-						}
-					/>
+					<KpiCard icon={Clock} label="Total Assigned" value={stats.totalAssigned} />
 				</FadeIn>
 			</div>
 
@@ -217,7 +222,7 @@ export function LeaderDashboard({
 			)}
 
 			{/* Ideas table */}
-			{openIdeas.length === 0 ? (
+			{displayIdeas.length === 0 && !kpiFilter ? (
 				<Card>
 					<CardContent className="flex flex-col items-center justify-center p-12 text-center">
 						<div className="mb-4 rounded-full bg-green-100 p-4 dark:bg-green-900/30">
@@ -232,7 +237,7 @@ export function LeaderDashboard({
 			) : (
 				<Card>
 					<CardHeader>
-						<CardTitle>Assigned Ideas</CardTitle>
+						<CardTitle>{kpiFilter === "closed" ? "Closed Ideas" : "Assigned Ideas"}</CardTitle>
 					</CardHeader>
 					<CardContent>
 						<DataTable
@@ -240,19 +245,26 @@ export function LeaderDashboard({
 							data={displayIdeas}
 							searchPlaceholder="Search ideas..."
 							searchColumn="title"
-							enableSelection
-							rowSelection={rowSelection}
-							onRowSelectionChange={setRowSelection}
+							enableSelection={kpiFilter !== "closed"}
+							rowSelection={kpiFilter !== "closed" ? rowSelection : {}}
+							onRowSelectionChange={kpiFilter !== "closed" ? setRowSelection : undefined}
 							getRowId={(row) => row.id}
 							facetedFilters={[
 								{
 									columnId: "status",
 									label: "Status",
-									options: [
-										{ value: "new", label: "New" },
-										{ value: "under_review", label: "Under Review" },
-										{ value: "in_progress", label: "In Progress" },
-									],
+									options: [...new Set(displayIdeas.map((i) => i.status))].map((s) => ({
+										value: s,
+										label:
+											{
+												new: "New",
+												under_review: "Under Review",
+												in_progress: "In Progress",
+												accepted: "Accepted",
+												implemented: "Implemented",
+												declined: "Declined",
+											}[s] ?? s,
+									})),
 								},
 								{
 									columnId: "categoryName",
@@ -336,7 +348,7 @@ function KpiCard({
 		<Wrapper
 			type={onClick ? "button" : undefined}
 			onClick={onClick}
-			className={onClick ? "text-left" : undefined}
+			className={onClick ? "w-full text-left" : undefined}
 		>
 			<Card
 				className={cn(
