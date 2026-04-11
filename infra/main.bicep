@@ -375,19 +375,14 @@ resource authSettings 'Microsoft.Web/sites/config@2024-04-01' = {
 }
 
 // ── Custom Domain ──────────────────────────────────────────────────────────
-
-resource customHostname 'Microsoft.Web/sites/hostNameBindings@2024-04-01' = if (!empty(customDomain)) {
-  parent: appService
-  name: customDomain
-  properties: {
-    siteName: appService.name
-    hostNameType: 'Verified'
-    sslState: 'Disabled'
-  }
-}
-
-// Note: managed certificate created manually as 'thoughtbox.desertfinancial.com'
-// Bicep cannot re-create it with a different name — managed via portal
+// Hostname binding and managed SSL certificate are managed via Azure CLI,
+// not Bicep. Bicep's hostNameBindings resource resets sslState to Disabled
+// on every deploy, breaking the SSL binding. Do not add it back.
+//
+// Setup commands (one-time):
+//   az webapp config hostname add --webapp-name app-df-thoughtbox-prod -g rg-df-thoughtbox-prod --hostname thoughtbox.desertfinancial.com
+//   az webapp config ssl create --name app-df-thoughtbox-prod -g rg-df-thoughtbox-prod --hostname thoughtbox.desertfinancial.com
+//   az webapp config ssl bind --name app-df-thoughtbox-prod -g rg-df-thoughtbox-prod --certificate-thumbprint <thumbprint> --ssl-type SNI
 
 // ── Monitoring: Action Group ───────────────────────────────────────────────
 
