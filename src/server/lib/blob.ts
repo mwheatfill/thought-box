@@ -1,4 +1,4 @@
-import { DefaultAzureCredential } from "@azure/identity";
+import { DefaultAzureCredential, ManagedIdentityCredential } from "@azure/identity";
 import { BlobServiceClient } from "@azure/storage-blob";
 
 // biome-ignore lint/complexity/useLiteralKeys: prevent vite from replacing at build time
@@ -10,9 +10,15 @@ function getBlobClient(): BlobServiceClient | null {
 	if (blobServiceClient) return blobServiceClient;
 	if (!STORAGE_ACCOUNT) return null;
 
+	// Use ManagedIdentityCredential on Azure (AZURE_CLIENT_ID is set for Easy Auth,
+	// which confuses DefaultAzureCredential). Fall back to DefaultAzureCredential
+	// for local dev (uses az login).
+	const isAzure = process.cwd().startsWith("/home/site");
+	const credential = isAzure ? new ManagedIdentityCredential() : new DefaultAzureCredential();
+
 	blobServiceClient = new BlobServiceClient(
 		`https://${STORAGE_ACCOUNT}.blob.core.windows.net`,
-		new DefaultAzureCredential(),
+		credential,
 	);
 	return blobServiceClient;
 }
