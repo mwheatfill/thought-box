@@ -75,6 +75,52 @@ const config = defineConfig({
 				});
 			},
 		},
+		// Attachment upload/download middleware for dev
+		{
+			name: "api-attachments-middleware",
+			configureServer(server) {
+				server.middlewares.use("/api/attachments", async (req, res) => {
+					try {
+						const chunks: Buffer[] = [];
+						for await (const chunk of req) {
+							chunks.push(chunk as Buffer);
+						}
+						const body = Buffer.concat(chunks);
+
+						const headers = new Headers();
+						for (const [key, value] of Object.entries(req.headers)) {
+							if (value) headers.set(key, Array.isArray(value) ? value[0] : value);
+						}
+
+						const request = new Request(`http://localhost${req.url}`, {
+							method: req.method,
+							headers,
+							body: req.method === "GET" ? undefined : body,
+							// @ts-expect-error duplex needed for Node
+							duplex: "half",
+						});
+
+						const mod = await import("./src/server/api/attachments.ts");
+						const response =
+							req.method === "POST"
+								? await mod.handleAttachmentUpload(request)
+								: await mod.handleAttachmentDownload(request);
+
+						res.statusCode = response.status;
+						response.headers.forEach((value: string, key: string) => {
+							res.setHeader(key, value);
+						});
+
+						const responseBody = await response.arrayBuffer();
+						res.end(Buffer.from(responseBody));
+					} catch (error) {
+						console.error("Attachment API error:", error);
+						res.statusCode = 500;
+						res.end(JSON.stringify({ error: "Internal server error" }));
+					}
+				});
+			},
+		},
 	],
 });
 
