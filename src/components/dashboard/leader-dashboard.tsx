@@ -39,7 +39,7 @@ interface LeaderStats {
 	totalAssigned: number;
 }
 
-type QueueFilter = "open" | "overdue" | "closed" | null;
+type QueueFilter = "open" | "overdue" | "closed" | "all" | null;
 
 interface LeaderDashboardProps {
 	ideas: LeaderIdea[];
@@ -150,8 +150,9 @@ export function LeaderDashboard({
 		if (!kpiFilter) return openIdeas;
 		if (kpiFilter === "overdue") return openIdeas.filter((i) => i.slaStatus === "overdue");
 		if (kpiFilter === "closed") return closedIdeas;
+		if (kpiFilter === "all") return ideas;
 		return openIdeas; // "open"
-	}, [openIdeas, closedIdeas, kpiFilter]);
+	}, [ideas, openIdeas, closedIdeas, kpiFilter]);
 
 	const toggleKpi = (key: QueueFilter) => {
 		if (!enableKpiFilter) return;
@@ -163,6 +164,7 @@ export function LeaderDashboard({
 		open: "My Open",
 		overdue: "Overdue",
 		closed: "Closed",
+		all: "Total Assigned",
 	};
 	const filterLabel = kpiFilter ? filterLabels[kpiFilter] : null;
 
@@ -199,7 +201,13 @@ export function LeaderDashboard({
 					/>
 				</FadeIn>
 				<FadeIn delay={0.15}>
-					<KpiCard icon={Clock} label="Total Assigned" value={stats.totalAssigned} />
+					<KpiCard
+						icon={Clock}
+						label="Total Assigned"
+						value={stats.totalAssigned}
+						onClick={enableKpiFilter ? () => toggleKpi("all") : undefined}
+						isActive={kpiFilter === "all"}
+					/>
 				</FadeIn>
 			</div>
 
@@ -245,9 +253,11 @@ export function LeaderDashboard({
 							data={displayIdeas}
 							searchPlaceholder="Search ideas..."
 							searchColumn="title"
-							enableSelection={kpiFilter !== "closed"}
-							rowSelection={kpiFilter !== "closed" ? rowSelection : {}}
-							onRowSelectionChange={kpiFilter !== "closed" ? setRowSelection : undefined}
+							enableSelection={kpiFilter !== "closed" && kpiFilter !== "all"}
+							rowSelection={kpiFilter !== "closed" && kpiFilter !== "all" ? rowSelection : {}}
+							onRowSelectionChange={
+								kpiFilter !== "closed" && kpiFilter !== "all" ? setRowSelection : undefined
+							}
 							getRowId={(row) => row.id}
 							facetedFilters={[
 								{
