@@ -113,7 +113,7 @@ export function UserCardPopover({ userId, children }: UserCardPopoverProps) {
 														<svg viewBox="0 0 14 14" className="size-2.5">{p.icon}</svg>
 													</span>
 												) : (
-													<span className={cn("absolute bottom-0 right-0 size-3 rounded-full border-2 border-popover", p.color)} />
+													<span className={cn("absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border-2 border-popover", p.color)} />
 												)}
 											</TooltipTrigger>
 											<TooltipContent side="bottom" className="text-xs">{p.label}</TooltipContent>
