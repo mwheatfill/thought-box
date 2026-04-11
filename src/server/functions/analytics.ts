@@ -32,17 +32,28 @@ async function queryAppInsights(query: string): Promise<unknown[]> {
 export const getAnalytics = createServerFn()
 	.middleware([adminMiddleware])
 	.handler(async () => {
-		// Query last 30 days of data
+		// Filter out non-user requests: health checks, static assets, availability tests, server functions
+		const userFilter = [
+			"timestamp > ago(30d)",
+			"url !has '/health'",
+			"url !has '/assets/'",
+			"url !has '/_serverFn/'",
+			"url !has '/api/'",
+			"name !has 'GET /_serverFn'",
+			"source != 'availability'",
+			"client_Type == 'PC'",
+		].join(" and ");
+
 		const [userRows, pageRows, errorRows, dailyRows] = await Promise.all([
 			queryAppInsights(
-				"requests | where timestamp > ago(30d) | summarize dcount(client_IP) | project users=Column1",
+				`requests | where ${userFilter} | summarize dcount(client_IP) | project users=Column1`,
 			),
-			queryAppInsights("requests | where timestamp > ago(30d) | summarize totalRequests=count()"),
+			queryAppInsights(`requests | where ${userFilter} | summarize totalRequests=count()`),
 			queryAppInsights(
-				"requests | where timestamp > ago(30d) and resultCode >= 500 | summarize errors=count()",
+				`requests | where ${userFilter} and resultCode >= 500 | summarize errors=count()`,
 			),
 			queryAppInsights(
-				"requests | where timestamp > ago(30d) | summarize requests=count() by bin(timestamp, 1d) | order by timestamp asc",
+				`requests | where ${userFilter} | summarize requests=count() by bin(timestamp, 1d) | order by timestamp asc`,
 			),
 		]);
 
