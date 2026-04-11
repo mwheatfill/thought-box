@@ -319,6 +319,9 @@ function IdeaDetailPage() {
 								onReassign={async (newLeaderId) => {
 									await reassignMutation.mutateAsync(newLeaderId);
 								}}
+								onReassignComplete={() => {
+									window.history.back();
+								}}
 								onCommunicate={async (message) => {
 									await messageMutation.mutateAsync(message);
 								}}

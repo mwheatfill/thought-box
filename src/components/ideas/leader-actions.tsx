@@ -1,6 +1,16 @@
 import { ChevronsUpDown, Lock, Mail, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { DualSlaProgress } from "#/components/dashboard/sla-progress";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "#/components/ui/alert-dialog";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import {
@@ -59,6 +69,7 @@ interface LeaderActionsProps {
 		actionTaken?: string | null;
 	}) => Promise<void>;
 	onReassign: (newLeaderId: string) => Promise<void>;
+	onReassignComplete?: () => void;
 	onCommunicate: (message: string) => Promise<void>;
 	isSaving: boolean;
 	isReassigning: boolean;
@@ -79,6 +90,7 @@ export function LeaderActions({
 	leaders,
 	onSave,
 	onReassign,
+	onReassignComplete,
 	onCommunicate,
 	isSaving,
 	isReassigning,
@@ -92,6 +104,7 @@ export function LeaderActions({
 	const [leaderNotes, setLeaderNotes] = useState(currentLeaderNotes ?? "");
 	const [actionTaken, setActionTaken] = useState(currentActionTaken ?? "");
 	const [reassignOpen, setReassignOpen] = useState(false);
+	const [pendingReassign, setPendingReassign] = useState<{ id: string; name: string } | null>(null);
 	const [communicateOpen, setCommunicateOpen] = useState(false);
 	const [communicateMessage, setCommunicateMessage] = useState("");
 
@@ -175,7 +188,7 @@ export function LeaderActions({
 														value={l.displayName}
 														onSelect={() => {
 															setReassignOpen(false);
-															onReassign(l.id);
+															setPendingReassign({ id: l.id, name: l.displayName });
 														}}
 													>
 														{l.displayName}
@@ -351,6 +364,36 @@ export function LeaderActions({
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+			{/* Reassign confirmation */}
+			<AlertDialog
+				open={!!pendingReassign}
+				onOpenChange={(open) => !open && setPendingReassign(null)}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Reassign this idea?</AlertDialogTitle>
+						<AlertDialogDescription>
+							This will assign the idea to{" "}
+							<span className="font-medium text-foreground">{pendingReassign?.name}</span> and send
+							them a notification email. SLA timers will be reset. You will lose access to this
+							idea.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={async () => {
+								if (!pendingReassign) return;
+								await onReassign(pendingReassign.id);
+								setPendingReassign(null);
+								onReassignComplete?.();
+							}}
+						>
+							Reassign
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</div>
 	);
 }
