@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "#/server/db";
-import { attachments, ideas } from "#/server/db/schema";
+import { attachments, ideaEvents, ideas } from "#/server/db/schema";
 import { audit } from "#/server/lib/audit";
 import { downloadBlob, getMaxFileSize, isAllowedType, uploadBlob } from "#/server/lib/blob";
 
@@ -70,6 +70,23 @@ export async function handleAttachmentUpload(request: Request): Promise<Response
 			}
 		}
 
+		// Check for duplicate filename on this idea
+		const existing = await db.query.attachments.findFirst({
+			where: and(
+				eq(attachments.ideaId, ideaId),
+				eq(attachments.filename, file.name),
+				isNull(attachments.deletedAt),
+			),
+		});
+		if (existing) {
+			return new Response(
+				JSON.stringify({
+					error: `"${file.name}" already exists on this idea. Delete it first to re-upload.`,
+				}),
+				{ status: 409, headers: { "Content-Type": "application/json" } },
+			);
+		}
+
 		// Generate blob name: ideas/{ideaId}/{timestamp}-{filename}
 		const blobName = `ideas/${ideaId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
 
@@ -89,6 +106,14 @@ export async function handleAttachmentUpload(request: Request): Promise<Response
 				uploadedById: userId,
 			})
 			.returning();
+
+		// Log to activity timeline
+		await db.insert(ideaEvents).values({
+			ideaId,
+			eventType: "attachment_added",
+			actorId: userId,
+			note: file.name,
+		});
 
 		audit({
 			actorId: userId,
@@ -146,5 +171,71 @@ export async function handleAttachmentDownload(request: Request): Promise<Respon
 		});
 	} catch {
 		return new Response("Download failed", { status: 500 });
+	}
+}
+
+/**
+ * Handle DELETE /api/attachments/:id — soft delete an attachment.
+ */
+export async function handleAttachmentDelete(request: Request): Promise<Response> {
+	try {
+		const url = new URL(request.url);
+		const match = url.pathname.match(/^\/api\/attachments\/([^/]+)$/);
+		if (!match) return new Response("Not found", { status: 404 });
+
+		const attachmentId = match[1];
+		const body = (await request.json().catch(() => ({}))) as { userId?: string };
+		const userId = body.userId;
+		if (!userId) {
+			return new Response(JSON.stringify({ error: "Missing userId" }), {
+				status: 400,
+				headers: { "Content-Type": "application/json" },
+			});
+		}
+
+		const attachment = await db.query.attachments.findFirst({
+			where: and(eq(attachments.id, attachmentId), isNull(attachments.deletedAt)),
+		});
+		if (!attachment) {
+			return new Response("Not found", { status: 404 });
+		}
+
+		// Get idea for audit logging
+		const idea = await db.query.ideas.findFirst({
+			where: eq(ideas.id, attachment.ideaId),
+			columns: { submissionId: true },
+		});
+
+		// Soft delete
+		await db
+			.update(attachments)
+			.set({ deletedAt: new Date(), deletedById: userId })
+			.where(eq(attachments.id, attachmentId));
+
+		// Log to activity timeline
+		await db.insert(ideaEvents).values({
+			ideaId: attachment.ideaId,
+			eventType: "attachment_deleted",
+			actorId: userId,
+			note: attachment.filename,
+		});
+
+		audit({
+			actorId: userId,
+			action: "attachment.deleted",
+			resourceType: "attachment",
+			resourceId: idea?.submissionId ?? attachment.ideaId,
+			details: { filename: attachment.filename },
+		});
+
+		return new Response(JSON.stringify({ success: true }), {
+			headers: { "Content-Type": "application/json" },
+		});
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		return new Response(JSON.stringify({ error: message }), {
+			status: 500,
+			headers: { "Content-Type": "application/json" },
+		});
 	}
 }

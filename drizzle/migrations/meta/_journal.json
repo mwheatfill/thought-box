@@ -50,6 +50,13 @@
       "when": 1775876400000,
       "tag": "0006_create_attachments",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1775880000000,
+      "tag": "0007_soft_deletes_and_attachment_events",
+      "breakpoints": true
     }
   ]
 }

@@ -61,6 +61,7 @@ interface DropZoneProps {
 	userId: string;
 	messageId?: string;
 	onUpload?: (file: UploadedFile) => void;
+	onDelete?: () => void;
 	existingFiles?: UploadedFile[];
 	disabled?: boolean;
 	compact?: boolean;
@@ -71,6 +72,7 @@ export function DropZone({
 	userId,
 	messageId,
 	onUpload,
+	onDelete,
 	existingFiles = [],
 	disabled,
 	compact,
@@ -294,19 +296,42 @@ export function DropZone({
 			{existingFiles.length > 0 && (
 				<div className="mt-3 space-y-1.5">
 					{existingFiles.map((f) => (
-						<a
-							key={f.id}
-							href={`/api/attachments/${f.id}`}
-							target="_blank"
-							rel="noopener noreferrer"
-							className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
-						>
-							<FileIcon contentType={f.contentType} />
-							<span className="min-w-0 flex-1 truncate">{f.filename}</span>
-							<span className="shrink-0 text-xs text-muted-foreground">
-								{formatFileSize(f.sizeBytes)}
-							</span>
-						</a>
+						<div key={f.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
+							<a
+								href={`/api/attachments/${f.id}`}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="flex min-w-0 flex-1 items-center gap-2"
+							>
+								<FileIcon contentType={f.contentType} />
+								<span className="min-w-0 flex-1 truncate">{f.filename}</span>
+								<span className="shrink-0 text-xs text-muted-foreground">
+									{formatFileSize(f.sizeBytes)}
+								</span>
+							</a>
+							{!disabled && (
+								<button
+									type="button"
+									className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
+									title="Delete file"
+									onClick={async () => {
+										const res = await fetch(`/api/attachments/${f.id}`, {
+											method: "DELETE",
+											headers: { "Content-Type": "application/json" },
+											body: JSON.stringify({ userId }),
+										});
+										if (res.ok) {
+											toast.success(`${f.filename} deleted`);
+											onDelete?.();
+										} else {
+											toast.error("Failed to delete file");
+										}
+									}}
+								>
+									<X className="size-3.5" />
+								</button>
+							)}
+						</div>
 					))}
 				</div>
 			)}

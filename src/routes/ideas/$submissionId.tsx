@@ -241,6 +241,17 @@ function IdeaDetailPage() {
 												queryClient.invalidateQueries({
 													queryKey: ["idea-attachments", idea.id],
 												});
+												queryClient.invalidateQueries({
+													queryKey: ["idea", submissionId],
+												});
+											}}
+											onDelete={() => {
+												queryClient.invalidateQueries({
+													queryKey: ["idea-attachments", idea.id],
+												});
+												queryClient.invalidateQueries({
+													queryKey: ["idea", submissionId],
+												});
 											}}
 										/>
 									</TabsContent>

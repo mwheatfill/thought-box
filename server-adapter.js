@@ -26,7 +26,7 @@ const { handleChatRequest } = await import("./dist/server/chat-handler.js");
 const { handlePhotoRequest } = await import("./dist/server/photo-handler.js");
 const { handleSlaCronRequest } = await import("./dist/server/sla-cron.js");
 const { handleHealthRequest } = await import("./dist/server/health.js");
-const { handleAttachmentUpload, handleAttachmentDownload } = await import(
+const { handleAttachmentUpload, handleAttachmentDownload, handleAttachmentDelete } = await import(
 	"./dist/server/attachments.js"
 );
 
@@ -154,6 +154,12 @@ const server = createServer(async (req, res) => {
 		// Attachment download
 		if (req.url.match(/^\/api\/attachments\/[^/]+$/) && req.method === "GET") {
 			await sendWebResponse(await handleAttachmentDownload(webRequest), res);
+			return;
+		}
+
+		// Attachment delete
+		if (req.url.match(/^\/api\/attachments\/[^/]+$/) && req.method === "DELETE") {
+			await sendWebResponse(await handleAttachmentDelete(webRequest), res);
 			return;
 		}
 

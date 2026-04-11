@@ -52,6 +52,8 @@ export const eventTypeEnum = pgEnum("event_type", [
 	"message",
 	"communicated",
 	"reminder_sent",
+	"attachment_added",
+	"attachment_deleted",
 ]);
 
 export const routingOutcomeEnum = pgEnum("routing_outcome", [
@@ -95,6 +97,8 @@ export const categories = pgTable("categories", {
 	keystoneFields: boolean("keystone_fields").notNull().default(false),
 	sortOrder: integer("sort_order").notNull().default(0),
 	active: boolean("active").notNull().default(true),
+	deletedAt: timestamp("deleted_at", { withTimezone: true }),
+	deletedById: varchar("deleted_by_id", { length: 128 }),
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 	updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -163,6 +167,8 @@ export const attachments = pgTable("attachments", {
 	sizeBytes: integer("size_bytes").notNull(),
 	blobName: varchar("blob_name", { length: 500 }).notNull(),
 	uploadedById: varchar("uploaded_by_id", { length: 128 }).notNull(),
+	deletedAt: timestamp("deleted_at", { withTimezone: true }),
+	deletedById: varchar("deleted_by_id", { length: 128 }),
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
