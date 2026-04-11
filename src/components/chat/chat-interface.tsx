@@ -11,18 +11,23 @@ import { AssistantChatTransport, useChatRuntime } from "@assistant-ui/react-ai-s
 import { Link } from "@tanstack/react-router";
 import confetti from "canvas-confetti";
 import { ArrowRight, ArrowUp, ExternalLink, Lightbulb, Loader2 } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
+import { DropZone } from "#/components/ui/drop-zone";
 import type { AuthUser } from "#/server/middleware/auth";
+
+const ChatUserContext = createContext<string>("");
 
 // ── Tool UI components ─────────────────────────────────────────────────────
 
 const SubmitIdeaToolUI: ToolCallMessagePartComponent = ({ result }) => {
+	const userId = useContext(ChatUserContext);
 	const confettiFired = useRef(false);
 	const data = (
 		result as {
 			data?: {
+				id: string;
 				submissionId: string;
 				title: string;
 				categoryName: string;
@@ -75,6 +80,9 @@ const SubmitIdeaToolUI: ToolCallMessagePartComponent = ({ result }) => {
 						<span className="font-medium">Reviewer:</span> {data.assignedLeaderName}
 					</p>
 				)}
+				<div className="mt-3">
+					<DropZone ideaId={data.id} userId={userId} />
+				</div>
 				<Button asChild variant="outline" size="sm" className="mt-2 w-full">
 					<Link to="/ideas/$submissionId" params={{ submissionId: data.submissionId }}>
 						View Idea
@@ -372,13 +380,15 @@ export function ChatInterface({
 	const runtime = useChatRuntime({ transport });
 
 	return (
-		<AssistantRuntimeProvider runtime={runtime}>
-			<ChatThread
-				suggestedPrompts={suggestedPrompts}
-				onFirstMessage={onFirstMessage}
-				compact={compact}
-				initialPrompt={initialPrompt}
-			/>
-		</AssistantRuntimeProvider>
+		<ChatUserContext.Provider value={user.id}>
+			<AssistantRuntimeProvider runtime={runtime}>
+				<ChatThread
+					suggestedPrompts={suggestedPrompts}
+					onFirstMessage={onFirstMessage}
+					compact={compact}
+					initialPrompt={initialPrompt}
+				/>
+			</AssistantRuntimeProvider>
+		</ChatUserContext.Provider>
 	);
 }

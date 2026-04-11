@@ -2,6 +2,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Send } from "lucide-react";
 import { useState } from "react";
 import { Button } from "#/components/ui/button";
+import { DropZone } from "#/components/ui/drop-zone";
 import { Textarea } from "#/components/ui/textarea";
 import { cn } from "#/lib/utils";
 
@@ -16,11 +17,20 @@ interface Message {
 interface MessageThreadProps {
 	messages: Message[];
 	currentUserId: string;
+	ideaId?: string;
 	onSend: (content: string) => Promise<void>;
+	onAttachmentUpload?: () => void;
 	isSending: boolean;
 }
 
-export function MessageThread({ messages, currentUserId, onSend, isSending }: MessageThreadProps) {
+export function MessageThread({
+	messages,
+	currentUserId,
+	ideaId,
+	onSend,
+	onAttachmentUpload,
+	isSending,
+}: MessageThreadProps) {
 	const [draft, setDraft] = useState("");
 
 	const handleSend = async () => {
@@ -65,27 +75,37 @@ export function MessageThread({ messages, currentUserId, onSend, isSending }: Me
 			)}
 
 			{/* Compose */}
-			<div className="flex gap-2">
-				<Textarea
-					value={draft}
-					onChange={(e) => setDraft(e.target.value)}
-					placeholder="Type a message..."
-					className="min-h-[60px] resize-none"
-					onKeyDown={(e) => {
-						if (e.key === "Enter" && !e.shiftKey) {
-							e.preventDefault();
-							handleSend();
-						}
-					}}
-				/>
-				<Button
-					size="icon"
-					onClick={handleSend}
-					disabled={!draft.trim() || isSending}
-					className="shrink-0 self-end"
-				>
-					<Send className="size-4" />
-				</Button>
+			<div className="space-y-2">
+				<div className="flex gap-2">
+					<Textarea
+						value={draft}
+						onChange={(e) => setDraft(e.target.value)}
+						placeholder="Type a message..."
+						className="min-h-[60px] resize-none"
+						onKeyDown={(e) => {
+							if (e.key === "Enter" && !e.shiftKey) {
+								e.preventDefault();
+								handleSend();
+							}
+						}}
+					/>
+					<Button
+						size="icon"
+						onClick={handleSend}
+						disabled={!draft.trim() || isSending}
+						className="shrink-0 self-end"
+					>
+						<Send className="size-4" />
+					</Button>
+				</div>
+				{ideaId && (
+					<DropZone
+						ideaId={ideaId}
+						userId={currentUserId}
+						onUpload={() => onAttachmentUpload?.()}
+						compact
+					/>
+				)}
 			</div>
 		</div>
 	);

@@ -219,8 +219,14 @@ function IdeaDetailPage() {
 										<MessageThread
 											messages={messages}
 											currentUserId={user.id}
+											ideaId={idea.id}
 											onSend={async (content) => {
 												await messageMutation.mutateAsync(content);
+											}}
+											onAttachmentUpload={() => {
+												queryClient.invalidateQueries({
+													queryKey: ["idea-attachments", idea.id],
+												});
 											}}
 											isSending={messageMutation.isPending}
 										/>
