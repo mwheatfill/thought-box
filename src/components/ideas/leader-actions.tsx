@@ -11,6 +11,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "#/components/ui/alert-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import {
@@ -61,6 +62,7 @@ interface LeaderActionsProps {
 	closureSlaDaysRemaining: number | null;
 	assignedLeaderName: string | null;
 	assignedLeaderId: string | null;
+	assignedLeaderPhotoUrl: string | null;
 	leaders: Leader[];
 	onSave: (updates: {
 		status?: string;
@@ -87,6 +89,7 @@ export function LeaderActions({
 	closureSlaDaysRemaining,
 	assignedLeaderName,
 	assignedLeaderId,
+	assignedLeaderPhotoUrl,
 	leaders,
 	onSave,
 	onReassign,
@@ -148,11 +151,22 @@ export function LeaderActions({
 							<span className="text-sm text-muted-foreground">Assigned to</span>
 							{assignedLeaderId ? (
 								<UserCardPopover userId={assignedLeaderId}>
-									<button
-										type="button"
-										className="text-sm font-medium hover:text-primary hover:underline"
-									>
-										{assignedLeaderName}
+									<button type="button" className="flex items-center gap-2 hover:text-primary">
+										<Avatar className="size-6">
+											{assignedLeaderPhotoUrl && (
+												<AvatarImage src={assignedLeaderPhotoUrl} alt={assignedLeaderName ?? ""} />
+											)}
+											<AvatarFallback className="text-[10px]">
+												{(assignedLeaderName ?? "")
+													.split(" ")
+													.map((n) => n[0])
+													.join("")
+													.slice(0, 2)}
+											</AvatarFallback>
+										</Avatar>
+										<span className="text-sm font-medium hover:underline">
+											{assignedLeaderName}
+										</span>
 									</button>
 								</UserCardPopover>
 							) : (

@@ -312,6 +312,7 @@ function IdeaDetailPage() {
 								closureSlaDaysRemaining={idea.closureSlaDaysRemaining}
 								assignedLeaderName={idea.assignedLeader?.displayName ?? null}
 								assignedLeaderId={idea.assignedLeader?.id ?? null}
+								assignedLeaderPhotoUrl={idea.assignedLeader?.photoUrl ?? null}
 								leaders={leaders}
 								onSave={async (updates) => {
 									await updateMutation.mutateAsync(updates);
