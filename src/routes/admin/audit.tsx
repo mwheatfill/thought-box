@@ -26,32 +26,77 @@ interface AuditEntry {
 	resourceId: string | null;
 	details: Record<string, unknown> | null;
 	createdAt: string;
+	// Computed for display + search
+	actionLabel: string;
+	typeLabel: string;
+	resourceLabel: string;
+	detailsSummary: string;
 }
 
 const ACTION_LABELS: Record<string, string> = {
-	"idea.created": "Idea Created",
-	"idea.status_changed": "Status Changed",
-	"idea.reassigned": "Idea Reassigned",
-	"user.added": "User Added",
-	"user.updated": "User Updated",
-	"user.role_changed": "Role Changed",
-	"user.activated": "User Activated",
-	"user.deactivated": "User Deactivated",
-	"settings.updated": "Setting Updated",
+	"idea.created": "Created Idea",
+	"idea.status_changed": "Changed Status",
+	"idea.reassigned": "Reassigned Idea",
+	"user.added": "Added User",
+	"user.updated": "Updated User",
+	"user.role_changed": "Changed Role",
+	"user.activated": "Activated User",
+	"user.deactivated": "Deactivated User",
+	"settings.updated": "Updated Setting",
+	"category.created": "Created Category",
+	"category.deleted": "Deleted Category",
+	"category.restored": "Restored Category",
+	"attachment.uploaded": "Uploaded File",
+	"attachment.deleted": "Deleted File",
+	"attachment.restored": "Restored File",
 };
 
-const RESOURCE_TYPE_LABELS: Record<string, string> = {
+const TYPE_LABELS: Record<string, string> = {
 	idea: "Idea",
 	user: "User",
 	setting: "Setting",
+	category: "Category",
+	attachment: "File",
 };
+
+function formatDetails(details: Record<string, unknown> | null): string {
+	if (!details) return "";
+	const parts: string[] = [];
+	if (details.name) parts.push(String(details.name));
+	if (details.filename) parts.push(String(details.filename));
+	if (details.title) parts.push(String(details.title));
+	if (details.from && details.to) parts.push(`${details.from} → ${details.to}`);
+	if (details.category) parts.push(String(details.category));
+	if (details.role && !details.from) parts.push(`Role: ${details.role}`);
+	if (details.email) parts.push(String(details.email));
+	if (details.value && !details.name && !details.filename) {
+		parts.push(String(details.value).slice(0, 50));
+	}
+	return parts.join(" · ");
+}
+
+function enrichEntry(
+	raw: Omit<AuditEntry, "actionLabel" | "typeLabel" | "resourceLabel" | "detailsSummary">,
+): AuditEntry {
+	const actionLabel = ACTION_LABELS[raw.action] ?? raw.action;
+	const typeLabel = TYPE_LABELS[raw.resourceType] ?? raw.resourceType;
+	const detailsSummary = formatDetails(raw.details);
+
+	// Show friendly resource name: prefer details.name/filename, fall back to resourceId
+	let resourceLabel = raw.resourceId ?? "";
+	if (raw.details?.name) resourceLabel = String(raw.details.name);
+	if (raw.details?.filename) resourceLabel = String(raw.details.filename);
+	if (raw.details?.title) resourceLabel = String(raw.details.title);
+
+	return { ...raw, actionLabel, typeLabel, resourceLabel, detailsSummary };
+}
 
 const columns: ColumnDef<AuditEntry, unknown>[] = [
 	{
 		accessorKey: "createdAt",
 		header: ({ column }) => <SortableHeader column={column}>When</SortableHeader>,
 		cell: ({ row }) => (
-			<span className="text-muted-foreground whitespace-nowrap">
+			<span className="whitespace-nowrap text-muted-foreground">
 				{formatDistanceToNow(new Date(row.original.createdAt), { addSuffix: true })}
 			</span>
 		),
@@ -62,42 +107,37 @@ const columns: ColumnDef<AuditEntry, unknown>[] = [
 		cell: ({ row }) => <span className="font-medium">{row.original.actorName}</span>,
 	},
 	{
-		accessorKey: "action",
+		accessorKey: "actionLabel",
 		header: ({ column }) => <SortableHeader column={column}>Action</SortableHeader>,
-		cell: ({ row }) => <span>{ACTION_LABELS[row.original.action] ?? row.original.action}</span>,
-		filterFn: "equals",
+		cell: ({ row }) => <span>{row.original.actionLabel}</span>,
 	},
 	{
-		accessorKey: "resourceType",
+		accessorKey: "typeLabel",
 		header: "Type",
-		cell: ({ row }) => (
-			<span className="text-muted-foreground">
-				{RESOURCE_TYPE_LABELS[row.original.resourceType] ?? row.original.resourceType}
-			</span>
-		),
+		cell: ({ row }) => <span className="text-muted-foreground">{row.original.typeLabel}</span>,
 		filterFn: "equals",
 	},
 	{
-		accessorKey: "resourceId",
+		accessorKey: "resourceLabel",
 		header: "Resource",
 		cell: ({ row }) => (
-			<span className="font-mono text-xs text-muted-foreground">
-				{row.original.resourceId ?? "—"}
+			<span
+				className="max-w-[200px] truncate text-sm text-muted-foreground"
+				title={row.original.resourceLabel}
+			>
+				{row.original.resourceLabel || "—"}
 			</span>
 		),
 	},
 	{
-		accessorKey: "details",
+		accessorKey: "detailsSummary",
 		header: "Details",
 		cell: ({ row }) => {
-			const d = row.original.details;
-			if (!d) return <span className="text-muted-foreground">—</span>;
-			const summary = Object.entries(d)
-				.map(([k, v]) => `${k}: ${v}`)
-				.join(", ");
+			const s = row.original.detailsSummary;
+			if (!s) return <span className="text-muted-foreground">—</span>;
 			return (
-				<span className="text-xs text-muted-foreground line-clamp-1 max-w-[300px]" title={summary}>
-					{summary}
+				<span className="max-w-[250px] truncate text-xs text-muted-foreground" title={s}>
+					{s}
 				</span>
 			);
 		},
@@ -107,11 +147,13 @@ const columns: ColumnDef<AuditEntry, unknown>[] = [
 function AuditPage() {
 	const initialData = Route.useLoaderData();
 
-	const { data: entries = initialData } = useQuery({
+	const { data: rawEntries = initialData } = useQuery({
 		queryKey: ["admin-audit"],
 		queryFn: () => getAuditLog(),
 		initialData,
 	});
+
+	const entries = (rawEntries as AuditEntry[]).map(enrichEntry);
 
 	return (
 		<main className="flex-1 bg-background p-6">
@@ -126,24 +168,15 @@ function AuditPage() {
 				<CardContent className="pt-6">
 					<DataTable
 						columns={columns}
-						data={entries as AuditEntry[]}
-						searchPlaceholder="Search audit log..."
+						data={entries}
+						searchPlaceholder="Search by user, action, or resource..."
 						facetedFilters={[
 							{
-								columnId: "action",
-								label: "Action",
-								options: Object.entries(ACTION_LABELS).map(([value, label]) => ({
-									value,
-									label,
-								})),
-							},
-							{
-								columnId: "resourceType",
+								columnId: "typeLabel",
 								label: "Type",
-								options: Object.entries(RESOURCE_TYPE_LABELS).map(([value, label]) => ({
-									value,
-									label,
-								})),
+								options: Object.values(TYPE_LABELS)
+									.sort()
+									.map((label) => ({ value: label, label })),
 							},
 						]}
 						pageSize={25}
