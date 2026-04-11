@@ -24,6 +24,7 @@ export const getAuditLog = createServerFn()
 
 		return entries.map((e) => ({
 			id: e.id,
+			actorId: e.actorId,
 			actorName: e.actorId ? (actorMap.get(e.actorId) ?? "Unknown") : "System",
 			action: e.action,
 			resourceType: e.resourceType,

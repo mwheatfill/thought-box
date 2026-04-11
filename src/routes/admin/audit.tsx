@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { Link, createFileRoute, redirect } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { formatDistanceToNow } from "date-fns";
 import { Card, CardContent } from "#/components/ui/card";
 import { DataTable, SortableHeader } from "#/components/ui/data-table";
 import { RouteError } from "#/components/ui/route-error";
+import { UserCardPopover } from "#/components/ui/user-card";
 import { getAuditLog } from "#/server/functions/audit";
 
 export const Route = createFileRoute("/admin/audit")({
@@ -20,6 +21,7 @@ export const Route = createFileRoute("/admin/audit")({
 
 interface AuditEntry {
 	id: string;
+	actorId: string | null;
 	actorName: string;
 	action: string;
 	resourceType: string;
@@ -76,6 +78,20 @@ function formatDetails(details: Record<string, unknown> | null): string {
 	return parts.join(" · ");
 }
 
+function getResourceLink(resourceType: string, resourceId: string | null): string | null {
+	if (!resourceId) return null;
+	switch (resourceType) {
+		case "idea":
+			return `/ideas/${resourceId}`;
+		case "user":
+			return "/admin/users";
+		case "category":
+			return "/admin/categories";
+		default:
+			return null;
+	}
+}
+
 function enrichEntry(
 	raw: Omit<AuditEntry, "actionLabel" | "typeLabel" | "resourceLabel" | "detailsSummary">,
 ): AuditEntry {
@@ -105,7 +121,16 @@ const columns: ColumnDef<AuditEntry, unknown>[] = [
 	{
 		accessorKey: "actorName",
 		header: ({ column }) => <SortableHeader column={column}>Who</SortableHeader>,
-		cell: ({ row }) => <span className="font-medium">{row.original.actorName}</span>,
+		cell: ({ row }) =>
+			row.original.actorId ? (
+				<UserCardPopover userId={row.original.actorId}>
+					<button type="button" className="font-medium hover:text-primary hover:underline">
+						{row.original.actorName}
+					</button>
+				</UserCardPopover>
+			) : (
+				<span className="font-medium">{row.original.actorName}</span>
+			),
 	},
 	{
 		accessorKey: "actionLabel",
@@ -121,14 +146,32 @@ const columns: ColumnDef<AuditEntry, unknown>[] = [
 	{
 		accessorKey: "resourceLabel",
 		header: "Resource",
-		cell: ({ row }) => (
-			<span
-				className="max-w-[200px] truncate text-sm text-muted-foreground"
-				title={row.original.resourceLabel}
-			>
-				{row.original.resourceLabel || "—"}
-			</span>
-		),
+		cell: ({ row }) => {
+			const { resourceType, resourceId, resourceLabel } = row.original;
+			if (!resourceLabel) return <span className="text-muted-foreground">—</span>;
+
+			const link = getResourceLink(resourceType, resourceId);
+			if (link) {
+				return (
+					<Link
+						to={link}
+						className="max-w-[200px] truncate text-sm text-primary hover:underline"
+						title={resourceLabel}
+					>
+						{resourceLabel}
+					</Link>
+				);
+			}
+
+			return (
+				<span
+					className="max-w-[200px] truncate text-sm text-muted-foreground"
+					title={resourceLabel}
+				>
+					{resourceLabel}
+				</span>
+			);
+		},
 	},
 	{
 		accessorKey: "detailsSummary",
