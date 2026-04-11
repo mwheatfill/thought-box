@@ -45,6 +45,7 @@
 		"@tanstack/react-table": "^8.21.0",
 		"@tanstack/router-plugin": "^1.132.0",
 		"ai": "^6.0.154",
+		"applicationinsights": "^3.14.0",
 		"assistant-stream": "0.3.10",
 		"canvas-confetti": "^1.9.3",
 		"class-variance-authority": "^0.7.1",

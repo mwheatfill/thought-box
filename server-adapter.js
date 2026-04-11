@@ -3,6 +3,20 @@ import { stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import appInsights from "applicationinsights";
+
+// Initialize App Insights before importing app code
+const aiConnStr = process.env.APPLICATIONINSIGHTS_CONNECTION_STRING;
+if (aiConnStr) {
+	appInsights
+		.setup(aiConnStr)
+		.setAutoCollectRequests(true)
+		.setAutoCollectExceptions(true)
+		.setAutoCollectDependencies(true)
+		.setAutoCollectPerformance(true, true)
+		.start();
+	console.log("[app-insights] Initialized");
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
