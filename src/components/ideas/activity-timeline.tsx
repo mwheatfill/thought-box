@@ -1,4 +1,5 @@
 import { formatDistanceToNow } from "date-fns";
+import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { UserCardPopover } from "#/components/ui/user-card";
 import { STATUS_LABELS } from "#/lib/constants";
@@ -18,17 +19,22 @@ interface TimelineEvent {
 
 interface ActivityTimelineProps {
 	events: TimelineEvent[];
+	limit?: number;
 }
 
-export function ActivityTimeline({ events }: ActivityTimelineProps) {
+export function ActivityTimeline({ events, limit = 5 }: ActivityTimelineProps) {
+	const [expanded, setExpanded] = useState(false);
+	const displayEvents = expanded ? events : events.slice(0, limit);
+	const hasMore = events.length > limit;
+
 	if (events.length === 0) {
 		return <p className="text-sm text-muted-foreground">No activity yet.</p>;
 	}
 
 	return (
 		<div className="space-y-0">
-			{events.map((event, i) => {
-				const isLast = i === events.length - 1;
+			{displayEvents.map((event, i) => {
+				const isLast = i === displayEvents.length - 1 && !hasMore;
 
 				return (
 					<div key={event.id} className="flex gap-3">
@@ -76,6 +82,15 @@ export function ActivityTimeline({ events }: ActivityTimelineProps) {
 					</div>
 				);
 			})}
+			{hasMore && (
+				<button
+					type="button"
+					onClick={() => setExpanded(!expanded)}
+					className="ml-10 text-xs font-medium text-primary hover:underline"
+				>
+					{expanded ? "Show less" : `Show all ${events.length} events`}
+				</button>
+			)}
 		</div>
 	);
 }

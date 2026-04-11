@@ -161,46 +161,57 @@ function IdeaDetailPage() {
 								)}
 
 								<Separator />
-								<div className="flex flex-wrap items-center gap-2">
-									<UserCardPopover userId={idea.submitter.id}>
-										<button
-											type="button"
-											className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50"
-										>
-											<Avatar className="size-4">
-												{idea.submitter.photoUrl && (
-													<AvatarImage
-														src={idea.submitter.photoUrl}
-														alt={idea.submitter.displayName}
-													/>
-												)}
-												<AvatarFallback className="text-[8px]">
-													{idea.submitter.displayName
-														.split(" ")
-														.map((n: string) => n[0])
-														.join("")
-														.slice(0, 2)}
-												</AvatarFallback>
-											</Avatar>
-											{idea.submitter.displayName}
-										</button>
-									</UserCardPopover>
-									<span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-1 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-										{idea.categoryName}
-									</span>
-									{idea.impactArea && (
-										<span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-											{IMPACT_AREAS[idea.impactArea as keyof typeof IMPACT_AREAS] ??
-												idea.impactArea}
+								<div className="flex items-center gap-3 text-sm">
+									<Avatar className="size-7">
+										{idea.submitter.photoUrl && (
+											<AvatarImage src={idea.submitter.photoUrl} alt={idea.submitter.displayName} />
+										)}
+										<AvatarFallback className="text-[10px]">
+											{idea.submitter.displayName
+												.split(" ")
+												.map((n: string) => n[0])
+												.join("")
+												.slice(0, 2)}
+										</AvatarFallback>
+									</Avatar>
+									<div>
+										<UserCardPopover userId={idea.submitter.id}>
+											<button
+												type="button"
+												className="font-medium hover:text-primary hover:underline"
+											>
+												{idea.submitter.displayName}
+											</button>
+										</UserCardPopover>
+										<span className="text-muted-foreground">
+											{" "}
+											submitted{" "}
+											{new Date(idea.submittedAt).toLocaleDateString("en-US", {
+												month: "short",
+												day: "numeric",
+												year: "numeric",
+											})}
 										</span>
+									</div>
+								</div>
+
+								<Separator />
+								<div className="flex flex-wrap gap-2 text-sm">
+									<div>
+										<span className="text-muted-foreground">Category: </span>
+										<span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+											{idea.categoryName}
+										</span>
+									</div>
+									{idea.impactArea && (
+										<div>
+											<span className="text-muted-foreground">Impact: </span>
+											<span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+												{IMPACT_AREAS[idea.impactArea as keyof typeof IMPACT_AREAS] ??
+													idea.impactArea}
+											</span>
+										</div>
 									)}
-									<span className="inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-										{new Date(idea.submittedAt).toLocaleDateString("en-US", {
-											month: "short",
-											day: "numeric",
-											year: "numeric",
-										})}
-									</span>
 								</div>
 
 								{/* Leader notes (read-only for submitters) */}
