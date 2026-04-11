@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, Paperclip } from "lucide-react";
 import { toast } from "sonner";
+import { DualSlaProgress } from "#/components/dashboard/sla-progress";
 import { StatusBadge } from "#/components/dashboard/status-badge";
 import { ActivityTimeline } from "#/components/ideas/activity-timeline";
 import { LeaderActions } from "#/components/ideas/leader-actions";
@@ -153,7 +154,7 @@ function IdeaDetailPage() {
 									<>
 										<Separator />
 										<div>
-											<p className="mb-1 text-xs font-medium text-muted-foreground">
+											<p className="mb-1 text-sm font-medium text-muted-foreground">
 												Expected Benefit
 											</p>
 											<p className="text-sm">{idea.expectedBenefit}</p>
@@ -343,13 +344,15 @@ function IdeaDetailPage() {
 						<div className="space-y-6">
 							<Card>
 								<CardHeader className="pb-3">
-									<CardTitle className="text-sm font-medium">Status & Assignment</CardTitle>
+									<CardTitle className="text-sm font-medium">SLA</CardTitle>
 								</CardHeader>
-								<CardContent className="space-y-3">
-									<div className="flex items-center justify-between">
-										<span className="text-sm text-muted-foreground">Status</span>
-										<StatusBadge status={idea.status as IdeaStatus} />
-									</div>
+								<CardContent className="space-y-4">
+									<DualSlaProgress
+										reviewSlaDaysRemaining={idea.slaDaysRemaining}
+										reviewSlaDueDate={idea.slaDueDate}
+										closureSlaDaysRemaining={idea.closureSlaDaysRemaining}
+										closureSlaDueDate={idea.closureSlaDueDate}
+									/>
 									{idea.assignedLeader && (
 										<div className="flex items-center justify-between">
 											<span className="text-sm text-muted-foreground">Reviewer</span>

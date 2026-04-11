@@ -1,7 +1,6 @@
 import { ChevronsUpDown, Lock, Mail, RefreshCw } from "lucide-react";
 import { useState } from "react";
-import { DualSlaIndicator } from "#/components/dashboard/sla-indicator";
-import { StatusBadge } from "#/components/dashboard/status-badge";
+import { DualSlaProgress } from "#/components/dashboard/sla-progress";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import {
@@ -31,7 +30,6 @@ import {
 } from "#/components/ui/select";
 import { Textarea } from "#/components/ui/textarea";
 import { UserCardPopover } from "#/components/ui/user-card";
-import type { IdeaStatus } from "#/lib/constants";
 import { cn } from "#/lib/utils";
 
 interface Leader {
@@ -72,7 +70,6 @@ export function LeaderActions({
 	currentRejectionReason,
 	currentLeaderNotes,
 	currentActionTaken,
-	slaStatus,
 	slaDaysRemaining,
 	slaDueDate,
 	closureSlaDueDate,
@@ -119,23 +116,17 @@ export function LeaderActions({
 
 	return (
 		<div className="space-y-4">
-			{/* Status & SLA */}
+			{/* SLA & Assignment */}
 			<Card>
 				<CardHeader className="pb-3">
-					<CardTitle className="text-sm font-medium">Status & SLA</CardTitle>
+					<CardTitle className="text-sm font-medium">SLA</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-4">
-					<div className="flex items-center justify-between">
-						<span className="text-sm text-muted-foreground">Current</span>
-						<StatusBadge status={currentStatus as IdeaStatus} />
-					</div>
-
-					<DualSlaIndicator
-						reviewSlaStatus={slaStatus}
+					<DualSlaProgress
 						reviewSlaDaysRemaining={slaDaysRemaining}
 						reviewSlaDueDate={slaDueDate}
-						closureSlaDueDate={closureSlaDueDate}
 						closureSlaDaysRemaining={closureSlaDaysRemaining}
+						closureSlaDueDate={closureSlaDueDate}
 					/>
 
 					{/* Assigned leader with reassign */}
