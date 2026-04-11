@@ -47,10 +47,18 @@ interface Leader {
 	id: string;
 	displayName: string;
 	role: string;
+	jobTitle: string | null;
+	department: string | null;
+	photoUrl: string | null;
 }
 
 interface LeaderActionsProps {
 	ideaId: string;
+	submissionId: string;
+	ideaTitle: string;
+	categoryName: string;
+	impactArea: string | null;
+	userRole: string;
 	currentStatus: string;
 	currentRejectionReason: string | null;
 	currentLeaderNotes: string | null;
@@ -79,6 +87,11 @@ interface LeaderActionsProps {
 }
 
 export function LeaderActions({
+	submissionId,
+	ideaTitle,
+	categoryName,
+	impactArea,
+	userRole,
 	currentStatus,
 	currentRejectionReason,
 	currentLeaderNotes,
@@ -107,7 +120,7 @@ export function LeaderActions({
 	const [leaderNotes, setLeaderNotes] = useState(currentLeaderNotes ?? "");
 	const [actionTaken, setActionTaken] = useState(currentActionTaken ?? "");
 	const [reassignOpen, setReassignOpen] = useState(false);
-	const [pendingReassign, setPendingReassign] = useState<{ id: string; name: string } | null>(null);
+	const [pendingReassign, setPendingReassign] = useState<Leader | null>(null);
 	const [communicateOpen, setCommunicateOpen] = useState(false);
 	const [communicateMessage, setCommunicateMessage] = useState("");
 
@@ -146,7 +159,7 @@ export function LeaderActions({
 					/>
 
 					{/* Assigned leader with reassign */}
-					<div className="space-y-2">
+					<div className="space-y-3">
 						<div className="flex items-center justify-between">
 							<span className="text-sm text-muted-foreground">Assigned to</span>
 							{assignedLeaderId ? (
@@ -202,7 +215,7 @@ export function LeaderActions({
 														value={l.displayName}
 														onSelect={() => {
 															setReassignOpen(false);
-															setPendingReassign({ id: l.id, name: l.displayName });
+															setPendingReassign(l);
 														}}
 													>
 														{l.displayName}
@@ -383,16 +396,60 @@ export function LeaderActions({
 				open={!!pendingReassign}
 				onOpenChange={(open) => !open && setPendingReassign(null)}
 			>
-				<AlertDialogContent>
+				<AlertDialogContent className="max-w-md">
 					<AlertDialogHeader>
 						<AlertDialogTitle>Reassign this idea?</AlertDialogTitle>
-						<AlertDialogDescription>
-							This will assign the idea to{" "}
-							<span className="font-medium text-foreground">{pendingReassign?.name}</span> and send
-							them a notification email. SLA timers will be reset. You will lose access to this
-							idea.
-						</AlertDialogDescription>
 					</AlertDialogHeader>
+
+					{/* Idea context */}
+					<div className="rounded-lg border bg-muted/30 p-3">
+						<p className="font-mono text-xs text-muted-foreground">{submissionId}</p>
+						<p className="mt-0.5 text-sm font-medium line-clamp-2">{ideaTitle}</p>
+						<div className="mt-2 flex gap-2">
+							<span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+								{categoryName}
+							</span>
+							{impactArea && (
+								<span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+									{impactArea}
+								</span>
+							)}
+						</div>
+					</div>
+
+					{/* Reassign target */}
+					{pendingReassign && (
+						<div className="flex items-center gap-3 rounded-lg border p-3">
+							<Avatar className="size-10">
+								{pendingReassign.photoUrl && (
+									<AvatarImage src={pendingReassign.photoUrl} alt={pendingReassign.displayName} />
+								)}
+								<AvatarFallback className="text-xs">
+									{pendingReassign.displayName
+										.split(" ")
+										.map((n) => n[0])
+										.join("")
+										.slice(0, 2)}
+								</AvatarFallback>
+							</Avatar>
+							<div>
+								<p className="text-sm font-medium">{pendingReassign.displayName}</p>
+								{pendingReassign.jobTitle && (
+									<p className="text-xs text-muted-foreground">{pendingReassign.jobTitle}</p>
+								)}
+								{pendingReassign.department && (
+									<p className="text-xs text-muted-foreground">{pendingReassign.department}</p>
+								)}
+							</div>
+						</div>
+					)}
+
+					<AlertDialogDescription>
+						{userRole === "admin"
+							? "This will send a notification email and reset SLA timers."
+							: "This will send a notification email, reset SLA timers, and you will lose access to this idea."}
+					</AlertDialogDescription>
+
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction
@@ -400,7 +457,9 @@ export function LeaderActions({
 								if (!pendingReassign) return;
 								await onReassign(pendingReassign.id);
 								setPendingReassign(null);
-								onReassignComplete?.();
+								if (userRole !== "admin") {
+									onReassignComplete?.();
+								}
 							}}
 						>
 							Reassign

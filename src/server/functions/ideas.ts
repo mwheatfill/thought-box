@@ -533,7 +533,14 @@ export const getLeadersForReassign = createServerFn()
 		return db.query.users.findMany({
 			where: (u, { or, eq: e, and }) =>
 				and(or(e(u.role, "leader"), e(u.role, "admin")), e(u.active, true)),
-			columns: { id: true, displayName: true, role: true },
+			columns: {
+				id: true,
+				displayName: true,
+				role: true,
+				jobTitle: true,
+				department: true,
+				photoUrl: true,
+			},
 			orderBy: (u, { asc }) => [asc(u.displayName)],
 		});
 	});

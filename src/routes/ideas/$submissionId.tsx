@@ -301,6 +301,11 @@ function IdeaDetailPage() {
 						<div className="space-y-6">
 							<LeaderActions
 								ideaId={idea.id}
+								submissionId={idea.submissionId}
+								ideaTitle={idea.title}
+								categoryName={idea.categoryName}
+								impactArea={idea.impactArea}
+								userRole={user.role}
 								currentStatus={idea.status}
 								currentRejectionReason={idea.rejectionReason}
 								currentLeaderNotes={idea.leaderNotes}
