@@ -39,7 +39,7 @@ interface LeaderStats {
 	totalAssigned: number;
 }
 
-type QueueFilter = "open" | "overdue" | "closed" | "all" | null;
+type QueueFilter = "open" | "overdue" | "closed" | null;
 
 interface LeaderDashboardProps {
 	ideas: LeaderIdea[];
@@ -147,11 +147,11 @@ export function LeaderDashboard({
 	const [kpiFilter, setKpiFilter] = useState<QueueFilter>(enableKpiFilter ? "open" : null);
 
 	const displayIdeas = useMemo(() => {
-		if (!kpiFilter) return openIdeas;
+		if (!kpiFilter) return ideas;
+		if (kpiFilter === "open") return openIdeas;
 		if (kpiFilter === "overdue") return openIdeas.filter((i) => i.slaStatus === "overdue");
 		if (kpiFilter === "closed") return closedIdeas;
-		if (kpiFilter === "all") return ideas;
-		return openIdeas; // "open"
+		return ideas;
 	}, [ideas, openIdeas, closedIdeas, kpiFilter]);
 
 	const toggleKpi = (key: QueueFilter) => {
@@ -197,8 +197,15 @@ export function LeaderDashboard({
 						icon={Clock}
 						label="Total Assigned"
 						value={stats.totalAssigned}
-						onClick={enableKpiFilter ? () => toggleKpi("all") : undefined}
-						isActive={kpiFilter === "all"}
+						onClick={
+							enableKpiFilter
+								? () => {
+										setKpiFilter(null);
+										setRowSelection({});
+									}
+								: undefined
+						}
+						isActive={kpiFilter === null}
 					/>
 				</FadeIn>
 			</div>
@@ -219,7 +226,13 @@ export function LeaderDashboard({
 			) : (
 				<Card>
 					<CardHeader>
-						<CardTitle>{kpiFilter === "closed" ? "Closed Ideas" : "Assigned Ideas"}</CardTitle>
+						<CardTitle>
+							{kpiFilter === null
+								? "All Assigned Ideas"
+								: kpiFilter === "closed"
+									? "Closed Ideas"
+									: "Assigned Ideas"}
+						</CardTitle>
 					</CardHeader>
 					<CardContent>
 						<DataTable
@@ -227,10 +240,10 @@ export function LeaderDashboard({
 							data={displayIdeas}
 							searchPlaceholder="Search ideas..."
 							searchColumn="title"
-							enableSelection={kpiFilter !== "closed" && kpiFilter !== "all"}
-							rowSelection={kpiFilter !== "closed" && kpiFilter !== "all" ? rowSelection : {}}
+							enableSelection={kpiFilter === "open" || kpiFilter === "overdue"}
+							rowSelection={kpiFilter === "open" || kpiFilter === "overdue" ? rowSelection : {}}
 							onRowSelectionChange={
-								kpiFilter !== "closed" && kpiFilter !== "all" ? setRowSelection : undefined
+								kpiFilter === "open" || kpiFilter === "overdue" ? setRowSelection : undefined
 							}
 							getRowId={(row) => row.id}
 							facetedFilters={[
