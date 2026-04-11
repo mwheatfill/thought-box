@@ -1,4 +1,5 @@
 import { createStartHandler, defaultStreamHandler } from "@tanstack/react-start/server";
+import { handleAttachmentDownload, handleAttachmentUpload } from "#/server/api/attachments";
 import { handleChatRequest } from "#/server/api/chat";
 import { handlePhotoRequest } from "#/server/api/photo";
 
@@ -16,6 +17,14 @@ export default {
 
 		if (url.pathname.startsWith("/api/users/") && url.pathname.endsWith("/photo")) {
 			return handlePhotoRequest(request);
+		}
+
+		if (url.pathname === "/api/attachments" && request.method === "POST") {
+			return handleAttachmentUpload(request);
+		}
+
+		if (url.pathname.match(/^\/api\/attachments\/[^/]+$/) && request.method === "GET") {
+			return handleAttachmentDownload(request);
 		}
 
 		return startHandler(request, opts);
