@@ -34,21 +34,21 @@ interface AuditEntry {
 }
 
 const ACTION_LABELS: Record<string, string> = {
-	"idea.created": "Created Idea",
-	"idea.status_changed": "Changed Status",
-	"idea.reassigned": "Reassigned Idea",
-	"user.added": "Added User",
-	"user.updated": "Updated User",
-	"user.role_changed": "Changed Role",
-	"user.activated": "Activated User",
-	"user.deactivated": "Deactivated User",
-	"settings.updated": "Updated Setting",
-	"category.created": "Created Category",
-	"category.deleted": "Deleted Category",
-	"category.restored": "Restored Category",
-	"attachment.uploaded": "Uploaded File",
-	"attachment.deleted": "Deleted File",
-	"attachment.restored": "Restored File",
+	"idea.created": "Create",
+	"idea.status_changed": "Change Status",
+	"idea.reassigned": "Reassign",
+	"user.added": "Create",
+	"user.updated": "Update",
+	"user.role_changed": "Change Role",
+	"user.activated": "Activate",
+	"user.deactivated": "Deactivate",
+	"settings.updated": "Update",
+	"category.created": "Create",
+	"category.deleted": "Delete",
+	"category.restored": "Restore",
+	"attachment.uploaded": "Upload",
+	"attachment.deleted": "Delete",
+	"attachment.restored": "Restore",
 };
 
 const TYPE_LABELS: Record<string, string> = {
