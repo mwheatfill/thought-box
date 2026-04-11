@@ -1,6 +1,7 @@
-import { Building2, Mail, MapPin, User } from "lucide-react";
+import { Building2, MapPin, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
+import { UserCardPopover } from "#/components/ui/user-card";
 
 interface PersonInfo {
 	id: string;
@@ -63,14 +64,11 @@ export function PeopleCard({ person, title, submittedAt }: PeopleCardProps) {
 
 					<div className="min-w-0 flex-1 space-y-1">
 						<div>
-							<span className="font-medium">{person.displayName}</span>
-							<a
-								href={`mailto:${person.email}`}
-								className="ml-1.5 inline-flex text-muted-foreground hover:text-foreground"
-								title={person.email}
-							>
-								<Mail className="size-3.5" />
-							</a>
+							<UserCardPopover userId={person.id}>
+								<button type="button" className="font-medium hover:text-primary hover:underline">
+									{person.displayName}
+								</button>
+							</UserCardPopover>
 							{person.jobTitle && (
 								<p className="text-xs text-muted-foreground">{person.jobTitle}</p>
 							)}

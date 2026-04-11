@@ -15,6 +15,7 @@ import { DropZone } from "#/components/ui/drop-zone";
 import { RouteError } from "#/components/ui/route-error";
 import { Separator } from "#/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
+import { UserCardPopover } from "#/components/ui/user-card";
 import { IMPACT_AREAS } from "#/lib/constants";
 import type { IdeaStatus } from "#/lib/constants";
 import { getIdeaAttachments } from "#/server/functions/attachments";
@@ -314,7 +315,14 @@ function IdeaDetailPage() {
 									{idea.assignedLeader && (
 										<div className="flex items-center justify-between">
 											<span className="text-sm text-muted-foreground">Reviewer</span>
-											<span className="text-sm font-medium">{idea.assignedLeader.displayName}</span>
+											<UserCardPopover userId={idea.assignedLeader.id}>
+												<button
+													type="button"
+													className="text-sm font-medium hover:text-primary hover:underline"
+												>
+													{idea.assignedLeader.displayName}
+												</button>
+											</UserCardPopover>
 										</div>
 									)}
 									{idea.rejectionReason && (
