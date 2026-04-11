@@ -46,7 +46,7 @@ jobs:
           cp -r drizzle/ deploy-pkg/drizzle/
           cp server-adapter.js package.json deploy-pkg/
           cd deploy-pkg
-          npm install --omit=dev --ignore-scripts
+          npm install --omit=dev --ignore-scripts --legacy-peer-deps
           zip -rq ../deploy.zip .
 
       - uses: actions/upload-artifact@v4
