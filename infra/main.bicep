@@ -115,7 +115,9 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
 
 // ── Key Vault Secrets ──────────────────────────────────────────────────────
 
-resource secretDatabaseUrl 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+// Only create/update database-url secret if credentials are provided.
+// Empty params would overwrite a valid secret with an empty connection string.
+resource secretDatabaseUrl 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(postgresAdminLogin) && !empty(postgresAdminPassword)) {
   parent: keyVault
   name: 'database-url'
   properties: {
@@ -320,7 +322,7 @@ resource storageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-
 resource appSettings 'Microsoft.Web/sites/config@2024-04-01' = {
   parent: appService
   name: 'appsettings'
-  dependsOn: [kvRoleAssignment, secretDatabaseUrl]
+  dependsOn: [kvRoleAssignment]
   properties: {
     NODE_ENV: 'production'
     DATABASE_URL: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=database-url)'
