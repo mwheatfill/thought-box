@@ -1,4 +1,4 @@
-import { Building2, MapPin, User } from "lucide-react";
+import { Building2, Mail, MapPin, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 
@@ -63,8 +63,13 @@ export function PeopleCard({ person, title, submittedAt }: PeopleCardProps) {
 
 					<div className="min-w-0 flex-1 space-y-1">
 						<div>
-							<a href={`mailto:${person.email}`} className="font-medium hover:underline">
-								{person.displayName}
+							<span className="font-medium">{person.displayName}</span>
+							<a
+								href={`mailto:${person.email}`}
+								className="ml-1.5 inline-flex text-muted-foreground hover:text-foreground"
+								title={person.email}
+							>
+								<Mail className="size-3.5" />
 							</a>
 							{person.jobTitle && (
 								<p className="text-xs text-muted-foreground">{person.jobTitle}</p>
