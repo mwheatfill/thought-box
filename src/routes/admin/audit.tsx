@@ -40,6 +40,7 @@ const ACTION_LABELS: Record<string, string> = {
 	"user.added": "Create",
 	"user.updated": "Update",
 	"user.role_changed": "Change Role",
+	"user.invited": "Invite",
 	"user.activated": "Activate",
 	"user.deactivated": "Deactivate",
 	"settings.updated": "Update",

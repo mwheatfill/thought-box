@@ -135,6 +135,14 @@ export const sendInvite = createServerFn({ method: "POST" })
 			invitedByName: context.user.displayName,
 		});
 
+		audit({
+			actorId: context.user.id,
+			action: "user.invited",
+			resourceType: "user",
+			resourceId: data.userId,
+			details: { name: user.displayName, email: user.email, role: user.role },
+		});
+
 		return { success: true, sentTo: user.email };
 	});
 
