@@ -61,12 +61,24 @@ export const restoreItem = createServerFn({ method: "POST" })
 	.middleware([adminMiddleware])
 	.inputValidator(z.object({ id: z.string(), type: z.enum(["category", "attachment"]) }))
 	.handler(async ({ data, context }) => {
+		let name: string | undefined;
+
 		if (data.type === "category") {
+			const cat = await db.query.categories.findFirst({
+				where: eq(categories.id, data.id),
+				columns: { name: true },
+			});
+			name = cat?.name;
 			await db
 				.update(categories)
 				.set({ deletedAt: null, deletedById: null, active: true, updatedAt: new Date() })
 				.where(eq(categories.id, data.id));
 		} else {
+			const att = await db.query.attachments.findFirst({
+				where: eq(attachments.id, data.id),
+				columns: { filename: true, ideaId: true },
+			});
+			name = att?.filename;
 			await db
 				.update(attachments)
 				.set({ deletedAt: null, deletedById: null })
@@ -77,7 +89,8 @@ export const restoreItem = createServerFn({ method: "POST" })
 			actorId: context.user.id,
 			action: `${data.type}.restored`,
 			resourceType: data.type,
-			resourceId: data.id,
+			resourceId: name ?? data.id,
+			details: { name },
 		});
 
 		return { success: true };
