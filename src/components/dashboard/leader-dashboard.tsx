@@ -169,6 +169,7 @@ export function LeaderDashboard({
 						icon={Inbox}
 						label="My Open"
 						value={stats.openCount}
+						color="blue"
 						onClick={enableKpiFilter ? () => toggleKpi("open") : undefined}
 						isActive={kpiFilter === "open"}
 					/>
@@ -179,6 +180,7 @@ export function LeaderDashboard({
 						label="Overdue"
 						value={stats.overdueCount}
 						variant={stats.overdueCount > 0 ? "destructive" : "default"}
+						color={stats.overdueCount > 0 ? "red" : undefined}
 						onClick={enableKpiFilter ? () => toggleKpi("overdue") : undefined}
 						isActive={kpiFilter === "overdue"}
 					/>
@@ -188,6 +190,7 @@ export function LeaderDashboard({
 						icon={CheckCircle}
 						label="Closed"
 						value={closedIdeas.length}
+						color="emerald"
 						onClick={enableKpiFilter ? () => toggleKpi("closed") : undefined}
 						isActive={kpiFilter === "closed"}
 					/>
@@ -197,6 +200,7 @@ export function LeaderDashboard({
 						icon={Clock}
 						label="Total Assigned"
 						value={stats.totalAssigned}
+						color="purple"
 						onClick={
 							enableKpiFilter
 								? () => {
@@ -322,11 +326,25 @@ export function LeaderDashboard({
 
 // ── KPI Card ──────────────────────────────────────────────────────────────
 
+const LEADER_KPI_COLORS: Record<string, { bg: string; icon: string }> = {
+	blue: { bg: "bg-blue-100 dark:bg-blue-900/30", icon: "text-blue-600 dark:text-blue-400" },
+	red: { bg: "bg-red-100 dark:bg-red-900/30", icon: "text-red-600 dark:text-red-400" },
+	emerald: {
+		bg: "bg-emerald-100 dark:bg-emerald-900/30",
+		icon: "text-emerald-600 dark:text-emerald-400",
+	},
+	purple: {
+		bg: "bg-purple-100 dark:bg-purple-900/30",
+		icon: "text-purple-600 dark:text-purple-400",
+	},
+};
+
 function KpiCard({
 	icon: Icon,
 	label,
 	value,
 	variant = "default",
+	color,
 	onClick,
 	isActive,
 }: {
@@ -334,10 +352,12 @@ function KpiCard({
 	label: string;
 	value: number | string;
 	variant?: "default" | "destructive";
+	color?: keyof typeof LEADER_KPI_COLORS;
 	onClick?: () => void;
 	isActive?: boolean;
 }) {
 	const isDestructive = variant === "destructive";
+	const colorStyle = color ? LEADER_KPI_COLORS[color] : null;
 	const Wrapper = onClick ? "button" : "div";
 
 	return (
@@ -357,13 +377,14 @@ function KpiCard({
 					<div
 						className={cn(
 							"rounded-full p-2",
-							isDestructive ? "bg-red-100 dark:bg-red-900/30" : "bg-muted",
+							colorStyle?.bg ?? (isDestructive ? "bg-red-100 dark:bg-red-900/30" : "bg-muted"),
 						)}
 					>
 						<Icon
 							className={cn(
 								"size-4",
-								isDestructive ? "text-red-600 dark:text-red-400" : "text-muted-foreground",
+								colorStyle?.icon ??
+									(isDestructive ? "text-red-600 dark:text-red-400" : "text-muted-foreground"),
 							)}
 						/>
 					</div>

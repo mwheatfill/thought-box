@@ -39,14 +39,43 @@ interface KpiDef {
 	key: KpiFilter;
 	label: string;
 	icon: React.ComponentType<{ className?: string }>;
-	variant?: "destructive";
+	color: { bg: string; icon: string; value?: string };
+	destructiveWhenPositive?: boolean;
 }
 
 const KPI_DEFS: KpiDef[] = [
-	{ key: "thisMonth", label: "This Month", icon: Calendar },
-	{ key: "open", label: "Open Ideas", icon: Inbox },
-	{ key: "overdue", label: "Overdue", icon: AlertTriangle, variant: "destructive" },
-	{ key: "thisYear", label: "Total This Year", icon: TrendingUp },
+	{
+		key: "thisMonth",
+		label: "This Month",
+		icon: Calendar,
+		color: { bg: "bg-amber-100 dark:bg-amber-900/30", icon: "text-amber-600 dark:text-amber-400" },
+	},
+	{
+		key: "open",
+		label: "Open Ideas",
+		icon: Inbox,
+		color: { bg: "bg-blue-100 dark:bg-blue-900/30", icon: "text-blue-600 dark:text-blue-400" },
+	},
+	{
+		key: "overdue",
+		label: "Overdue",
+		icon: AlertTriangle,
+		color: {
+			bg: "bg-red-100 dark:bg-red-900/30",
+			icon: "text-red-600 dark:text-red-400",
+			value: "text-red-600 dark:text-red-400",
+		},
+		destructiveWhenPositive: true,
+	},
+	{
+		key: "thisYear",
+		label: "Total This Year",
+		icon: TrendingUp,
+		color: {
+			bg: "bg-emerald-100 dark:bg-emerald-900/30",
+			icon: "text-emerald-600 dark:text-emerald-400",
+		},
+	},
 ];
 
 function AdminIdeasPage() {
@@ -115,14 +144,14 @@ function AdminIdeasPage() {
 				{KPI_DEFS.map((kpi) => {
 					const count = kpi.key ? kpiCounts[kpi.key] : 0;
 					const isActive = activeKpi === kpi.key;
-					const isDestructive = kpi.variant === "destructive" && count > 0;
+					const showDestructive = kpi.destructiveWhenPositive && count > 0;
 
 					return (
 						<button
 							key={kpi.key}
 							type="button"
 							onClick={() => setActiveKpi(isActive ? null : kpi.key)}
-							className="text-left"
+							className="w-full text-left"
 						>
 							<Card
 								className={cn(
@@ -132,26 +161,11 @@ function AdminIdeasPage() {
 								)}
 							>
 								<CardContent className="flex items-center gap-3 p-4">
-									<div
-										className={cn(
-											"rounded-full p-2",
-											isDestructive ? "bg-red-100 dark:bg-red-900/30" : "bg-muted",
-										)}
-									>
-										<kpi.icon
-											className={cn(
-												"size-4",
-												isDestructive ? "text-red-600 dark:text-red-400" : "text-muted-foreground",
-											)}
-										/>
+									<div className={cn("rounded-full p-2", kpi.color.bg)}>
+										<kpi.icon className={cn("size-4", kpi.color.icon)} />
 									</div>
 									<div>
-										<p
-											className={cn(
-												"text-2xl font-bold",
-												isDestructive && "text-red-600 dark:text-red-400",
-											)}
-										>
+										<p className={cn("text-2xl font-bold", showDestructive && kpi.color.value)}>
 											{count}
 										</p>
 										<p className="text-xs text-muted-foreground">{kpi.label}</p>
