@@ -1,14 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
-import { eq } from "drizzle-orm";
+import { eq, isNotNull, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/server/db";
 import { categories } from "#/server/db/schema";
+import { audit } from "#/server/lib/audit";
 import { adminMiddleware } from "#/server/middleware/auth";
 
 export const getCategories = createServerFn()
 	.middleware([adminMiddleware])
 	.handler(async () => {
 		const result = await db.query.categories.findMany({
+			where: isNull(categories.deletedAt),
 			orderBy: (c, { asc }) => [asc(c.sortOrder)],
 			with: {
 				defaultLeader: { columns: { id: true, displayName: true } },
@@ -30,6 +32,22 @@ export const getCategories = createServerFn()
 		}));
 	});
 
+export const getDeletedCategories = createServerFn()
+	.middleware([adminMiddleware])
+	.handler(async () => {
+		const result = await db.query.categories.findMany({
+			where: isNotNull(categories.deletedAt),
+			orderBy: (c, { desc }) => [desc(c.deletedAt)],
+		});
+
+		return result.map((c) => ({
+			id: c.id,
+			name: c.name,
+			description: c.description,
+			deletedAt: c.deletedAt?.toISOString() ?? null,
+		}));
+	});
+
 const CategorySchema = z.object({
 	name: z.string().min(1),
 	description: z.string().min(1),
@@ -44,7 +62,7 @@ const CategorySchema = z.object({
 export const createCategory = createServerFn({ method: "POST" })
 	.middleware([adminMiddleware])
 	.inputValidator(CategorySchema)
-	.handler(async ({ data }) => {
+	.handler(async ({ data, context }) => {
 		const [category] = await db
 			.insert(categories)
 			.values({
@@ -58,6 +76,15 @@ export const createCategory = createServerFn({ method: "POST" })
 				sortOrder: data.sortOrder ?? 0,
 			})
 			.returning();
+
+		audit({
+			actorId: context.user.id,
+			action: "category.created",
+			resourceType: "category",
+			resourceId: category.id,
+			details: { name: data.name },
+		});
+
 		return category;
 	});
 
@@ -83,6 +110,65 @@ export const updateCategory = createServerFn({ method: "POST" })
 			.update(categories)
 			.set({ ...updates, updatedAt: new Date() })
 			.where(eq(categories.id, id));
+		return { success: true };
+	});
+
+export const deleteCategory = createServerFn({ method: "POST" })
+	.middleware([adminMiddleware])
+	.inputValidator(z.object({ id: z.string() }))
+	.handler(async ({ data, context }) => {
+		const cat = await db.query.categories.findFirst({
+			where: eq(categories.id, data.id),
+			columns: { name: true },
+		});
+
+		await db
+			.update(categories)
+			.set({
+				deletedAt: new Date(),
+				deletedById: context.user.id,
+				active: false,
+			})
+			.where(eq(categories.id, data.id));
+
+		audit({
+			actorId: context.user.id,
+			action: "category.deleted",
+			resourceType: "category",
+			resourceId: data.id,
+			details: { name: cat?.name },
+		});
+
+		return { success: true };
+	});
+
+export const restoreCategory = createServerFn({ method: "POST" })
+	.middleware([adminMiddleware])
+	.inputValidator(z.object({ id: z.string() }))
+	.handler(async ({ data, context }) => {
+		const cat = await db.query.categories.findFirst({
+			where: eq(categories.id, data.id),
+			columns: { name: true },
+		});
+
+		await db
+			.update(categories)
+			.set({
+				deletedAt: null,
+				deletedById: null,
+				active: true,
+				updatedAt: new Date(),
+			})
+			.where(eq(categories.id, data.id));
+
+		audit({
+			actorId: context.user.id,
+			action: "category.restored",
+			resourceType: "category",
+			resourceId: data.id,
+			details: { name: cat?.name },
+		});
+
 		return { success: true };
 	});
 

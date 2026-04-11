@@ -9,7 +9,8 @@ import {
 	MoveUp,
 	Pencil,
 	Plus,
-	Power,
+	RotateCcw,
+	Trash2,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -54,8 +55,11 @@ import { Textarea } from "#/components/ui/textarea";
 import { cn } from "#/lib/utils";
 import {
 	createCategory,
+	deleteCategory,
 	getCategories,
+	getDeletedCategories,
 	getLeaders,
+	restoreCategory,
 	updateCategory,
 } from "#/server/functions/categories";
 
@@ -147,13 +151,30 @@ function CategoriesPage() {
 		onError: () => toast.error("Failed to save category"),
 	});
 
-	const toggleMutation = useMutation({
-		mutationFn: (cat: { id: string; active: boolean }) =>
-			updateFn({ data: { id: cat.id, active: !cat.active } }),
+	const deleteFn = useServerFn(deleteCategory);
+	const restoreFn = useServerFn(restoreCategory);
+
+	const deleteMutation = useMutation({
+		mutationFn: (id: string) => deleteFn({ data: { id } }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["admin-categories"] });
-			toast.success("Category updated");
+			queryClient.invalidateQueries({ queryKey: ["admin-deleted-categories"] });
+			toast.success("Category deleted");
 		},
+	});
+
+	const restoreMutation = useMutation({
+		mutationFn: (id: string) => restoreFn({ data: { id } }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["admin-categories"] });
+			queryClient.invalidateQueries({ queryKey: ["admin-deleted-categories"] });
+			toast.success("Category restored");
+		},
+	});
+
+	const { data: deletedCats = [] } = useQuery({
+		queryKey: ["admin-deleted-categories"],
+		queryFn: () => getDeletedCategories(),
 	});
 
 	const moveMutation = useMutation({
@@ -220,7 +241,6 @@ function CategoriesPage() {
 								<TableHead>Name</TableHead>
 								<TableHead>Type</TableHead>
 								<TableHead>Default Leader</TableHead>
-								<TableHead>Status</TableHead>
 								<TableHead className="w-[80px]" />
 							</TableRow>
 						</TableHeader>
@@ -271,11 +291,6 @@ function CategoriesPage() {
 										{cat.defaultLeaderName ?? "—"}
 									</TableCell>
 									<TableCell>
-										<Badge variant={cat.active ? "default" : "outline"}>
-											{cat.active ? "Active" : "Inactive"}
-										</Badge>
-									</TableCell>
-									<TableCell>
 										<div className="flex gap-1">
 											<Button variant="ghost" size="icon" onClick={() => openEdit(cat)}>
 												<Pencil className="size-3.5" />
@@ -283,9 +298,10 @@ function CategoriesPage() {
 											<Button
 												variant="ghost"
 												size="icon"
-												onClick={() => toggleMutation.mutate(cat)}
+												title="Delete category"
+												onClick={() => deleteMutation.mutate(cat.id)}
 											>
-												<Power className="size-3.5" />
+												<Trash2 className="size-3.5" />
 											</Button>
 										</div>
 									</TableCell>
@@ -295,6 +311,40 @@ function CategoriesPage() {
 					</Table>
 				</CardContent>
 			</Card>
+
+			{/* Recently deleted */}
+			{deletedCats.length > 0 && (
+				<Card className="mt-6">
+					<CardContent className="pt-6">
+						<p className="mb-3 text-sm font-medium text-muted-foreground">Recently Deleted</p>
+						<div className="space-y-2">
+							{deletedCats.map((cat) => (
+								<div
+									key={cat.id}
+									className="flex items-center justify-between rounded-md border border-dashed px-3 py-2 text-sm"
+								>
+									<div>
+										<span className="font-medium">{cat.name}</span>
+										<span className="ml-2 text-xs text-muted-foreground">
+											deleted{" "}
+											{cat.deletedAt ? new Date(cat.deletedAt).toLocaleDateString() : "recently"}
+										</span>
+									</div>
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={() => restoreMutation.mutate(cat.id)}
+										disabled={restoreMutation.isPending}
+									>
+										<RotateCcw className="mr-1 size-3.5" />
+										Restore
+									</Button>
+								</div>
+							))}
+						</div>
+					</CardContent>
+				</Card>
+			)}
 
 			{/* Create/Edit Dialog */}
 			<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
