@@ -1,12 +1,10 @@
-import { Await, Link, createFileRoute, defer, redirect } from "@tanstack/react-router";
+import { Link, createFileRoute, redirect } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
-import { Suspense } from "react";
 import { AdminDashboard } from "#/components/dashboard/admin-dashboard";
 import { LeaderDashboard } from "#/components/dashboard/leader-dashboard";
 import { PageTransition } from "#/components/ui/animated";
-import { Card, CardContent, CardHeader } from "#/components/ui/card";
+import { Card, CardContent } from "#/components/ui/card";
 import { RouteError } from "#/components/ui/route-error";
-import { Skeleton } from "#/components/ui/skeleton";
 import {
 	getAssignedIdeas,
 	getDashboardStats,
@@ -28,18 +26,20 @@ export const Route = createFileRoute("/dashboard")({
 		const { user } = context;
 
 		if (user.role === "admin") {
-			const stats = await getDashboardStats();
+			const [stats, byCategory, byMonth, outcomeDistribution, recentActivity] = await Promise.all([
+				getDashboardStats(),
+				getSubmissionsByCategory(),
+				getSubmissionsByMonth(),
+				getOutcomeDistribution(),
+				getRecentProgramActivity(),
+			]);
 			return {
 				role: "admin" as const,
 				stats,
-				chartsDeferred: defer(
-					Promise.all([
-						getSubmissionsByCategory(),
-						getSubmissionsByMonth(),
-						getOutcomeDistribution(),
-						getRecentProgramActivity(),
-					]),
-				),
+				byCategory,
+				byMonth,
+				outcomeDistribution,
+				recentActivity,
 			};
 		}
 
@@ -65,81 +65,47 @@ function DashboardPage() {
 					</p>
 				</div>
 
-				{data.role === "admin" && <AdminSummary data={data} />}
-				{data.role === "leader" && <LeaderSummary data={data} />}
+				{data.role === "admin" && (
+					<div className="space-y-6">
+						<AdminDashboard stats={data.stats} />
+						<AdminDashboard
+							stats={data.stats}
+							byCategory={data.byCategory}
+							byMonth={data.byMonth}
+							outcomeDistribution={data.outcomeDistribution}
+							recentActivity={data.recentActivity}
+							hideKpi
+						/>
+						<div className="grid gap-4 sm:grid-cols-3">
+							<LinkCard
+								to="/admin/ideas"
+								title="All Ideas"
+								description="Search and export every idea."
+							/>
+							<LinkCard
+								to="/queue"
+								title="My Queue"
+								description="Ideas assigned to you for review."
+							/>
+							<LinkCard to="/my-ideas" title="My Ideas" description="Track your own submissions." />
+						</div>
+					</div>
+				)}
+
+				{data.role === "leader" && (
+					<div className="space-y-6">
+						<LeaderDashboard ideas={data.ideas} stats={data.stats} />
+						<LinkCard
+							to="/queue"
+							title="Full Queue"
+							description="Open your full queue with bulk actions and advanced filters."
+						/>
+					</div>
+				)}
 			</main>
 		</PageTransition>
 	);
 }
-
-// ── Admin Summary ─────────────────────────────────────────────────────────
-
-function AdminSummary({
-	data,
-}: {
-	// biome-ignore lint/suspicious/noExplicitAny: deferred promise type is complex
-	data: { stats: Awaited<ReturnType<typeof getDashboardStats>>; chartsDeferred: any };
-}) {
-	return (
-		<div className="space-y-6">
-			{/* KPIs render immediately */}
-			<AdminDashboard stats={data.stats} />
-
-			{/* Charts + activity stream in */}
-			<Suspense fallback={<DashboardSkeleton />}>
-				<Await promise={data.chartsDeferred}>
-					{(result: unknown) => {
-						// biome-ignore lint/suspicious/noExplicitAny: deferred promise returns untyped tuple
-						const [byCategory, byMonth, outcomeDistribution, recentActivity] = result as any[];
-						return (
-							<AdminDashboard
-								stats={data.stats}
-								byCategory={byCategory}
-								byMonth={byMonth}
-								outcomeDistribution={outcomeDistribution}
-								recentActivity={recentActivity}
-								hideKpi
-							/>
-						);
-					}}
-				</Await>
-			</Suspense>
-
-			{/* Quick links */}
-			<div className="grid gap-4 sm:grid-cols-3">
-				<LinkCard to="/admin/ideas" title="All Ideas" description="Search and export every idea." />
-				<LinkCard to="/queue" title="My Queue" description="Ideas assigned to you for review." />
-				<LinkCard to="/my-ideas" title="My Ideas" description="Track your own submissions." />
-			</div>
-		</div>
-	);
-}
-
-// ── Leader Summary ────────────────────────────────────────────────────────
-
-function LeaderSummary({
-	data,
-}: {
-	data: {
-		ideas: Awaited<ReturnType<typeof getAssignedIdeas>>;
-		stats: Awaited<ReturnType<typeof getLeaderStats>>;
-	};
-}) {
-	// Show only KPIs + preview (no selection, no bulk actions)
-	return (
-		<div className="space-y-6">
-			<LeaderDashboard ideas={data.ideas} stats={data.stats} />
-
-			<LinkCard
-				to="/queue"
-				title="Full Queue"
-				description="Open your full queue with bulk actions and advanced filters."
-			/>
-		</div>
-	);
-}
-
-// ── Shared ────────────────────────────────────────────────────────────────
 
 function LinkCard({
 	to,
@@ -162,28 +128,5 @@ function LinkCard({
 				</CardContent>
 			</Card>
 		</Link>
-	);
-}
-
-function DashboardSkeleton() {
-	return (
-		<div className="min-w-0 space-y-6">
-			<div className="grid gap-6 lg:grid-cols-2">
-				{[0, 1].map((i) => (
-					<Card key={i}>
-						<CardHeader className="pb-3">
-							<Skeleton className="h-4 w-28" />
-						</CardHeader>
-						<CardContent>
-							<div className="space-y-3">
-								{[0, 1, 2].map((j) => (
-									<Skeleton key={j} className="h-8 w-full" />
-								))}
-							</div>
-						</CardContent>
-					</Card>
-				))}
-			</div>
-		</div>
 	);
 }
