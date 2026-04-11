@@ -1,5 +1,6 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import {
+	ClipboardList,
 	LayoutDashboard,
 	Lightbulb,
 	type LucideIcon,
@@ -41,6 +42,7 @@ const mainNav: NavItem[] = [
 const adminNav: NavItem[] = [
 	{ label: "Categories", href: "/admin/categories", icon: Tags },
 	{ label: "Users", href: "/admin/users", icon: Users },
+	{ label: "Audit Log", href: "/admin/audit", icon: ClipboardList },
 	{ label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
