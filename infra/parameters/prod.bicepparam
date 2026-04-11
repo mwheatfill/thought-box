@@ -20,6 +20,9 @@ param sharedMailbox = 'thoughtbox@desertfinancial.com'
 // AI
 param aiProvider = 'anthropic'
 
+// Monitoring — alert notifications
+param alertEmail = 'thoughtbox@desertfinancial.com'
+
 // Secure params — supplied at deployment time via CLI or pipeline secrets
 // az deployment group create ... --parameters postgresAdminLogin=<val> postgresAdminPassword=<val> ...
 param postgresAdminLogin = ''

@@ -49,6 +49,9 @@ param customDomain string = ''
 @secure()
 param anthropicApiKey string = ''
 
+@description('Email address for Azure Monitor alert notifications')
+param alertEmail string = ''
+
 // ── Naming ─────────────────────────────────────────────────────────────────
 
 var prefix = 'df-thoughtbox-${environmentName}'
@@ -259,6 +262,7 @@ resource authSettings 'Microsoft.Web/sites/config@2024-04-01' = {
     globalValidation: {
       unauthenticatedClientAction: 'RedirectToLoginPage'
       requireAuthentication: true
+      excludedPaths: ['/health']
     }
     identityProviders: {
       azureActiveDirectory: {
@@ -296,6 +300,277 @@ resource managedCert 'Microsoft.Web/certificates@2024-04-01' = if (!empty(custom
   properties: {
     serverFarmId: appServicePlan.id
     canonicalName: customDomain
+  }
+}
+
+// ── Monitoring: Action Group ───────────────────────────────────────────────
+
+resource actionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
+  name: 'ag-${prefix}'
+  location: 'global'
+  properties: {
+    groupShortName: 'ThoughtBox'
+    enabled: true
+    emailReceivers: !empty(alertEmail) ? [
+      {
+        name: 'Admin'
+        emailAddress: alertEmail
+        useCommonAlertSchema: true
+      }
+    ] : []
+  }
+}
+
+// ── Monitoring: Availability Test ──────────────────────────────────────────
+
+var healthUrl = 'https://${!empty(customDomain) ? customDomain : appService.properties.defaultHostName}/health'
+
+resource availabilityTest 'Microsoft.Insights/webtests@2022-06-15' = {
+  name: 'avail-${prefix}'
+  location: location
+  tags: {
+    'hidden-link:${appInsights.id}': 'Resource'
+  }
+  kind: 'standard'
+  properties: {
+    SyntheticMonitorId: 'avail-${prefix}'
+    Name: 'ThoughtBox Health Check'
+    Enabled: true
+    Frequency: 300
+    Timeout: 30
+    Kind: 'standard'
+    RetryEnabled: true
+    Locations: [
+      { Id: 'us-tx-sn1-azr' }
+      { Id: 'us-il-ch1-azr' }
+      { Id: 'us-ca-sjc-azr' }
+    ]
+    Request: {
+      RequestUrl: healthUrl
+      HttpVerb: 'GET'
+      ParseDependentRequests: false
+    }
+    ValidationRules: {
+      ExpectedHttpStatusCode: 200
+      SSLCheck: true
+      SSLCertRemainingLifetimeCheck: 7
+    }
+  }
+}
+
+// ── Monitoring: Alert — Availability ───────────────────────────────────────
+
+resource alertAvailability 'Microsoft.Insights/metricAlerts@2018-03-01' = {
+  name: 'alert-${prefix}-availability'
+  location: 'global'
+  properties: {
+    description: 'ThoughtBox health check failing from 2+ locations'
+    severity: 1
+    enabled: true
+    scopes: [appInsights.id, availabilityTest.id]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT5M'
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.WebtestLocationAvailabilityCriteria'
+      webTestId: availabilityTest.id
+      componentId: appInsights.id
+      failedLocationCount: 2
+    }
+    actions: [
+      { actionGroupId: actionGroup.id }
+    ]
+  }
+}
+
+// ── Monitoring: Alert — HTTP 5xx Errors ────────────────────────────────────
+
+resource alert5xx 'Microsoft.Insights/scheduledQueryRules@2021-08-01' = {
+  name: 'alert-${prefix}-5xx'
+  location: location
+  properties: {
+    description: 'HTTP 5xx server errors exceeded threshold'
+    severity: 1
+    enabled: true
+    scopes: [appInsights.id]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT5M'
+    criteria: {
+      allOf: [
+        {
+          query: 'requests | where toint(resultCode) >= 500'
+          timeAggregation: 'Count'
+          operator: 'GreaterThan'
+          threshold: 5
+          failingPeriods: {
+            numberOfEvaluationPeriods: 1
+            minFailingPeriodsToAlert: 1
+          }
+        }
+      ]
+    }
+    actions: {
+      actionGroups: [actionGroup.id]
+    }
+  }
+}
+
+// ── Monitoring: Alert — Failed Dependencies ────────────────────────────────
+
+resource alertDependencies 'Microsoft.Insights/scheduledQueryRules@2021-08-01' = {
+  name: 'alert-${prefix}-dependencies'
+  location: location
+  properties: {
+    description: 'External dependency failures (DB, Graph API) exceeded threshold'
+    severity: 2
+    enabled: true
+    scopes: [appInsights.id]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT5M'
+    criteria: {
+      allOf: [
+        {
+          query: 'dependencies | where success == false'
+          timeAggregation: 'Count'
+          operator: 'GreaterThan'
+          threshold: 10
+          failingPeriods: {
+            numberOfEvaluationPeriods: 1
+            minFailingPeriodsToAlert: 1
+          }
+        }
+      ]
+    }
+    actions: {
+      actionGroups: [actionGroup.id]
+    }
+  }
+}
+
+// ── Monitoring: Alert — Unhandled Exceptions ───────────────────────────────
+
+resource alertExceptions 'Microsoft.Insights/scheduledQueryRules@2021-08-01' = {
+  name: 'alert-${prefix}-exceptions'
+  location: location
+  properties: {
+    description: 'Unhandled exception rate exceeded threshold'
+    severity: 2
+    enabled: true
+    scopes: [appInsights.id]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT5M'
+    criteria: {
+      allOf: [
+        {
+          query: 'exceptions'
+          timeAggregation: 'Count'
+          operator: 'GreaterThan'
+          threshold: 10
+          failingPeriods: {
+            numberOfEvaluationPeriods: 1
+            minFailingPeriodsToAlert: 1
+          }
+        }
+      ]
+    }
+    actions: {
+      actionGroups: [actionGroup.id]
+    }
+  }
+}
+
+// ── Monitoring: Alert — Slow Response Time ─────────────────────────────────
+
+resource alertResponseTime 'Microsoft.Insights/scheduledQueryRules@2021-08-01' = {
+  name: 'alert-${prefix}-response-time'
+  location: location
+  properties: {
+    description: 'Too many requests exceeding 5 second response time'
+    severity: 2
+    enabled: true
+    scopes: [appInsights.id]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT15M'
+    criteria: {
+      allOf: [
+        {
+          query: 'requests | where duration > 5000'
+          timeAggregation: 'Count'
+          operator: 'GreaterThan'
+          threshold: 20
+          failingPeriods: {
+            numberOfEvaluationPeriods: 1
+            minFailingPeriodsToAlert: 1
+          }
+        }
+      ]
+    }
+    actions: {
+      actionGroups: [actionGroup.id]
+    }
+  }
+}
+
+// ── Monitoring: Alert — PostgreSQL CPU ─────────────────────────────────────
+
+resource alertPostgresCpu 'Microsoft.Insights/metricAlerts@2018-03-01' = {
+  name: 'alert-${prefix}-postgres-cpu'
+  location: 'global'
+  properties: {
+    description: 'PostgreSQL CPU utilization exceeded 80%'
+    severity: 2
+    enabled: true
+    scopes: [postgresServer.id]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT15M'
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [
+        {
+          name: 'HighCpu'
+          metricName: 'cpu_percent'
+          metricNamespace: 'Microsoft.DBforPostgreSQL/flexibleServers'
+          operator: 'GreaterThan'
+          threshold: 80
+          timeAggregation: 'Average'
+          criterionType: 'StaticThresholdCriterion'
+        }
+      ]
+    }
+    actions: [
+      { actionGroupId: actionGroup.id }
+    ]
+  }
+}
+
+// ── Monitoring: Alert — PostgreSQL Storage ─────────────────────────────────
+
+resource alertPostgresStorage 'Microsoft.Insights/metricAlerts@2018-03-01' = {
+  name: 'alert-${prefix}-postgres-storage'
+  location: 'global'
+  properties: {
+    description: 'PostgreSQL storage utilization exceeded 80%'
+    severity: 2
+    enabled: true
+    scopes: [postgresServer.id]
+    evaluationFrequency: 'PT15M'
+    windowSize: 'PT1H'
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [
+        {
+          name: 'HighStorage'
+          metricName: 'storage_percent'
+          metricNamespace: 'Microsoft.DBforPostgreSQL/flexibleServers'
+          operator: 'GreaterThan'
+          threshold: 80
+          timeAggregation: 'Average'
+          criterionType: 'StaticThresholdCriterion'
+        }
+      ]
+    }
+    actions: [
+      { actionGroupId: actionGroup.id }
+    ]
   }
 }
 
