@@ -656,15 +656,37 @@ Everything else in this file (TanStack Start patterns, coding standards, React p
 **Admin Pages:**
 - Categories: CRUD, sort order, routing type (thoughtbox/redirect), default leader assignment
 - Users: DataTable with search/sort/filter, directory search (Entra ID), role management, activate/deactivate
-- Users: invite email on add (checkbox, default checked for leader/admin), resend invite button, promotion dialog with invite option
-- Settings: system prompt, suggested prompts, watcher notification email, SLA business days, social proof threshold, test email sender (all 10 templates)
+- Users: invite email on add (checkbox, default checked for leader/admin), resend invite button with confirmation dialog, promotion dialog with invite option
+- Settings: system prompt, suggested prompts, system notifications email, SLA business days, SLA reminder thresholds (New 5/14 days, Under Review 30 days), social proof threshold, test email sender (all 12 templates)
+- Audit Log: searchable/filterable DataTable of all platform actions (idea CRUD, user changes, settings updates)
+- Analytics: KPI cards (unique users, requests, errors, error rate) + daily traffic chart from App Insights API
 
 **Email System:**
-- 7 email templates (React Email + Microsoft Graph): IdeaSubmitted, IdeaAssigned, StatusChanged, IdeaReassigned, NewMessage, WatcherAlert, UserInvite
-- All triggers wired: submission (submitter + leader + watcher DL), status change, reassignment, messages, user invite
+- 9 email templates (React Email + Microsoft Graph): IdeaSubmitted, IdeaAssigned, StatusChanged, IdeaReassigned, NewMessage, WatcherAlert, UserInvite, SlaReminder
+- All triggers wired: submission (submitter + leader + watcher DL), status change, reassignment, messages, user invite, SLA reminders
 - Shared mailbox: thoughtbox@desertfinancial.com
 - APP_URL configured for email links
 - Test email sender on admin settings page
+
+**SLA Reminders:**
+- In-process timer runs every minute, triggers at 8am Phoenix time (UTC-7)
+- Status "New": reminders at 5 and 14 days after submission (configurable)
+- Status "Under Review": reminder at 30 days after submission (configurable)
+- Logs reminder_sent events to prevent duplicate emails
+- Activity timeline shows reminder history
+
+**Audit Log:**
+- audit_log table: id, actorId, action, resourceType, resourceId, details (jsonb), timestamp
+- Indexed on created_at, action, resource_type
+- fire-and-forget audit() helper — non-blocking
+- Logs: idea.created, idea.status_changed, idea.reassigned, user.added, user.updated, user.role_changed, user.activated/deactivated, settings.updated
+
+**Monitoring & Analytics:**
+- App Insights Node SDK: auto-collects requests, exceptions, dependencies, performance
+- App Insights browser SDK: client-side page views and sessions (via connection string)
+- Clarity: session recordings, heatmaps, rage clicks (project ID: w9sdqqjw4a)
+- Health endpoint: GET /health — DB ping, returns 200/503, Azure health check configured
+- Analytics admin page queries App Insights REST API (needs APPINSIGHTS_API_KEY app setting)
 
 **Auth & User Management:**
 - Azure App Service Easy Auth (Entra ID)
@@ -700,7 +722,7 @@ Everything else in this file (TanStack Start patterns, coding standards, React p
 3. Import in `server-adapter.js`
 4. Route match before the TanStack Start fallback
 
-Currently two custom routes: `/api/chat` (chat-handler.js) and `/api/users/:id/photo` (photo-handler.js).
+Currently four custom routes: `/api/chat` (chat-handler.js), `/api/users/:id/photo` (photo-handler.js), `/api/cron/sla` (sla-cron.js), and `/health` (health.js).
 
 **Never use `process.env.*` for runtime checks in vite-bundled server code.** Vite replaces `process.env.X` with the build-time value (usually `undefined`). Use `process.cwd()` or other runtime values. Example: `process.cwd().startsWith("/home/site")` to detect Azure App Service.
 
@@ -708,15 +730,12 @@ Currently two custom routes: `/api/chat` (chat-handler.js) and `/api/users/:id/p
 
 ### What's NOT built (Phase 2 / deferred)
 
-- Automated SLA reminder emails (needs scheduled job infrastructure)
-- SLA escalation chain (leader → manager → HR)
+- SLA escalation chain (leader → manager → HR/AVP/VP)
 - File attachments on ideas
 - Watcher subscriptions per-category (currently one DL for all)
 - Full notification system / per-idea follow
 - Abandoned conversation saving (30s inactivity)
-- Health endpoint (/health)
-- Structured logging with Pino
-- Custom App Insights events/telemetry
+- Azure Blob Storage for photos (currently /home/ filesystem)
 - Azure Blob Storage for photos (currently filesystem)
 - Keystone conditional fields
 - AI-powered insights for admins
