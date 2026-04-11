@@ -252,13 +252,7 @@ export function AdminDashboard({
 	if (!hasCharts) {
 		return (
 			<div className="min-w-0 space-y-6">
-				<div className="flex items-center gap-2">
-					<Activity className={cn("size-4", healthStatus.color)} />
-					<span className={cn("text-sm font-medium", healthStatus.color)}>
-						{healthStatus.label}
-					</span>
-					<span className="text-xs text-muted-foreground">{healthStatus.detail}</span>
-				</div>
+				<HealthBar stats={stats} healthStatus={healthStatus} />
 				<KpiRow stats={stats} />
 			</div>
 		);
@@ -268,13 +262,7 @@ export function AdminDashboard({
 		<div className="min-w-0 space-y-6">
 			{!hideKpi && (
 				<>
-					<div className="flex items-center gap-2">
-						<Activity className={cn("size-4", healthStatus.color)} />
-						<span className={cn("text-sm font-medium", healthStatus.color)}>
-							{healthStatus.label}
-						</span>
-						<span className="text-xs text-muted-foreground">{healthStatus.detail}</span>
-					</div>
+					<HealthBar stats={stats} healthStatus={healthStatus} />
 					<KpiRow stats={stats} />
 				</>
 			)}
@@ -562,12 +550,52 @@ function ActivityFeed({ events }: { events: ActivityEvent[] }) {
 	);
 }
 
+function HealthBar({
+	stats,
+	healthStatus,
+}: { stats: DashboardStats; healthStatus: { label: string; color: string; detail: string } }) {
+	const slaColor =
+		stats.slaCompliancePercent === null
+			? "text-muted-foreground"
+			: stats.slaCompliancePercent >= 80
+				? "text-green-600 dark:text-green-400"
+				: stats.slaCompliancePercent >= 60
+					? "text-yellow-600 dark:text-yellow-400"
+					: "text-red-600 dark:text-red-400";
+
+	return (
+		<div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+			<div className="flex items-center gap-2">
+				<Activity className={cn("size-4", healthStatus.color)} />
+				<span className={cn("text-sm font-medium", healthStatus.color)}>{healthStatus.label}</span>
+				<span className="text-xs text-muted-foreground">{healthStatus.detail}</span>
+			</div>
+			<div className="flex items-center gap-4 text-sm">
+				<span className="flex items-center gap-1.5 text-muted-foreground">
+					<CheckCircle className="size-3.5" />
+					SLA{" "}
+					<span className={cn("font-semibold", slaColor)}>
+						{stats.slaCompliancePercent !== null ? `${stats.slaCompliancePercent}%` : "—"}
+					</span>
+				</span>
+				<span className="flex items-center gap-1.5 text-muted-foreground">
+					<Clock className="size-3.5" />
+					Avg close{" "}
+					<span className="font-semibold text-foreground">
+						{stats.avgCloseTimeDays !== null ? `${stats.avgCloseTimeDays}d` : "—"}
+					</span>
+				</span>
+			</div>
+		</div>
+	);
+}
+
 function KpiRow({ stats }: { stats: DashboardStats }) {
 	const navigate = useNavigate();
 	const goToIdeas = (filter: string) => navigate({ to: "/admin/ideas", search: { filter } });
 
 	return (
-		<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
+		<div className="grid gap-6 sm:grid-cols-3">
 			<FadeIn delay={0}>
 				<KpiCard
 					icon={Lightbulb}
@@ -588,29 +616,6 @@ function KpiRow({ stats }: { stats: DashboardStats }) {
 				/>
 			</FadeIn>
 			<FadeIn delay={0.1}>
-				<KpiCard
-					icon={CheckCircle}
-					label="SLA Compliance"
-					value={stats.slaCompliancePercent !== null ? `${stats.slaCompliancePercent}%` : "—"}
-					variant={
-						stats.slaCompliancePercent === null
-							? "default"
-							: stats.slaCompliancePercent >= 80
-								? "success"
-								: stats.slaCompliancePercent >= 60
-									? "warning"
-									: "destructive"
-					}
-				/>
-			</FadeIn>
-			<FadeIn delay={0.15}>
-				<KpiCard
-					icon={Clock}
-					label="Avg Close Time"
-					value={stats.avgCloseTimeDays !== null ? `${stats.avgCloseTimeDays}d` : "—"}
-				/>
-			</FadeIn>
-			<FadeIn delay={0.2}>
 				<KpiCard
 					icon={TrendingUp}
 					label="Total This Year"
