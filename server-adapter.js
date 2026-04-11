@@ -172,8 +172,18 @@ const server = createServer(async (req, res) => {
 		console.error("Server error:", error);
 		if (!res.headersSent) {
 			res.statusCode = 500;
-			res.setHeader("Content-Type", "text/plain");
-			res.end("Internal Server Error");
+			res.setHeader("Content-Type", "text/html");
+			res.end(`<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ThoughtBox</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0a0a0a;color:#e5e5e5;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem}.c{text-align:center;max-width:28rem}.i{width:3rem;height:3rem;margin:0 auto 1.5rem;border-radius:50%;background:#1a1a2e;display:flex;align-items:center;justify-content:center}.i svg{width:1.5rem;height:1.5rem;color:#888}h1{font-size:1.25rem;font-weight:600;margin-bottom:.5rem}p{color:#888;font-size:.875rem;line-height:1.5;margin-bottom:1.5rem}.b{display:inline-flex;gap:.5rem}a,button{display:inline-flex;align-items:center;padding:.5rem 1rem;border-radius:.375rem;font-size:.875rem;font-weight:500;text-decoration:none;cursor:pointer;border:1px solid #333;background:#111;color:#e5e5e5;transition:background .15s}a:hover,button:hover{background:#222}button{border:none;background:#3b82f6;color:#fff}button:hover{background:#2563eb}</style>
+</head>
+<body><div class="c">
+<div class="i"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg></div>
+<h1>Something went wrong</h1>
+<p>ThoughtBox encountered an unexpected error. This is usually temporary — try refreshing in a moment.</p>
+<div class="b"><a href="/">Home</a><button onclick="location.reload()">Refresh</button></div>
+</div></body></html>`);
 		}
 	}
 });

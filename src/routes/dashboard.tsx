@@ -1,5 +1,6 @@
-import { Link, createFileRoute, redirect } from "@tanstack/react-router";
+import { Await, Link, createFileRoute, defer, redirect } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
+import { Suspense } from "react";
 import { AdminDashboard } from "#/components/dashboard/admin-dashboard";
 import { LeaderDashboard } from "#/components/dashboard/leader-dashboard";
 import { PageTransition } from "#/components/ui/animated";
@@ -28,20 +29,18 @@ export const Route = createFileRoute("/dashboard")({
 		const { user } = context;
 
 		if (user.role === "admin") {
-			const [stats, byCategory, byMonth, outcomeDistribution, recentActivity] = await Promise.all([
-				getDashboardStats(),
-				getSubmissionsByCategory(),
-				getSubmissionsByMonth(),
-				getOutcomeDistribution(),
-				getRecentProgramActivity(),
-			]);
+			const stats = await getDashboardStats();
 			return {
 				role: "admin" as const,
 				stats,
-				byCategory,
-				byMonth,
-				outcomeDistribution,
-				recentActivity,
+				chartsDeferred: defer(
+					Promise.all([
+						getSubmissionsByCategory(),
+						getSubmissionsByMonth(),
+						getOutcomeDistribution(),
+						getRecentProgramActivity(),
+					]),
+				),
 			};
 		}
 
@@ -69,15 +68,28 @@ function DashboardPage() {
 
 				{data.role === "admin" && (
 					<div className="space-y-6">
+						{/* KPIs render immediately */}
 						<AdminDashboard stats={data.stats} />
-						<AdminDashboard
-							stats={data.stats}
-							byCategory={data.byCategory}
-							byMonth={data.byMonth}
-							outcomeDistribution={data.outcomeDistribution}
-							recentActivity={data.recentActivity}
-							hideKpi
-						/>
+
+						{/* Charts stream in */}
+						<Suspense fallback={<ChartsSkeleton />}>
+							<Await promise={data.chartsDeferred}>
+								{(result: unknown) => {
+									const r = result as [unknown, unknown, unknown, unknown];
+									return (
+										<AdminDashboard
+											stats={data.stats}
+											byCategory={r[0] as undefined}
+											byMonth={r[1] as undefined}
+											outcomeDistribution={r[2] as undefined}
+											recentActivity={r[3] as undefined}
+											hideKpi
+										/>
+									);
+								}}
+							</Await>
+						</Suspense>
+
 						<div className="grid gap-4 sm:grid-cols-3">
 							<LinkCard
 								to="/admin/ideas"
@@ -109,15 +121,7 @@ function DashboardPage() {
 	);
 }
 
-function LinkCard({
-	to,
-	title,
-	description,
-}: {
-	to: string;
-	title: string;
-	description: string;
-}) {
+function LinkCard({ to, title, description }: { to: string; title: string; description: string }) {
 	return (
 		<Link to={to}>
 			<Card className="group transition-colors hover:border-primary/30 hover:bg-muted/30">
@@ -130,6 +134,23 @@ function LinkCard({
 				</CardContent>
 			</Card>
 		</Link>
+	);
+}
+
+function ChartsSkeleton() {
+	return (
+		<div className="grid gap-6 lg:grid-cols-2">
+			{[0, 1, 2, 3].map((i) => (
+				<Card key={i}>
+					<CardHeader className="pb-3">
+						<Skeleton className="h-4 w-32" />
+					</CardHeader>
+					<CardContent>
+						<Skeleton className="h-[250px] w-full" />
+					</CardContent>
+				</Card>
+			))}
+		</div>
 	);
 }
 
@@ -154,18 +175,7 @@ function DashboardSkeleton() {
 						</Card>
 					))}
 				</div>
-				<div className="grid gap-6 lg:grid-cols-2">
-					{[0, 1, 2, 3].map((i) => (
-						<Card key={i}>
-							<CardHeader className="pb-3">
-								<Skeleton className="h-4 w-32" />
-							</CardHeader>
-							<CardContent>
-								<Skeleton className="h-[250px] w-full" />
-							</CardContent>
-						</Card>
-					))}
-				</div>
+				<ChartsSkeleton />
 			</div>
 		</main>
 	);
