@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { AlertTriangle, Calendar, Download, Inbox, TrendingUp } from "lucide-react";
+import { AlertTriangle, Calendar, Download, Inbox, TrendingUp, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { z } from "zod";
 import {
 	type AdminIdea,
 	adminIdeaColumns,
@@ -13,7 +14,13 @@ import { STATUS_LABELS } from "#/lib/constants";
 import { cn } from "#/lib/utils";
 import { getAllIdeas } from "#/server/functions/dashboard";
 
+const searchSchema = z.object({
+	filter: z.enum(["thisMonth", "open", "overdue", "thisYear"]).optional(),
+	category: z.string().optional(),
+});
+
 export const Route = createFileRoute("/admin/ideas")({
+	validateSearch: searchSchema,
 	beforeLoad: ({ context }) => {
 		if (context.user.role !== "admin") {
 			throw new Error("Forbidden");
@@ -43,8 +50,10 @@ const KPI_DEFS: KpiDef[] = [
 
 function AdminIdeasPage() {
 	const ideas = Route.useLoaderData() ?? [];
+	const search = Route.useSearch();
 	const navigate = useNavigate();
-	const [activeKpi, setActiveKpi] = useState<KpiFilter>(null);
+	const [activeKpi, setActiveKpi] = useState<KpiFilter>(search.filter ?? null);
+	const [activeCategory, setActiveCategory] = useState<string | null>(search.category ?? null);
 
 	const now = new Date();
 	const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -71,18 +80,33 @@ function AdminIdeasPage() {
 	};
 
 	const filteredIdeas = useMemo(() => {
-		if (!activeKpi) return ideas;
-		switch (activeKpi) {
-			case "thisMonth":
-				return ideas.filter((i) => new Date(i.submittedAt).getTime() >= startOfMonthMs);
-			case "open":
-				return ideas.filter((i) => OPEN_STATUSES.includes(i.status));
-			case "overdue":
-				return ideas.filter((i) => i.slaStatus === "overdue");
-			case "thisYear":
-				return ideas.filter((i) => new Date(i.submittedAt).getTime() >= startOfYearMs);
+		let result = ideas;
+
+		// KPI filter
+		if (activeKpi) {
+			switch (activeKpi) {
+				case "thisMonth":
+					result = result.filter((i) => new Date(i.submittedAt).getTime() >= startOfMonthMs);
+					break;
+				case "open":
+					result = result.filter((i) => OPEN_STATUSES.includes(i.status));
+					break;
+				case "overdue":
+					result = result.filter((i) => i.slaStatus === "overdue");
+					break;
+				case "thisYear":
+					result = result.filter((i) => new Date(i.submittedAt).getTime() >= startOfYearMs);
+					break;
+			}
 		}
-	}, [ideas, activeKpi, startOfMonthMs, startOfYearMs]);
+
+		// Category filter
+		if (activeCategory) {
+			result = result.filter((i) => i.categoryName === activeCategory);
+		}
+
+		return result;
+	}, [ideas, activeKpi, activeCategory, startOfMonthMs, startOfYearMs]);
 
 	return (
 		<main className="min-w-0 p-6">
@@ -148,6 +172,21 @@ function AdminIdeasPage() {
 					);
 				})}
 			</div>
+
+			{/* Category filter chip */}
+			{activeCategory && (
+				<div className="mb-4 flex items-center gap-2">
+					<span className="text-sm text-muted-foreground">Category:</span>
+					<button
+						type="button"
+						onClick={() => setActiveCategory(null)}
+						className="inline-flex items-center gap-1 rounded-full border bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+					>
+						{activeCategory}
+						<X className="size-3" />
+					</button>
+				</div>
+			)}
 
 			{/* Ideas table */}
 			<Card>

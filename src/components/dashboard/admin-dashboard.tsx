@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -10,6 +10,7 @@ import {
 	Lightbulb,
 	TrendingUp,
 } from "lucide-react";
+import { useState } from "react";
 import {
 	Area,
 	AreaChart,
@@ -222,6 +223,7 @@ export function AdminDashboard({
 	recentActivity,
 	hideKpi,
 }: AdminDashboardProps) {
+	const navigate = useNavigate();
 	const hasCharts = !!byCategory;
 
 	const outcomeConfig = Object.fromEntries(
@@ -300,7 +302,17 @@ export function AdminDashboard({
 									/>
 									<XAxis type="number" hide />
 									<ChartTooltip content={<ChartTooltipContent />} />
-									<Bar dataKey="count" fill="var(--color-count)" radius={4} />
+									<Bar
+										dataKey="count"
+										fill="var(--color-count)"
+										radius={4}
+										className="cursor-pointer"
+										onClick={(data) => {
+											if (data?.categoryName) {
+												navigate({ to: "/admin/ideas", search: { category: data.categoryName } });
+											}
+										}}
+									/>
 								</BarChart>
 							</ChartContainer>
 						) : (
@@ -399,32 +411,7 @@ export function AdminDashboard({
 				</Card>
 
 				{/* Recent Activity */}
-				<Card>
-					<CardHeader>
-						<CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
-					</CardHeader>
-					<CardContent>
-						{recentActivity.length > 0 ? (
-							<div className="space-y-3">
-								{recentActivity.slice(0, 10).map((event) => (
-									<div key={event.id} className="flex items-start gap-3 text-sm">
-										<div className="mt-0.5 size-2 shrink-0 rounded-full bg-muted-foreground" />
-										<div className="flex-1">
-											<span className="font-medium">{event.actorName}</span>{" "}
-											{formatEventDescription(event)}{" "}
-											<span className="font-medium">{event.ideaSubmissionId}</span>
-										</div>
-										<span className="shrink-0 text-xs text-muted-foreground">
-											{formatDistanceToNow(new Date(event.createdAt), { addSuffix: true })}
-										</span>
-									</div>
-								))}
-							</div>
-						) : (
-							<p className="py-8 text-center text-sm text-muted-foreground">No activity yet</p>
-						)}
-					</CardContent>
-				</Card>
+				<ActivityFeed events={recentActivity} />
 			</div>
 		</div>
 	);
@@ -510,7 +497,59 @@ function formatEventDescription(event: ActivityEvent): string {
 	}
 }
 
+function ActivityFeed({ events }: { events: ActivityEvent[] }) {
+	const [expanded, setExpanded] = useState(false);
+	const displayEvents = expanded ? events : events.slice(0, 10);
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
+			</CardHeader>
+			<CardContent>
+				{events.length > 0 ? (
+					<div className="space-y-3">
+						{displayEvents.map((event) => (
+							<div key={event.id} className="flex items-start gap-3 text-sm">
+								<div className="mt-0.5 size-2 shrink-0 rounded-full bg-muted-foreground" />
+								<div className="flex-1">
+									<span className="font-medium">{event.actorName}</span>{" "}
+									{formatEventDescription(event)}{" "}
+									<Link
+										to="/ideas/$submissionId"
+										params={{ submissionId: event.ideaSubmissionId }}
+										className="font-medium text-primary hover:underline"
+									>
+										{event.ideaSubmissionId}
+									</Link>
+								</div>
+								<span className="shrink-0 text-xs text-muted-foreground">
+									{formatDistanceToNow(new Date(event.createdAt), { addSuffix: true })}
+								</span>
+							</div>
+						))}
+						{events.length > 10 && (
+							<button
+								type="button"
+								onClick={() => setExpanded(!expanded)}
+								className="text-xs font-medium text-primary hover:underline"
+							>
+								{expanded ? "Show less" : `Show all ${events.length} events`}
+							</button>
+						)}
+					</div>
+				) : (
+					<p className="py-8 text-center text-sm text-muted-foreground">No activity yet</p>
+				)}
+			</CardContent>
+		</Card>
+	);
+}
+
 function KpiRow({ stats }: { stats: DashboardStats }) {
+	const navigate = useNavigate();
+	const goToIdeas = (filter: string) => navigate({ to: "/admin/ideas", search: { filter } });
+
 	return (
 		<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
 			<FadeIn delay={0}>
@@ -519,6 +558,7 @@ function KpiRow({ stats }: { stats: DashboardStats }) {
 					label="This Month"
 					value={stats.totalThisMonth}
 					detail={`${stats.totalThisYear} this year`}
+					onClick={() => goToIdeas("thisMonth")}
 				/>
 			</FadeIn>
 			<FadeIn delay={0.05}>
@@ -528,6 +568,7 @@ function KpiRow({ stats }: { stats: DashboardStats }) {
 					value={stats.openCount}
 					detail={stats.overdueCount > 0 ? `${stats.overdueCount} overdue` : "none overdue"}
 					variant={stats.overdueCount > 0 ? "warning" : "default"}
+					onClick={() => goToIdeas("open")}
 				/>
 			</FadeIn>
 			<FadeIn delay={0.1}>
@@ -554,7 +595,12 @@ function KpiRow({ stats }: { stats: DashboardStats }) {
 				/>
 			</FadeIn>
 			<FadeIn delay={0.2}>
-				<KpiCard icon={TrendingUp} label="Total This Year" value={stats.totalThisYear} />
+				<KpiCard
+					icon={TrendingUp}
+					label="Total This Year"
+					value={stats.totalThisYear}
+					onClick={() => goToIdeas("thisYear")}
+				/>
 			</FadeIn>
 		</div>
 	);
@@ -566,12 +612,14 @@ function KpiCard({
 	value,
 	detail,
 	variant = "default",
+	onClick,
 }: {
 	icon: React.ComponentType<{ className?: string }>;
 	label: string;
 	value: number | string;
 	detail?: string;
 	variant?: "default" | "success" | "warning" | "destructive";
+	onClick?: () => void;
 }) {
 	const colorMap = {
 		default: { bg: "bg-muted", icon: "text-muted-foreground", value: "" },
@@ -593,19 +641,31 @@ function KpiCard({
 	};
 
 	const colors = colorMap[variant];
+	const Wrapper = onClick ? "button" : "div";
 
 	return (
-		<Card className="h-full">
-			<CardContent className="flex h-full items-center gap-3 p-4">
-				<div className={cn("rounded-full p-2", colors.bg)}>
-					<Icon className={cn("size-4", colors.icon)} />
-				</div>
-				<div className="min-w-0">
-					<p className={cn("text-2xl font-bold", colors.value)}>{value}</p>
-					<p className="text-xs text-muted-foreground">{label}</p>
-					{detail && <p className="text-xs text-muted-foreground/70">{detail}</p>}
-				</div>
-			</CardContent>
-		</Card>
+		<Wrapper
+			type={onClick ? "button" : undefined}
+			onClick={onClick}
+			className={onClick ? "w-full text-left" : undefined}
+		>
+			<Card
+				className={cn(
+					"h-full transition-all",
+					onClick && "hover:border-primary/30 hover:bg-muted/30",
+				)}
+			>
+				<CardContent className="flex h-full items-center gap-3 p-4">
+					<div className={cn("rounded-full p-2", colors.bg)}>
+						<Icon className={cn("size-4", colors.icon)} />
+					</div>
+					<div className="min-w-0">
+						<p className={cn("text-2xl font-bold", colors.value)}>{value}</p>
+						<p className="text-xs text-muted-foreground">{label}</p>
+						{detail && <p className="text-xs text-muted-foreground/70">{detail}</p>}
+					</div>
+				</CardContent>
+			</Card>
+		</Wrapper>
 	);
 }
