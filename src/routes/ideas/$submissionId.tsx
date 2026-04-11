@@ -221,7 +221,7 @@ function IdeaDetailPage() {
 											currentUserId={user.id}
 											ideaId={idea.id}
 											onSend={async (content) => {
-												await messageMutation.mutateAsync(content);
+												return await messageMutation.mutateAsync(content);
 											}}
 											onAttachmentUpload={() => {
 												queryClient.invalidateQueries({

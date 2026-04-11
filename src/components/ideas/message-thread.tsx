@@ -56,19 +56,27 @@ function FileTypeIcon({ contentType, className }: { contentType: string; classNa
 	return <File className={cls} />;
 }
 
+interface MessageFile {
+	id: string;
+	filename: string;
+	contentType: string;
+	sizeBytes: number;
+}
+
 interface Message {
 	id: string;
 	actorId: string;
 	actorName: string;
 	content: string | null;
 	createdAt: string;
+	attachments?: MessageFile[];
 }
 
 interface MessageThreadProps {
 	messages: Message[];
 	currentUserId: string;
 	ideaId?: string;
-	onSend: (content: string) => Promise<void>;
+	onSend: (content: string) => Promise<{ messageId?: string } | undefined>;
 	onAttachmentUpload?: () => void;
 	isSending: boolean;
 }
@@ -113,19 +121,23 @@ export function MessageThread({
 
 		setIsSendingWithFiles(true);
 		try {
+			let messageId: string | undefined;
+
 			// Send message text if present
 			if (text) {
 				setDraft("");
-				await onSend(text);
+				const result = await onSend(text);
+				messageId = result?.messageId;
 			}
 
-			// Upload pending files
+			// Upload pending files linked to the message
 			if (pendingFiles.length > 0 && ideaId) {
 				for (const file of pendingFiles) {
 					const formData = new FormData();
 					formData.append("file", file);
 					formData.append("ideaId", ideaId);
 					formData.append("userId", currentUserId);
+					if (messageId) formData.append("messageId", messageId);
 
 					const res = await fetch("/api/attachments", {
 						method: "POST",
@@ -245,7 +257,41 @@ export function MessageThread({
 									)}
 								>
 									{!isOwn && <p className="mb-0.5 text-xs font-medium">{msg.actorName}</p>}
-									<p className="whitespace-pre-wrap">{msg.content}</p>
+									{msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
+									{msg.attachments && msg.attachments.length > 0 && (
+										<div className={cn("space-y-1", msg.content && "mt-1.5")}>
+											{msg.attachments.map((att) => (
+												<a
+													key={att.id}
+													href={`/api/attachments/${att.id}`}
+													target="_blank"
+													rel="noopener noreferrer"
+													className={cn(
+														"flex items-center gap-1.5 rounded-md px-2 py-1 text-xs",
+														isOwn
+															? "bg-primary-foreground/10 hover:bg-primary-foreground/20"
+															: "bg-background/50 hover:bg-background/80",
+													)}
+												>
+													<FileTypeIcon
+														contentType={att.contentType}
+														className={cn(
+															"size-3.5",
+															isOwn ? "text-primary-foreground/70" : "text-muted-foreground",
+														)}
+													/>
+													<span className="max-w-[150px] truncate">{att.filename}</span>
+													<span
+														className={
+															isOwn ? "text-primary-foreground/50" : "text-muted-foreground"
+														}
+													>
+														{formatFileSize(att.sizeBytes)}
+													</span>
+												</a>
+											))}
+										</div>
+									)}
 								</div>
 								<p className="mt-0.5 text-xs text-muted-foreground">
 									{formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}

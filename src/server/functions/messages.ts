@@ -1,8 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/server/db";
-import { ideaEvents, ideas, users } from "#/server/db/schema";
+import { attachments, ideaEvents, ideas, users } from "#/server/db/schema";
 import { sendNewMessageEmail } from "#/server/functions/email";
 import { authMiddleware } from "#/server/middleware/auth";
 
@@ -36,12 +36,15 @@ export const addMessage = createServerFn({ method: "POST" })
 			throw new Error("Forbidden");
 		}
 
-		await db.insert(ideaEvents).values({
-			ideaId: data.ideaId,
-			eventType: "message",
-			actorId: context.user.id,
-			note: data.content,
-		});
+		const [event] = await db
+			.insert(ideaEvents)
+			.values({
+				ideaId: data.ideaId,
+				eventType: "message",
+				actorId: context.user.id,
+				note: data.content,
+			})
+			.returning({ id: ideaEvents.id });
 
 		// Fire-and-forget: notify the other party
 		const isFromLeader = !isSubmitter;
@@ -65,7 +68,7 @@ export const addMessage = createServerFn({ method: "POST" })
 			}
 		}
 
-		return { success: true };
+		return { success: true, messageId: event.id };
 	});
 
 /**
@@ -99,11 +102,42 @@ export const getIdeaMessages = createServerFn()
 			},
 		});
 
+		// Load attachments for all messages in one query
+		const messageIds = messages.map((m) => m.id);
+		const messageAttachments =
+			messageIds.length > 0
+				? await db.query.attachments.findMany({
+						where: and(eq(attachments.ideaId, data.ideaId), isNull(attachments.deletedAt)),
+						columns: {
+							id: true,
+							messageId: true,
+							filename: true,
+							contentType: true,
+							sizeBytes: true,
+						},
+					})
+				: [];
+
+		// Group by messageId
+		const attachmentsByMessage = new Map<string, typeof messageAttachments>();
+		for (const att of messageAttachments) {
+			if (!att.messageId) continue;
+			const existing = attachmentsByMessage.get(att.messageId) ?? [];
+			existing.push(att);
+			attachmentsByMessage.set(att.messageId, existing);
+		}
+
 		return messages.map((m) => ({
 			id: m.id,
 			actorId: m.actor.id,
 			actorName: m.actor.displayName,
 			content: m.note,
 			createdAt: m.createdAt.toISOString(),
+			attachments: (attachmentsByMessage.get(m.id) ?? []).map((a) => ({
+				id: a.id,
+				filename: a.filename,
+				contentType: a.contentType,
+				sizeBytes: a.sizeBytes,
+			})),
 		}));
 	});
