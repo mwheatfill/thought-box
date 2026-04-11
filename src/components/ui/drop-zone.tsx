@@ -9,6 +9,7 @@ import {
 	Loader2,
 	Paperclip,
 	Presentation,
+	Trash2,
 	X,
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
@@ -296,7 +297,7 @@ export function DropZone({
 			{existingFiles.length > 0 && (
 				<div className="mt-3 space-y-1.5">
 					{existingFiles.map((f) => (
-						<div key={f.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
+						<div key={f.id} className="group flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
 							<a
 								href={`/api/attachments/${f.id}`}
 								target="_blank"
@@ -312,7 +313,7 @@ export function DropZone({
 							{!disabled && (
 								<button
 									type="button"
-									className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
+									className="shrink-0 rounded p-0.5 text-destructive opacity-0 transition-opacity hover:bg-destructive/10 group-hover:opacity-100"
 									title="Delete file"
 									onClick={async () => {
 										const res = await fetch(`/api/attachments/${f.id}`, {
@@ -328,7 +329,7 @@ export function DropZone({
 										}
 									}}
 								>
-									<X className="size-3.5" />
+									<Trash2 className="size-3.5" />
 								</button>
 							)}
 						</div>
