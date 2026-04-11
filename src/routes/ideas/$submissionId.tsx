@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
@@ -112,13 +111,20 @@ function IdeaDetailPage() {
 			<main className="flex-1 bg-background p-6">
 				{/* Header */}
 				<div className="mb-6">
-					<Link
-						to="/dashboard"
+					<button
+						type="button"
+						onClick={() => {
+							if (window.history.length > 1) {
+								window.history.back();
+							} else {
+								window.location.href = "/dashboard";
+							}
+						}}
 						className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
 					>
 						<ArrowLeft className="size-3.5" />
-						Back to Dashboard
-					</Link>
+						Back
+					</button>
 					<div className="flex items-start justify-between gap-4">
 						<div>
 							<div className="flex items-center gap-2">
