@@ -7,6 +7,7 @@ import { sendUserInviteEmail } from "#/server/functions/email";
 import { audit } from "#/server/lib/audit";
 import { enrichUserProfile } from "#/server/lib/enrichment";
 import { searchDirectory as searchDirectoryApi } from "#/server/lib/graph";
+import { trackEvent } from "#/server/lib/telemetry";
 import { adminMiddleware } from "#/server/middleware/auth";
 
 export const getUsers = createServerFn()
@@ -71,6 +72,12 @@ export const updateUserRole = createServerFn({ method: "POST" })
 			.update(users)
 			.set({ role: data.role, updatedAt: new Date() })
 			.where(eq(users.id, data.userId));
+
+		trackEvent("UserRoleChanged", {
+			userId: data.userId,
+			oldRole: target?.role ?? "unknown",
+			newRole: data.role,
+		});
 
 		audit({
 			actorId: context.user.id,
@@ -219,6 +226,11 @@ export const upsertUser = createServerFn({ method: "POST" })
 			.returning({ id: users.id });
 
 		enrichUserProfile(created.id).catch(() => {});
+
+		trackEvent("UserAdded", {
+			userId: created.id,
+			role: data.role ?? "submitter",
+		});
 
 		audit({
 			actorId: context.user.id,

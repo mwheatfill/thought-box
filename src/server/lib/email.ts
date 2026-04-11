@@ -2,6 +2,7 @@ import { ClientSecretCredential } from "@azure/identity";
 import { Client } from "@microsoft/microsoft-graph-client";
 import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials/index.js";
 import { render } from "@react-email/render";
+import { trackEvent } from "#/server/lib/telemetry";
 
 interface SendEmailOptions {
 	to: string | string[];
@@ -110,6 +111,8 @@ export async function sendEmail({
 				error: null,
 			});
 		}
+
+		trackEvent("EmailSent", { template: tplName, subject }, { recipientCount: recipients.length });
 	} catch (error) {
 		const errorMsg = error instanceof Error ? error.message : String(error);
 		console.error("[email:error] Failed to send email:", {
@@ -128,5 +131,11 @@ export async function sendEmail({
 				error: errorMsg,
 			});
 		}
+
+		trackEvent("EmailFailed", {
+			template: tplName,
+			subject,
+			error: errorMsg,
+		});
 	}
 }

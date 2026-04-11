@@ -3,6 +3,7 @@ import { db } from "#/server/db";
 import { attachments, ideaEvents, ideas } from "#/server/db/schema";
 import { audit } from "#/server/lib/audit";
 import { downloadBlob, getMaxFileSize, isAllowedType, uploadBlob } from "#/server/lib/blob";
+import { trackEvent } from "#/server/lib/telemetry";
 
 /**
  * Handle POST /api/attachments — upload a file to an idea.
@@ -114,6 +115,12 @@ export async function handleAttachmentUpload(request: Request): Promise<Response
 			actorId: userId,
 			note: file.name,
 		});
+
+		trackEvent(
+			"FileUploaded",
+			{ ideaId, contentType: file.type, filename: file.name },
+			{ sizeBytes: file.size },
+		);
 
 		audit({
 			actorId: userId,

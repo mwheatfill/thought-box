@@ -9,6 +9,7 @@ import type { ConversationMessage } from "#/server/db/schema";
 import { sendIdeaAssignedEmail, sendIdeaSubmittedEmail } from "#/server/functions/email";
 import { calculateSlaDueDate } from "#/server/lib/sla";
 import { nextSubmissionId } from "#/server/lib/submission-id";
+import { trackEvent } from "#/server/lib/telemetry";
 
 export async function handleChatRequest(request: Request): Promise<Response> {
 	const body = await request.json();
@@ -59,6 +60,8 @@ export async function handleChatRequest(request: Request): Promise<Response> {
 The following categories are available. Use the category ID when calling submit_idea. Categories marked [REDIRECT] should use redirect_to_form instead.
 
 ${categoryTaxonomy}${userContext}`;
+
+	trackEvent("ChatStarted", { userId: userId ?? "anonymous" });
 
 	const result = streamText({
 		model: anthropic("claude-haiku-4-5-20251001"),
@@ -131,6 +134,13 @@ ${categoryTaxonomy}${userContext}`;
 						eventType: "created",
 						actorId: userId,
 						newValue: "new",
+					});
+
+					trackEvent("IdeaSubmitted", {
+						ideaId: idea.id,
+						submissionId,
+						categoryId,
+						source: "ai_chat",
 					});
 
 					// Save the conversation

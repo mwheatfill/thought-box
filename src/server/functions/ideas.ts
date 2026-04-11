@@ -15,6 +15,7 @@ import {
 import { audit } from "#/server/lib/audit";
 import { businessDaysRemaining, calculateSlaDueDate } from "#/server/lib/sla";
 import { nextSubmissionId } from "#/server/lib/submission-id";
+import { trackEvent } from "#/server/lib/telemetry";
 import { authMiddleware, leaderMiddleware } from "#/server/middleware/auth";
 
 const CreateIdeaSchema = z.object({
@@ -157,6 +158,13 @@ export const createIdea = createServerFn({ method: "POST" })
 			submitterName: context.user.displayName,
 			submitterDepartment: context.user.department,
 			assignedLeaderName,
+		});
+
+		trackEvent("IdeaSubmitted", {
+			ideaId: idea.id,
+			submissionId,
+			categoryId: data.categoryId,
+			source: "form",
 		});
 
 		audit({
@@ -340,6 +348,13 @@ export const updateIdea = createServerFn({ method: "POST" })
 				newValue: data.status,
 			});
 
+			trackEvent("IdeaStatusChanged", {
+				ideaId: data.ideaId,
+				submissionId: idea.submissionId,
+				oldStatus: idea.status,
+				newStatus: data.status,
+			});
+
 			// Fire-and-forget: notify submitter of status change
 			const emailStatuses = ["under_review", "accepted", "declined"] as const;
 			if (emailStatuses.includes(data.status as (typeof emailStatuses)[number])) {
@@ -414,6 +429,8 @@ export const bulkUpdateStatus = createServerFn({ method: "POST" })
 				newValue: data.status,
 			});
 		}
+
+		trackEvent("BulkStatusChanged", { newStatus: data.status }, { count: data.ideaIds.length });
 
 		return { success: true, count: data.ideaIds.length };
 	});
