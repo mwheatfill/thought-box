@@ -146,6 +146,12 @@ export function DataTable<TData>({
 		onSortingChange: setSorting,
 		onColumnFiltersChange: setColumnFilters,
 		onGlobalFilterChange: setGlobalFilter,
+		globalFilterFn: (row, _columnId, filterValue) => {
+			const search = String(filterValue).toLowerCase();
+			return Object.values(row.original as Record<string, unknown>).some(
+				(val) => val != null && String(val).toLowerCase().includes(search),
+			);
+		},
 		onRowSelectionChange: (updater) => {
 			const next = typeof updater === "function" ? updater(rowSelection) : updater;
 			setRowSelection(next);
