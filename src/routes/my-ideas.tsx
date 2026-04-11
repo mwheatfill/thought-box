@@ -167,7 +167,6 @@ function MyIdeasPage() {
 						columns={columns}
 						data={filteredIdeas}
 						searchPlaceholder="Search my ideas..."
-						searchColumn="title"
 						onRowClick={(idea) =>
 							navigate({
 								to: "/ideas/$submissionId",

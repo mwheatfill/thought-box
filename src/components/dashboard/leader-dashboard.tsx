@@ -239,7 +239,6 @@ export function LeaderDashboard({
 							columns={leaderColumns}
 							data={displayIdeas}
 							searchPlaceholder="Search ideas..."
-							searchColumn="title"
 							enableSelection={kpiFilter === "open" || kpiFilter === "overdue"}
 							rowSelection={kpiFilter === "open" || kpiFilter === "overdue" ? rowSelection : {}}
 							onRowSelectionChange={

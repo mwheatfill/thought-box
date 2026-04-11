@@ -173,7 +173,6 @@ function AdminIdeasPage() {
 						columns={adminIdeaColumns}
 						data={filteredIdeas}
 						searchPlaceholder="Search ideas..."
-						searchColumn="title"
 						facetedFilters={[
 							{
 								columnId: "status",

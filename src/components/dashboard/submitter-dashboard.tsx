@@ -124,7 +124,6 @@ export function SubmitterDashboard({ user, ideas, yearlyCount }: SubmitterDashbo
 							columns={submitterColumns}
 							data={ideas}
 							searchPlaceholder="Search my ideas..."
-							searchColumn="title"
 							facetedFilters={[
 								{
 									columnId: "status",
