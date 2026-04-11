@@ -101,10 +101,14 @@ const config = defineConfig({
 						});
 
 						const mod = await import("./src/server/api/attachments.ts");
-						const response =
-							req.method === "POST"
-								? await mod.handleAttachmentUpload(request)
-								: await mod.handleAttachmentDownload(request);
+						let response: Response;
+						if (req.method === "POST") {
+							response = await mod.handleAttachmentUpload(request);
+						} else if (req.method === "DELETE") {
+							response = await mod.handleAttachmentDelete(request);
+						} else {
+							response = await mod.handleAttachmentDownload(request);
+						}
 
 						res.statusCode = response.status;
 						response.headers.forEach((value: string, key: string) => {
