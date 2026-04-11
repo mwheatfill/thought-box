@@ -12,57 +12,29 @@ import { getUserCard } from "#/server/functions/users";
 
 // ── Presence ──────────────────────────────────────────────────────────────
 
-const PRESENCE_CONFIG: Record<string, { color: string; label: string; icon: React.ReactNode }> = {
-	Available: {
-		color: "bg-green-500",
-		label: "Available",
-		icon: <path d="M5 9l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
-	},
-	Busy: {
-		color: "bg-red-500",
-		label: "Busy",
-		icon: <rect x="3" y="6.5" width="8" height="1.5" rx="0.75" fill="white" />,
-	},
-	InAMeeting: {
-		color: "bg-red-500",
-		label: "In a meeting",
-		icon: <rect x="3" y="6.5" width="8" height="1.5" rx="0.75" fill="white" />,
-	},
+const PRESENCE_CONFIG: Record<string, { color: string; label: string; icon?: React.ReactNode }> = {
+	Available: { color: "bg-green-500", label: "Available" },
+	Busy: { color: "bg-red-500", label: "Busy" },
+	InAMeeting: { color: "bg-red-500", label: "In a meeting" },
 	DoNotDisturb: {
 		color: "bg-red-500",
 		label: "Do not disturb",
 		icon: <rect x="3" y="6.5" width="8" height="1.5" rx="0.75" fill="white" />,
 	},
-	Away: {
-		color: "bg-yellow-500",
-		label: "Away",
-		icon: <><circle cx="7" cy="7" r="3.5" stroke="white" strokeWidth="1.5" fill="none" /><path d="M7 5v2.5l1.5 1" stroke="white" strokeWidth="1.2" strokeLinecap="round" fill="none" /></>,
-	},
-	BeRightBack: {
-		color: "bg-yellow-500",
-		label: "Be right back",
-		icon: <><circle cx="7" cy="7" r="3.5" stroke="white" strokeWidth="1.5" fill="none" /><path d="M7 5v2.5l1.5 1" stroke="white" strokeWidth="1.2" strokeLinecap="round" fill="none" /></>,
-	},
+	Away: { color: "bg-yellow-500", label: "Away" },
+	BeRightBack: { color: "bg-yellow-500", label: "Be right back" },
 	Offline: {
 		color: "bg-gray-400",
 		label: "Offline",
-		icon: <><circle cx="7" cy="7" r="3" stroke="white" strokeWidth="1.5" fill="none" /><path d="M5 5l4 4M9 5l-4 4" stroke="white" strokeWidth="1.2" strokeLinecap="round" fill="none" /></>,
+		icon: <path d="M5 5l4 4M9 5l-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" fill="none" />,
 	},
 	OffWork: {
 		color: "bg-gray-400",
 		label: "Off work",
-		icon: <><circle cx="7" cy="7" r="3" stroke="white" strokeWidth="1.5" fill="none" /><path d="M5 5l4 4M9 5l-4 4" stroke="white" strokeWidth="1.2" strokeLinecap="round" fill="none" /></>,
+		icon: <path d="M5 5l4 4M9 5l-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" fill="none" />,
 	},
-	OutOfOffice: {
-		color: "bg-purple-500",
-		label: "Out of office",
-		icon: <path d="M4 7l3 3 3-3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
-	},
-	PresenceUnknown: {
-		color: "bg-gray-400",
-		label: "Unknown",
-		icon: <circle cx="7" cy="7" r="3" stroke="white" strokeWidth="1.5" fill="none" />,
-	},
+	OutOfOffice: { color: "bg-purple-500", label: "Out of office" },
+	PresenceUnknown: { color: "bg-gray-400", label: "Unknown" },
 	Tentative: {
 		color: "bg-yellow-500",
 		label: "Tentative",
@@ -131,25 +103,23 @@ export function UserCardPopover({ userId, children }: UserCardPopoverProps) {
 											.slice(0, 2)}
 									</AvatarFallback>
 								</Avatar>
-								{user.presence && PRESENCE_CONFIG[user.presence] && (
-									<Tooltip>
-										<TooltipTrigger asChild>
-											<span
-												className={cn(
-													"absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full border-2 border-popover",
-													PRESENCE_CONFIG[user.presence].color,
+								{user.presence && PRESENCE_CONFIG[user.presence] && (() => {
+									const p = PRESENCE_CONFIG[user.presence];
+									return (
+										<Tooltip>
+											<TooltipTrigger asChild>
+												{p.icon ? (
+													<span className={cn("absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full border-2 border-popover", p.color)}>
+														<svg viewBox="0 0 14 14" className="size-2.5">{p.icon}</svg>
+													</span>
+												) : (
+													<span className={cn("absolute bottom-0 right-0 size-3 rounded-full border-2 border-popover", p.color)} />
 												)}
-											>
-												<svg viewBox="0 0 14 14" className="size-3">
-													{PRESENCE_CONFIG[user.presence].icon}
-												</svg>
-											</span>
-										</TooltipTrigger>
-										<TooltipContent side="bottom" className="text-xs">
-											{PRESENCE_CONFIG[user.presence].label}
-										</TooltipContent>
-									</Tooltip>
-								)}
+											</TooltipTrigger>
+											<TooltipContent side="bottom" className="text-xs">{p.label}</TooltipContent>
+										</Tooltip>
+									);
+								})()}
 							</div>
 							<div className="min-w-0 flex-1">
 								<p className="text-base font-semibold leading-tight">{user.displayName}</p>
