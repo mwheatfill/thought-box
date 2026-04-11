@@ -146,7 +146,6 @@ function RecycleBinPage() {
 							columns={columns}
 							data={items as RecycleItem[]}
 							searchPlaceholder="Search deleted items..."
-							searchColumn="name"
 							facetedFilters={[
 								{
 									columnId: "type",

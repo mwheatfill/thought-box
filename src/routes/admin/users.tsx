@@ -277,7 +277,6 @@ function UsersPage() {
 						columns={columns}
 						data={userList as UserRow[]}
 						searchPlaceholder="Search users..."
-						searchColumn="displayName"
 						facetedFilters={[
 							{
 								columnId: "role",

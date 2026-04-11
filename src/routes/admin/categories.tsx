@@ -9,6 +9,7 @@ import {
 	MoveUp,
 	Plus,
 	RotateCcw,
+	Search,
 	Trash2,
 } from "lucide-react";
 import { useState } from "react";
@@ -104,6 +105,7 @@ function CategoriesPage() {
 	const [showDeleted, setShowDeleted] = useState(false);
 	const [form, setForm] = useState<CategoryForm>(emptyForm);
 	const [leaderPopoverOpen, setLeaderPopoverOpen] = useState(false);
+	const [search, setSearch] = useState("");
 
 	const { data: cats = initialCategories } = useQuery({
 		queryKey: ["admin-categories"],
@@ -234,6 +236,17 @@ function CategoriesPage() {
 
 			<Card>
 				<CardContent className="p-0">
+					{cats.length > 5 && (
+						<div className="relative border-b px-4 py-3">
+							<Search className="absolute left-6.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+							<Input
+								placeholder="Search categories..."
+								value={search}
+								onChange={(e) => setSearch(e.target.value)}
+								className="h-9 max-w-xs pl-8"
+							/>
+						</div>
+					)}
 					<Table>
 						<TableHeader>
 							<TableRow>
@@ -245,72 +258,83 @@ function CategoriesPage() {
 							</TableRow>
 						</TableHeader>
 						<TableBody>
-							{cats.map((cat, idx) => (
-								<TableRow
-									key={cat.id}
-									className={cn("group cursor-pointer", !cat.active && "opacity-50")}
-									onClick={() => openEdit(cat)}
-								>
-									<TableCell>
-										{/* biome-ignore lint/a11y/useKeyWithClickEvents: order buttons are interactive */}
-										<div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+							{cats
+								.filter((cat) => {
+									if (!search) return true;
+									const s = search.toLowerCase();
+									return (
+										cat.name.toLowerCase().includes(s) || cat.description.toLowerCase().includes(s)
+									);
+								})
+								.map((cat, idx) => (
+									<TableRow
+										key={cat.id}
+										className={cn("group cursor-pointer", !cat.active && "opacity-50")}
+										onClick={() => openEdit(cat)}
+									>
+										<TableCell>
+											{/* biome-ignore lint/a11y/useKeyWithClickEvents: order buttons are interactive */}
+											<div
+												className="flex items-center gap-0.5"
+												onClick={(e) => e.stopPropagation()}
+											>
+												<Button
+													variant="ghost"
+													size="icon"
+													className="size-6"
+													disabled={idx === 0 || moveMutation.isPending}
+													onClick={() => moveMutation.mutate({ id: cat.id, direction: "up" })}
+												>
+													<MoveUp className="size-3" />
+												</Button>
+												<Button
+													variant="ghost"
+													size="icon"
+													className="size-6"
+													disabled={idx === cats.length - 1 || moveMutation.isPending}
+													onClick={() => moveMutation.mutate({ id: cat.id, direction: "down" })}
+												>
+													<MoveDown className="size-3" />
+												</Button>
+											</div>
+										</TableCell>
+										<TableCell>
+											<div>
+												<p className="font-medium">{cat.name}</p>
+												<p className="text-xs text-muted-foreground line-clamp-1">
+													{cat.description}
+												</p>
+											</div>
+										</TableCell>
+										<TableCell>
+											{cat.routingType === "redirect" ? (
+												<Badge variant="outline" className="gap-1">
+													<ExternalLink className="size-3" />
+													Redirect
+												</Badge>
+											) : (
+												<Badge variant="secondary">ThoughtBox</Badge>
+											)}
+										</TableCell>
+										<TableCell className="text-muted-foreground">
+											{cat.defaultLeaderName ?? "—"}
+										</TableCell>
+										<TableCell>
 											<Button
 												variant="ghost"
 												size="icon"
-												className="size-6"
-												disabled={idx === 0 || moveMutation.isPending}
-												onClick={() => moveMutation.mutate({ id: cat.id, direction: "up" })}
+												title="Delete category"
+												className="opacity-0 group-hover:opacity-100 transition-opacity"
+												onClick={(e) => {
+													e.stopPropagation();
+													deleteMutation.mutate(cat.id);
+												}}
 											>
-												<MoveUp className="size-3" />
+												<Trash2 className="size-3.5" />
 											</Button>
-											<Button
-												variant="ghost"
-												size="icon"
-												className="size-6"
-												disabled={idx === cats.length - 1 || moveMutation.isPending}
-												onClick={() => moveMutation.mutate({ id: cat.id, direction: "down" })}
-											>
-												<MoveDown className="size-3" />
-											</Button>
-										</div>
-									</TableCell>
-									<TableCell>
-										<div>
-											<p className="font-medium">{cat.name}</p>
-											<p className="text-xs text-muted-foreground line-clamp-1">
-												{cat.description}
-											</p>
-										</div>
-									</TableCell>
-									<TableCell>
-										{cat.routingType === "redirect" ? (
-											<Badge variant="outline" className="gap-1">
-												<ExternalLink className="size-3" />
-												Redirect
-											</Badge>
-										) : (
-											<Badge variant="secondary">ThoughtBox</Badge>
-										)}
-									</TableCell>
-									<TableCell className="text-muted-foreground">
-										{cat.defaultLeaderName ?? "—"}
-									</TableCell>
-									<TableCell>
-										<Button
-											variant="ghost"
-											size="icon"
-											title="Delete category"
-											className="opacity-0 group-hover:opacity-100 transition-opacity"
-											onClick={(e) => {
-												e.stopPropagation();
-												deleteMutation.mutate(cat.id);
-											}}
-										>
-											<Trash2 className="size-3.5" />
-										</Button>
-									</TableCell>
-								</TableRow>
-							))}
+										</TableCell>
+									</TableRow>
+								))}
 						</TableBody>
 					</Table>
 				</CardContent>
