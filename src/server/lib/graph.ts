@@ -143,6 +143,34 @@ export async function getUserPhoto(entraId: string): Promise<Buffer | null> {
 	}
 }
 
+// ── Presence ──────────────────────────────────────────────────────────────
+
+export type PresenceAvailability =
+	| "Available"
+	| "Away"
+	| "BeRightBack"
+	| "Busy"
+	| "DoNotDisturb"
+	| "InAMeeting"
+	| "Offline"
+	| "OffWork"
+	| "OutOfOffice"
+	| "PresenceUnknown"
+	| "Tentative";
+
+/** Fetch a user's Teams presence. Returns null in dev mode or on error. */
+export async function getUserPresence(entraId: string): Promise<PresenceAvailability | null> {
+	const client = getGraphClient();
+	if (!client) return null;
+
+	try {
+		const presence = await client.api(`/users/${entraId}/presence`).get();
+		return presence.availability ?? null;
+	} catch {
+		return null;
+	}
+}
+
 // ── Search directory ──────────────────────────────────────────────────────
 
 export async function searchDirectory(query: string): Promise<DirectoryUser[]> {

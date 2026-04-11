@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/server/db";
 import { ideas, users } from "#/server/db/schema";
+import { getUserPresence } from "#/server/lib/graph";
 import { authMiddleware } from "#/server/middleware/auth";
 
 /**
@@ -27,6 +28,7 @@ export const getUserCard = createServerFn()
 				where: eq(users.id, data.userId),
 				columns: {
 					id: true,
+					entraId: true,
 					displayName: true,
 					email: true,
 					role: true,
@@ -51,5 +53,8 @@ export const getUserCard = createServerFn()
 			["new", "under_review", "in_progress"].includes(i.status),
 		).length;
 
-		return { ...user, stats: { totalIdeas, implemented, open } };
+		// Fire-and-forget presence — don't block on it failing
+		const presence = await getUserPresence(user.entraId).catch(() => null);
+
+		return { ...user, presence, stats: { totalIdeas, implemented, open } };
 	});
