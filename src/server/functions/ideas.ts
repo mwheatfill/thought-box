@@ -12,6 +12,7 @@ import {
 	sendStatusChangedEmail,
 	sendWatcherAlert,
 } from "#/server/functions/email";
+import { audit } from "#/server/lib/audit";
 import { businessDaysRemaining, calculateSlaDueDate } from "#/server/lib/sla";
 import { nextSubmissionId } from "#/server/lib/submission-id";
 import { authMiddleware, leaderMiddleware } from "#/server/middleware/auth";
@@ -156,6 +157,14 @@ export const createIdea = createServerFn({ method: "POST" })
 			submitterName: context.user.displayName,
 			submitterDepartment: context.user.department,
 			assignedLeaderName,
+		});
+
+		audit({
+			actorId: context.user.id,
+			action: "idea.created",
+			resourceType: "idea",
+			resourceId: idea.submissionId,
+			details: { title: data.title, category: category.name, assignedTo: assignedLeaderName },
 		});
 
 		return {
@@ -357,6 +366,16 @@ export const updateIdea = createServerFn({ method: "POST" })
 			});
 		}
 
+		if (data.status && data.status !== idea.status) {
+			audit({
+				actorId: context.user.id,
+				action: "idea.status_changed",
+				resourceType: "idea",
+				resourceId: idea.submissionId,
+				details: { from: idea.status, to: data.status },
+			});
+		}
+
 		return { success: true };
 	});
 
@@ -475,6 +494,14 @@ export const reassignIdea = createServerFn({ method: "POST" })
 			categoryName: idea.category.name,
 			submitterName: idea.submitter.displayName,
 			reassignedByName: context.user.displayName,
+		});
+
+		audit({
+			actorId: context.user.id,
+			action: "idea.reassigned",
+			resourceType: "idea",
+			resourceId: idea.submissionId,
+			details: { from: oldLeader?.displayName, to: newLeader.displayName },
 		});
 
 		return { success: true, newLeaderName: newLeader.displayName };

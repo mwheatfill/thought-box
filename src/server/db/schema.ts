@@ -154,6 +154,16 @@ export const keystoneDetails = pgTable("keystone_details", {
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const auditLog = pgTable("audit_log", {
+	id: varchar("id", { length: 128 }).$defaultFn(createId).primaryKey(),
+	actorId: varchar("actor_id", { length: 128 }),
+	action: varchar("action", { length: 255 }).notNull(),
+	resourceType: varchar("resource_type", { length: 100 }).notNull(),
+	resourceId: varchar("resource_id", { length: 255 }),
+	details: jsonb("details"),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const settings = pgTable("settings", {
 	key: varchar("key", { length: 255 }).primaryKey(),
 	value: text("value").notNull(),

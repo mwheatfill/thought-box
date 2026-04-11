@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "#/server/db";
 import { users } from "#/server/db/schema";
 import { sendUserInviteEmail } from "#/server/functions/email";
+import { audit } from "#/server/lib/audit";
 import { enrichUserProfile } from "#/server/lib/enrichment";
 import { searchDirectory as searchDirectoryApi } from "#/server/lib/graph";
 import { adminMiddleware } from "#/server/middleware/auth";
@@ -62,10 +63,23 @@ export const updateUserRole = createServerFn({ method: "POST" })
 			await ensureNotLastAdmin(data.userId, "demote");
 		}
 
+		const target = await db.query.users.findFirst({
+			where: eq(users.id, data.userId),
+			columns: { role: true, displayName: true },
+		});
 		await db
 			.update(users)
 			.set({ role: data.role, updatedAt: new Date() })
 			.where(eq(users.id, data.userId));
+
+		audit({
+			actorId: context.user.id,
+			action: "user.role_changed",
+			resourceType: "user",
+			resourceId: data.userId,
+			details: { name: target?.displayName, from: target?.role, to: data.role },
+		});
+
 		return { success: true };
 	});
 
@@ -80,10 +94,23 @@ export const toggleUserActive = createServerFn({ method: "POST" })
 			await ensureNotLastAdmin(data.userId, "deactivate");
 		}
 
+		const target = await db.query.users.findFirst({
+			where: eq(users.id, data.userId),
+			columns: { displayName: true },
+		});
 		await db
 			.update(users)
 			.set({ active: data.active, updatedAt: new Date() })
 			.where(eq(users.id, data.userId));
+
+		audit({
+			actorId: context.user.id,
+			action: data.active ? "user.activated" : "user.deactivated",
+			resourceType: "user",
+			resourceId: data.userId,
+			details: { name: target?.displayName },
+		});
+
 		return { success: true };
 	});
 
@@ -156,8 +183,15 @@ export const upsertUser = createServerFn({ method: "POST" })
 				})
 				.where(eq(users.id, existing.id));
 
-			// Fire-and-forget: enrich profile + photo from Graph
 			enrichUserProfile(existing.id).catch(() => {});
+
+			audit({
+				actorId: context.user.id,
+				action: "user.updated",
+				resourceType: "user",
+				resourceId: existing.id,
+				details: { name: data.displayName, role: data.role },
+			});
 
 			return { id: existing.id, created: false };
 		}
@@ -176,8 +210,15 @@ export const upsertUser = createServerFn({ method: "POST" })
 			})
 			.returning({ id: users.id });
 
-		// Fire-and-forget: enrich profile + photo from Graph
 		enrichUserProfile(created.id).catch(() => {});
+
+		audit({
+			actorId: context.user.id,
+			action: "user.added",
+			resourceType: "user",
+			resourceId: created.id,
+			details: { name: data.displayName, email: data.email, role: data.role ?? "submitter" },
+		});
 
 		// Fire-and-forget: send invite email for leaders/admins
 		const role = data.role ?? "submitter";
