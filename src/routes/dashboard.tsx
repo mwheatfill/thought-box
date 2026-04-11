@@ -103,12 +103,12 @@ function AdminSummary({
 				</Await>
 			</Suspense>
 
-			{/* Link card to full ideas table */}
-			<LinkCard
-				to="/admin/ideas"
-				title="All Ideas"
-				description="View, search, and export every idea across the organization."
-			/>
+			{/* Quick links */}
+			<div className="grid gap-4 sm:grid-cols-3">
+				<LinkCard to="/admin/ideas" title="All Ideas" description="Search and export every idea." />
+				<LinkCard to="/queue" title="My Queue" description="Ideas assigned to you for review." />
+				<LinkCard to="/my-ideas" title="My Ideas" description="Track your own submissions." />
+			</div>
 		</div>
 	);
 }
