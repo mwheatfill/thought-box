@@ -34,6 +34,7 @@ import {
 	ChartTooltipContent,
 } from "#/components/ui/chart";
 import { SortableHeader } from "#/components/ui/data-table";
+import { KpiCard } from "#/components/ui/kpi-card";
 import { UserCardPopover } from "#/components/ui/user-card";
 import { STATUS_LABELS } from "#/lib/constants";
 import { cn } from "#/lib/utils";
@@ -228,9 +229,10 @@ export function AdminDashboard({
 }: AdminDashboardProps) {
 	const navigate = useNavigate();
 	const hasCharts = !!byCategory;
+	const outcomes = outcomeDistribution ?? [];
 
 	const outcomeConfig = Object.fromEntries(
-		(outcomeDistribution ?? []).map((d) => [
+		outcomes.map((d) => [
 			d.status,
 			{
 				label: STATUS_LABELS[d.status as keyof typeof STATUS_LABELS] ?? d.status,
@@ -325,12 +327,12 @@ export function AdminDashboard({
 						</CardTitle>
 					</CardHeader>
 					<CardContent>
-						{(outcomeDistribution ?? []).length > 0 ? (
+						{outcomes.length > 0 ? (
 							<ChartContainer config={outcomeConfig} className="mx-auto h-[250px] w-full">
 								<PieChart>
 									<ChartTooltip content={<ChartTooltipContent nameKey="status" />} />
 									<Pie
-										data={(outcomeDistribution ?? []).map((d) => ({
+										data={outcomes.map((d) => ({
 											...d,
 											fill: STATUS_COLORS[d.status] ?? "var(--color-chart-1)",
 										}))}
@@ -342,7 +344,7 @@ export function AdminDashboard({
 										outerRadius={90}
 										paddingAngle={2}
 									>
-										{(outcomeDistribution ?? []).map((entry) => (
+										{outcomes.map((entry) => (
 											<Cell
 												key={entry.status}
 												fill={STATUS_COLORS[entry.status] ?? "var(--color-chart-1)"}
@@ -636,78 +638,5 @@ function KpiRow({ stats }: { stats: DashboardStats }) {
 				/>
 			</FadeIn>
 		</div>
-	);
-}
-
-function KpiCard({
-	icon: Icon,
-	label,
-	value,
-	detail,
-	variant = "default",
-	color,
-	onClick,
-}: {
-	icon: React.ComponentType<{ className?: string }>;
-	label: string;
-	value: number | string;
-	detail?: string;
-	variant?: "default" | "success" | "warning" | "destructive";
-	color?: "amber" | "blue" | "red";
-	onClick?: () => void;
-}) {
-	const variantColors = {
-		default: { bg: "bg-muted", icon: "text-muted-foreground", value: "" },
-		success: {
-			bg: "bg-green-100 dark:bg-green-900/30",
-			icon: "text-green-600 dark:text-green-400",
-			value: "text-green-600 dark:text-green-400",
-		},
-		warning: {
-			bg: "bg-yellow-100 dark:bg-yellow-900/30",
-			icon: "text-yellow-600 dark:text-yellow-400",
-			value: "text-yellow-600 dark:text-yellow-400",
-		},
-		destructive: {
-			bg: "bg-red-100 dark:bg-red-900/30",
-			icon: "text-red-600 dark:text-red-400",
-			value: "text-red-600 dark:text-red-400",
-		},
-	};
-
-	const colorOverrides: Record<string, { bg: string; icon: string }> = {
-		amber: { bg: "bg-amber-100 dark:bg-amber-900/30", icon: "text-amber-600 dark:text-amber-400" },
-		blue: { bg: "bg-blue-100 dark:bg-blue-900/30", icon: "text-blue-600 dark:text-blue-400" },
-		red: { bg: "bg-red-100 dark:bg-red-900/30", icon: "text-red-600 dark:text-red-400" },
-	};
-
-	const base = variantColors[variant];
-	const colors = color ? { ...base, ...colorOverrides[color] } : base;
-	const Wrapper = onClick ? "button" : "div";
-
-	return (
-		<Wrapper
-			type={onClick ? "button" : undefined}
-			onClick={onClick}
-			className={onClick ? "w-full text-left" : undefined}
-		>
-			<Card
-				className={cn(
-					"h-full transition-all",
-					onClick && "hover:border-primary/30 hover:bg-muted/30",
-				)}
-			>
-				<CardContent className="flex h-full items-center gap-3 p-4">
-					<div className={cn("rounded-full p-2", colors.bg)}>
-						<Icon className={cn("size-4", colors.icon)} />
-					</div>
-					<div className="min-w-0">
-						<p className={cn("text-2xl font-bold", colors.value)}>{value}</p>
-						<p className="text-xs text-muted-foreground">{label}</p>
-						{detail && <p className="text-xs text-muted-foreground/70">{detail}</p>}
-					</div>
-				</CardContent>
-			</Card>
-		</Wrapper>
 	);
 }

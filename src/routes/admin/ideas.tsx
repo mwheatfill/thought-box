@@ -10,7 +10,8 @@ import {
 import { Button } from "#/components/ui/button";
 import { Card, CardContent } from "#/components/ui/card";
 import { DataTable } from "#/components/ui/data-table";
-import { STATUS_LABELS } from "#/lib/constants";
+import { KpiCard } from "#/components/ui/kpi-card";
+import { type KPI_COLORS, OPEN_STATUSES, STATUS_LABELS } from "#/lib/constants";
 import { cn } from "#/lib/utils";
 import { getAllIdeas } from "#/server/functions/dashboard";
 
@@ -33,49 +34,25 @@ export const Route = createFileRoute("/admin/ideas")({
 
 type KpiFilter = "thisMonth" | "open" | "overdue" | "thisYear" | null;
 
-const OPEN_STATUSES = ["new", "under_review", "in_progress"];
-
 interface KpiDef {
-	key: KpiFilter;
+	key: NonNullable<KpiFilter>;
 	label: string;
 	icon: React.ComponentType<{ className?: string }>;
-	color: { bg: string; icon: string; value?: string };
+	color: keyof typeof KPI_COLORS;
 	destructiveWhenPositive?: boolean;
 }
 
 const KPI_DEFS: KpiDef[] = [
-	{
-		key: "thisMonth",
-		label: "This Month",
-		icon: Calendar,
-		color: { bg: "bg-amber-100 dark:bg-amber-900/30", icon: "text-amber-600 dark:text-amber-400" },
-	},
-	{
-		key: "open",
-		label: "Open Ideas",
-		icon: Inbox,
-		color: { bg: "bg-blue-100 dark:bg-blue-900/30", icon: "text-blue-600 dark:text-blue-400" },
-	},
+	{ key: "thisMonth", label: "This Month", icon: Calendar, color: "amber" },
+	{ key: "open", label: "Open Ideas", icon: Inbox, color: "blue" },
 	{
 		key: "overdue",
 		label: "Overdue",
 		icon: AlertTriangle,
-		color: {
-			bg: "bg-red-100 dark:bg-red-900/30",
-			icon: "text-red-600 dark:text-red-400",
-			value: "text-red-600 dark:text-red-400",
-		},
+		color: "red",
 		destructiveWhenPositive: true,
 	},
-	{
-		key: "thisYear",
-		label: "Total This Year",
-		icon: TrendingUp,
-		color: {
-			bg: "bg-emerald-100 dark:bg-emerald-900/30",
-			icon: "text-emerald-600 dark:text-emerald-400",
-		},
-	},
+	{ key: "thisYear", label: "Total This Year", icon: TrendingUp, color: "emerald" },
 ];
 
 function AdminIdeasPage() {
@@ -142,49 +119,21 @@ function AdminIdeasPage() {
 			{/* Clickable KPI row */}
 			<div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 				{KPI_DEFS.map((kpi) => {
-					const count = kpi.key ? kpiCounts[kpi.key] : 0;
+					const count = kpiCounts[kpi.key];
 					const isActive = activeKpi === kpi.key;
-					const showDestructive = kpi.destructiveWhenPositive && count > 0;
+					const useDestructive = kpi.destructiveWhenPositive && count > 0;
 
 					return (
-						<button
+						<KpiCard
 							key={kpi.key}
-							type="button"
+							icon={kpi.icon}
+							label={kpi.label}
+							value={count}
+							color={kpi.destructiveWhenPositive && count === 0 ? undefined : kpi.color}
+							variant={useDestructive ? "destructive" : undefined}
 							onClick={() => setActiveKpi(isActive ? null : kpi.key)}
-							className="w-full text-left"
-						>
-							<Card
-								className={cn(
-									"h-full transition-all",
-									isActive && "ring-2 ring-primary ring-offset-2 ring-offset-background",
-									!isActive && "hover:border-primary/30 hover:bg-muted/30",
-								)}
-							>
-								<CardContent className="flex items-center gap-3 p-4">
-									<div
-										className={cn(
-											"rounded-full p-2",
-											kpi.destructiveWhenPositive && count === 0 ? "bg-muted" : kpi.color.bg,
-										)}
-									>
-										<kpi.icon
-											className={cn(
-												"size-4",
-												kpi.destructiveWhenPositive && count === 0
-													? "text-muted-foreground"
-													: kpi.color.icon,
-											)}
-										/>
-									</div>
-									<div>
-										<p className={cn("text-2xl font-bold", showDestructive && kpi.color.value)}>
-											{count}
-										</p>
-										<p className="text-xs text-muted-foreground">{kpi.label}</p>
-									</div>
-								</CardContent>
-							</Card>
-						</button>
+							isActive={isActive}
+						/>
 					);
 				})}
 			</div>

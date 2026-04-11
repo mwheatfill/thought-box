@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { DataTable, SortableHeader } from "#/components/ui/data-table";
+import { KpiCard } from "#/components/ui/kpi-card";
 import {
 	Select,
 	SelectContent,
@@ -15,6 +16,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "#/components/ui/select";
+import { OPEN_STATUSES, STATUS_LABELS } from "#/lib/constants";
 import { cn } from "#/lib/utils";
 import { SlaIndicator } from "./sla-indicator";
 import { StatusBadge } from "./status-badge";
@@ -139,9 +141,11 @@ export function LeaderDashboard({
 	enableKpiFilter,
 }: LeaderDashboardProps) {
 	const navigate = useNavigate();
-	const openStatuses = ["new", "under_review", "in_progress"];
-	const openIdeas = ideas.filter((i) => openStatuses.includes(i.status));
-	const closedIdeas = ideas.filter((i) => !openStatuses.includes(i.status));
+	const openIdeas = useMemo(() => ideas.filter((i) => OPEN_STATUSES.includes(i.status)), [ideas]);
+	const closedIdeas = useMemo(
+		() => ideas.filter((i) => !OPEN_STATUSES.includes(i.status)),
+		[ideas],
+	);
 	const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 	const [bulkStatus, setBulkStatus] = useState("under_review");
 	const [kpiFilter, setKpiFilter] = useState<QueueFilter>(enableKpiFilter ? "open" : null);
@@ -255,15 +259,7 @@ export function LeaderDashboard({
 									label: "Status",
 									options: [...new Set(displayIdeas.map((i) => i.status))].map((s) => ({
 										value: s,
-										label:
-											{
-												new: "New",
-												under_review: "Under Review",
-												in_progress: "In Progress",
-												accepted: "Accepted",
-												implemented: "Implemented",
-												declined: "Declined",
-											}[s] ?? s,
+										label: STATUS_LABELS[s as keyof typeof STATUS_LABELS] ?? s,
 									})),
 								},
 								{
@@ -321,86 +317,5 @@ export function LeaderDashboard({
 				</Card>
 			)}
 		</div>
-	);
-}
-
-// ── KPI Card ──────────────────────────────────────────────────────────────
-
-const LEADER_KPI_COLORS: Record<string, { bg: string; icon: string }> = {
-	blue: { bg: "bg-blue-100 dark:bg-blue-900/30", icon: "text-blue-600 dark:text-blue-400" },
-	red: { bg: "bg-red-100 dark:bg-red-900/30", icon: "text-red-600 dark:text-red-400" },
-	emerald: {
-		bg: "bg-emerald-100 dark:bg-emerald-900/30",
-		icon: "text-emerald-600 dark:text-emerald-400",
-	},
-	purple: {
-		bg: "bg-purple-100 dark:bg-purple-900/30",
-		icon: "text-purple-600 dark:text-purple-400",
-	},
-};
-
-function KpiCard({
-	icon: Icon,
-	label,
-	value,
-	variant = "default",
-	color,
-	onClick,
-	isActive,
-}: {
-	icon: React.ComponentType<{ className?: string }>;
-	label: string;
-	value: number | string;
-	variant?: "default" | "destructive";
-	color?: keyof typeof LEADER_KPI_COLORS;
-	onClick?: () => void;
-	isActive?: boolean;
-}) {
-	const isDestructive = variant === "destructive";
-	const colorStyle = color ? LEADER_KPI_COLORS[color] : null;
-	const Wrapper = onClick ? "button" : "div";
-
-	return (
-		<Wrapper
-			type={onClick ? "button" : undefined}
-			onClick={onClick}
-			className={onClick ? "w-full text-left" : undefined}
-		>
-			<Card
-				className={cn(
-					"h-full transition-all",
-					isActive && "ring-2 ring-primary ring-offset-2 ring-offset-background",
-					onClick && !isActive && "hover:border-primary/30 hover:bg-muted/30",
-				)}
-			>
-				<CardContent className="flex h-full items-center gap-4 p-4">
-					<div
-						className={cn(
-							"rounded-full p-2",
-							colorStyle?.bg ?? (isDestructive ? "bg-red-100 dark:bg-red-900/30" : "bg-muted"),
-						)}
-					>
-						<Icon
-							className={cn(
-								"size-4",
-								colorStyle?.icon ??
-									(isDestructive ? "text-red-600 dark:text-red-400" : "text-muted-foreground"),
-							)}
-						/>
-					</div>
-					<div>
-						<p
-							className={cn(
-								"text-2xl font-bold",
-								isDestructive && "text-red-600 dark:text-red-400",
-							)}
-						>
-							{value}
-						</p>
-						<p className="text-xs text-muted-foreground">{label}</p>
-					</div>
-				</CardContent>
-			</Card>
-		</Wrapper>
 	);
 }

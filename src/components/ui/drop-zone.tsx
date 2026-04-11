@@ -215,7 +215,7 @@ export function DropZone({
 			document.removeEventListener("dragover", onDragOver);
 			document.removeEventListener("drop", onDrop);
 		};
-	}, [compact, disabled, handleFiles]);
+	}, [compact, disabled, readOnly, handleFiles]);
 
 	const handlePaste = useCallback(
 		(e: React.ClipboardEvent) => {

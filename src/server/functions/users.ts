@@ -22,27 +22,28 @@ export const getUserCard = createServerFn()
 	.middleware([authMiddleware])
 	.inputValidator(z.object({ userId: z.string() }))
 	.handler(async ({ data }) => {
-		const user = await db.query.users.findFirst({
-			where: eq(users.id, data.userId),
-			columns: {
-				id: true,
-				displayName: true,
-				email: true,
-				role: true,
-				department: true,
-				jobTitle: true,
-				officeLocation: true,
-				managerDisplayName: true,
-				photoUrl: true,
-			},
-		});
+		const [user, userIdeas] = await Promise.all([
+			db.query.users.findFirst({
+				where: eq(users.id, data.userId),
+				columns: {
+					id: true,
+					displayName: true,
+					email: true,
+					role: true,
+					department: true,
+					jobTitle: true,
+					officeLocation: true,
+					managerDisplayName: true,
+					photoUrl: true,
+				},
+			}),
+			db.query.ideas.findMany({
+				where: eq(ideas.submitterId, data.userId),
+				columns: { status: true },
+			}),
+		]);
 
 		if (!user) return null;
-
-		const userIdeas = await db.query.ideas.findMany({
-			where: eq(ideas.submitterId, data.userId),
-			columns: { status: true },
-		});
 
 		const totalIdeas = userIdeas.length;
 		const implemented = userIdeas.filter((i) => i.status === "implemented").length;

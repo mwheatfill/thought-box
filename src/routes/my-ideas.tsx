@@ -7,8 +7,8 @@ import { StatusBadge } from "#/components/dashboard/status-badge";
 import { StatusPipeline } from "#/components/dashboard/status-pipeline";
 import { Card, CardContent } from "#/components/ui/card";
 import { DataTable, SortableHeader } from "#/components/ui/data-table";
-import type { IdeaStatus } from "#/lib/constants";
-import { cn } from "#/lib/utils";
+import { KpiCard } from "#/components/ui/kpi-card";
+import { type IdeaStatus, OPEN_STATUSES } from "#/lib/constants";
 import { getUserSubmissionCount } from "#/server/functions/ai";
 import { getMyIdeas } from "#/server/functions/dashboard";
 
@@ -33,8 +33,6 @@ interface MyIdea {
 }
 
 type KpiFilter = "all" | "active" | "implemented" | null;
-
-const ACTIVE_STATUSES = ["new", "under_review", "in_progress"];
 
 const columns: ColumnDef<MyIdea, unknown>[] = [
 	{
@@ -86,14 +84,14 @@ function MyIdeasPage() {
 	const [kpiFilter, setKpiFilter] = useState<KpiFilter>(null);
 
 	const stats = useMemo(() => {
-		const active = ideas.filter((i) => ACTIVE_STATUSES.includes(i.status)).length;
+		const active = ideas.filter((i) => OPEN_STATUSES.includes(i.status)).length;
 		const implemented = ideas.filter((i) => i.status === "implemented").length;
 		return { active, implemented };
 	}, [ideas]);
 
 	const filteredIdeas = useMemo(() => {
 		if (!kpiFilter) return ideas;
-		if (kpiFilter === "active") return ideas.filter((i) => ACTIVE_STATUSES.includes(i.status));
+		if (kpiFilter === "active") return ideas.filter((i) => OPEN_STATUSES.includes(i.status));
 		if (kpiFilter === "implemented") return ideas.filter((i) => i.status === "implemented");
 		return ideas; // "all"
 	}, [ideas, kpiFilter]);
@@ -177,62 +175,5 @@ function MyIdeasPage() {
 				</CardContent>
 			</Card>
 		</main>
-	);
-}
-
-// ── KPI Card ──────────────────────────────────────────────────────────────
-
-const COLOR_STYLES = {
-	amber: {
-		bg: "bg-amber-100 dark:bg-amber-900/30",
-		icon: "text-amber-600 dark:text-amber-400",
-	},
-	blue: {
-		bg: "bg-blue-100 dark:bg-blue-900/30",
-		icon: "text-blue-600 dark:text-blue-400",
-	},
-	emerald: {
-		bg: "bg-emerald-100 dark:bg-emerald-900/30",
-		icon: "text-emerald-600 dark:text-emerald-400",
-	},
-};
-
-function KpiCard({
-	icon: Icon,
-	label,
-	value,
-	color,
-	onClick,
-	isActive,
-}: {
-	icon: React.ComponentType<{ className?: string }>;
-	label: string;
-	value: number;
-	color: keyof typeof COLOR_STYLES;
-	onClick: () => void;
-	isActive: boolean;
-}) {
-	const styles = COLOR_STYLES[color];
-
-	return (
-		<button type="button" onClick={onClick} className="w-full text-left">
-			<Card
-				className={cn(
-					"h-full transition-all",
-					isActive && "ring-2 ring-primary ring-offset-2 ring-offset-background",
-					!isActive && "hover:border-primary/30 hover:bg-muted/30",
-				)}
-			>
-				<CardContent className="flex items-center gap-3 p-4">
-					<div className={cn("rounded-full p-2", styles.bg)}>
-						<Icon className={cn("size-4", styles.icon)} />
-					</div>
-					<div>
-						<p className="text-xl font-bold">{value}</p>
-						<p className="text-xs text-muted-foreground">{label}</p>
-					</div>
-				</CardContent>
-			</Card>
-		</button>
 	);
 }
