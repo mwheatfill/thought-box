@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -6,7 +6,6 @@ import {
 	BarChart3,
 	CheckCircle,
 	Clock,
-	Download,
 	Inbox,
 	Lightbulb,
 	TrendingUp,
@@ -25,7 +24,6 @@ import {
 } from "recharts";
 import { FadeIn } from "#/components/ui/animated";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
-import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import {
 	type ChartConfig,
@@ -33,7 +31,7 @@ import {
 	ChartTooltip,
 	ChartTooltipContent,
 } from "#/components/ui/chart";
-import { DataTable, SortableHeader } from "#/components/ui/data-table";
+import { SortableHeader } from "#/components/ui/data-table";
 import { STATUS_LABELS } from "#/lib/constants";
 import { cn } from "#/lib/utils";
 import { SlaIndicator } from "./sla-indicator";
@@ -94,7 +92,6 @@ interface ActivityEvent {
 
 interface AdminDashboardProps {
 	stats: DashboardStats;
-	ideas?: AdminIdea[];
 	byCategory?: CategoryData[];
 	byMonth?: MonthlyData[];
 	outcomeDistribution?: OutcomeData[];
@@ -219,15 +216,13 @@ export const adminIdeaColumns: ColumnDef<AdminIdea, unknown>[] = [
 
 export function AdminDashboard({
 	stats,
-	ideas,
 	byCategory,
 	byMonth,
 	outcomeDistribution,
 	recentActivity,
 	hideKpi,
 }: AdminDashboardProps) {
-	const navigate = useNavigate();
-	const kpiOnly = !ideas;
+	const hasCharts = !!byCategory;
 
 	const outcomeConfig = Object.fromEntries(
 		(outcomeDistribution ?? []).map((d) => [
@@ -250,7 +245,7 @@ export function AdminDashboard({
 
 	const healthStatus = getHealthStatus(stats);
 
-	if (kpiOnly) {
+	if (!hasCharts) {
 		return (
 			<div className="min-w-0 space-y-6">
 				<div className="flex items-center gap-2">
@@ -431,64 +426,6 @@ export function AdminDashboard({
 					</CardContent>
 				</Card>
 			</div>
-
-			{/* Full ideas table */}
-			<Card>
-				<CardHeader>
-					<CardTitle>All Ideas</CardTitle>
-				</CardHeader>
-				<CardContent>
-					{ideas.length === 0 ? (
-						<div className="flex flex-col items-center justify-center p-12 text-center">
-							<div className="mb-4 rounded-full bg-muted p-4">
-								<Lightbulb className="size-8 text-muted-foreground" />
-							</div>
-							<h2 className="mb-2 text-lg font-semibold">ThoughtBox is live</h2>
-							<p className="max-w-sm text-sm text-muted-foreground">
-								Ideas will appear here once employees start sharing. Time to spread the word.
-							</p>
-						</div>
-					) : (
-						<DataTable
-							columns={adminIdeaColumns}
-							data={ideas}
-							searchPlaceholder="Search ideas..."
-							searchColumn="title"
-							facetedFilters={[
-								{
-									columnId: "status",
-									label: "Status",
-									options: Object.entries(STATUS_LABELS).map(([value, label]) => ({
-										value,
-										label,
-									})),
-								},
-								{
-									columnId: "categoryName",
-									label: "Category",
-									options: [...new Set(ideas.map((i) => i.categoryName))].sort().map((c) => ({
-										value: c,
-										label: c,
-									})),
-								},
-							]}
-							onRowClick={(idea) =>
-								navigate({
-									to: "/ideas/$submissionId",
-									params: { submissionId: idea.submissionId },
-								})
-							}
-							rowClassName={(idea) => (idea.slaStatus === "overdue" ? "bg-destructive/5" : "")}
-							toolbar={
-								<Button variant="outline" size="sm" onClick={() => exportIdeasCsv(ideas)}>
-									<Download className="mr-2 size-3.5" />
-									Export CSV
-								</Button>
-							}
-						/>
-					)}
-				</CardContent>
-			</Card>
 		</div>
 	);
 }

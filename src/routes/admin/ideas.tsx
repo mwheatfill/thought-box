@@ -27,7 +27,7 @@ function AdminIdeasPage() {
 	const navigate = useNavigate();
 
 	return (
-		<main className="mx-auto max-w-7xl p-6">
+		<main className="min-w-0 p-6">
 			<div className="mb-6 flex items-center justify-between">
 				<h1 className="text-2xl font-bold">All Ideas</h1>
 				{ideas && ideas.length > 0 && (
