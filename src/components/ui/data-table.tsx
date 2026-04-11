@@ -56,6 +56,7 @@ interface DataTableProps<TData> {
 	onRowSelectionChange?: (selection: RowSelectionState) => void;
 	getRowId?: (row: TData) => string;
 	selectionToolbar?: (selectedCount: number) => React.ReactNode;
+	initialColumnFilters?: ColumnFiltersState;
 }
 
 // ── Sortable header helper ────────────────────────────────────────────────
@@ -96,9 +97,10 @@ export function DataTable<TData>({
 	onRowSelectionChange,
 	getRowId,
 	selectionToolbar,
+	initialColumnFilters,
 }: DataTableProps<TData>) {
 	const [sorting, setSorting] = useState<SortingState>([]);
-	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(initialColumnFilters ?? []);
 	const [globalFilter, setGlobalFilter] = useState("");
 	const [internalRowSelection, setInternalRowSelection] = useState<RowSelectionState>({});
 
