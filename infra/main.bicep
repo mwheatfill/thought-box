@@ -52,6 +52,13 @@ param anthropicApiKey string = ''
 @description('Email address for Azure Monitor alert notifications')
 param alertEmail string = ''
 
+@description('App Insights API key for admin analytics page')
+param appInsightsApiKey string = ''
+
+@description('Easy Auth client secret for Entra ID')
+@secure()
+param easyAuthClientSecret string = ''
+
 // ── Naming ─────────────────────────────────────────────────────────────────
 
 var prefix = 'df-thoughtbox-${environmentName}'
@@ -297,7 +304,7 @@ resource storageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-
 resource appSettings 'Microsoft.Web/sites/config@2024-04-01' = {
   parent: appService
   name: 'appsettings'
-  dependsOn: [kvRoleAssignment, storageRoleAssignment, secretDatabaseUrl]
+  dependsOn: [kvRoleAssignment, secretDatabaseUrl]
   properties: {
     NODE_ENV: 'production'
     DATABASE_URL: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=database-url)'
@@ -311,8 +318,12 @@ resource appSettings 'Microsoft.Web/sites/config@2024-04-01' = {
     ANTHROPIC_API_KEY: !empty(anthropicApiKey) ? '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=anthropic-api-key)' : ''
     APP_URL: !empty(customDomain) ? 'https://${customDomain}' : 'https://${appService.properties.defaultHostName}'
     APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
+    APPINSIGHTS_API_KEY: appInsightsApiKey
     ApplicationInsightsAgent_EXTENSION_VERSION: '~3'
+    MICROSOFT_PROVIDER_AUTHENTICATION_SECRET: easyAuthClientSecret
     SCM_DO_BUILD_DURING_DEPLOYMENT: 'false'
+    WEBSITE_RUN_FROM_PACKAGE: '1'
+    WEBSITE_HTTPLOGGING_RETENTION_DAYS: '3'
   }
 }
 
@@ -359,15 +370,8 @@ resource customHostname 'Microsoft.Web/sites/hostNameBindings@2024-04-01' = if (
   }
 }
 
-resource managedCert 'Microsoft.Web/certificates@2024-04-01' = if (!empty(customDomain)) {
-  name: '${customDomain}-cert'
-  location: location
-  dependsOn: [customHostname]
-  properties: {
-    serverFarmId: appServicePlan.id
-    canonicalName: customDomain
-  }
-}
+// Note: managed certificate created manually as 'thoughtbox.desertfinancial.com'
+// Bicep cannot re-create it with a different name — managed via portal
 
 // ── Monitoring: Action Group ───────────────────────────────────────────────
 

@@ -22,6 +22,10 @@ param aiProvider = 'anthropic'
 
 // Monitoring — alert notifications
 param alertEmail = 'thoughtbox@desertfinancial.com'
+param appInsightsApiKey = 'sraj4m77fyo7ysxeoxfdiyxnebm4sseq78zk74k0'
+
+// Easy Auth client secret — supplied at deployment time
+param easyAuthClientSecret = ''
 
 // Secure params — supplied at deployment time via CLI or pipeline secrets
 // az deployment group create ... --parameters postgresAdminLogin=<val> postgresAdminPassword=<val> ...
