@@ -32,7 +32,7 @@ function QueuePage() {
 	});
 
 	return (
-		<main className="mx-auto max-w-7xl p-6">
+		<main className="min-w-0 p-6">
 			<h1 className="mb-6 text-2xl font-bold">My Queue</h1>
 			<LeaderDashboard
 				ideas={ideas}

@@ -121,7 +121,7 @@ function MyIdeasPage() {
 
 	if (ideas.length === 0) {
 		return (
-			<main className="mx-auto max-w-4xl p-6">
+			<main className="min-w-0 p-6">
 				<h1 className="mb-6 text-2xl font-bold">My Ideas</h1>
 				<Card>
 					<CardContent className="flex flex-col items-center justify-center p-12 text-center">
@@ -146,11 +146,11 @@ function MyIdeasPage() {
 	}
 
 	return (
-		<main className="mx-auto max-w-6xl p-6">
+		<main className="min-w-0 p-6">
 			<h1 className="mb-6 text-2xl font-bold">My Ideas</h1>
 
 			{/* Stat strip */}
-			<div className="mb-6 grid grid-cols-3 gap-4">
+			<div className="mb-6 grid gap-4 sm:grid-cols-3">
 				<Card>
 					<CardContent className="flex items-center gap-3 p-4">
 						<div className="rounded-full bg-amber-100 p-2 dark:bg-amber-900/30">
