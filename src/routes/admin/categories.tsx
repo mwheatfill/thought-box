@@ -263,7 +263,10 @@ function CategoriesPage() {
 									if (!search) return true;
 									const s = search.toLowerCase();
 									return (
-										cat.name.toLowerCase().includes(s) || cat.description.toLowerCase().includes(s)
+										cat.name.toLowerCase().includes(s) ||
+										cat.description.toLowerCase().includes(s) ||
+										cat.routingType.toLowerCase().includes(s) ||
+										(cat.defaultLeaderName ?? "").toLowerCase().includes(s)
 									);
 								})
 								.map((cat, idx) => (
