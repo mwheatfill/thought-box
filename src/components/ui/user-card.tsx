@@ -170,7 +170,9 @@ export function UserCardPopover({ userId, children }: UserCardPopoverProps) {
 						{/* Action buttons */}
 						<div className="flex gap-2 border-t px-5 py-3">
 							<a
-								href={`mailto:${user.email}`}
+								href={`https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(user.email)}`}
+								target="_blank"
+								rel="noopener noreferrer"
 								className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
 							>
 								<svg className="size-4" viewBox="0 0 24 24" fill="none">
