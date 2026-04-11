@@ -161,8 +161,20 @@ function AdminIdeasPage() {
 								)}
 							>
 								<CardContent className="flex items-center gap-3 p-4">
-									<div className={cn("rounded-full p-2", kpi.color.bg)}>
-										<kpi.icon className={cn("size-4", kpi.color.icon)} />
+									<div
+										className={cn(
+											"rounded-full p-2",
+											kpi.destructiveWhenPositive && count === 0 ? "bg-muted" : kpi.color.bg,
+										)}
+									>
+										<kpi.icon
+											className={cn(
+												"size-4",
+												kpi.destructiveWhenPositive && count === 0
+													? "text-muted-foreground"
+													: kpi.color.icon,
+											)}
+										/>
 									</div>
 									<div>
 										<p className={cn("text-2xl font-bold", showDestructive && kpi.color.value)}>
