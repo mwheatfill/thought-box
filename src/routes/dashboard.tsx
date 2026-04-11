@@ -3,8 +3,9 @@ import { ArrowRight } from "lucide-react";
 import { AdminDashboard } from "#/components/dashboard/admin-dashboard";
 import { LeaderDashboard } from "#/components/dashboard/leader-dashboard";
 import { PageTransition } from "#/components/ui/animated";
-import { Card, CardContent } from "#/components/ui/card";
+import { Card, CardContent, CardHeader } from "#/components/ui/card";
 import { RouteError } from "#/components/ui/route-error";
+import { Skeleton } from "#/components/ui/skeleton";
 import {
 	getAssignedIdeas,
 	getDashboardStats,
@@ -17,6 +18,7 @@ import {
 
 export const Route = createFileRoute("/dashboard")({
 	errorComponent: ({ error }) => <RouteError error={error} />,
+	pendingComponent: DashboardSkeleton,
 	beforeLoad: ({ context }) => {
 		if (context.user.role === "submitter") {
 			throw redirect({ to: "/my-ideas" });
@@ -128,5 +130,43 @@ function LinkCard({
 				</CardContent>
 			</Card>
 		</Link>
+	);
+}
+
+function DashboardSkeleton() {
+	return (
+		<main className="min-w-0 flex-1 bg-background p-6">
+			<div className="mb-6">
+				<Skeleton className="h-8 w-40" />
+				<Skeleton className="mt-1 h-4 w-64" />
+			</div>
+			<div className="space-y-6">
+				<div className="grid gap-6 sm:grid-cols-3">
+					{[0, 1, 2].map((i) => (
+						<Card key={i}>
+							<CardContent className="flex items-center gap-3 p-4">
+								<Skeleton className="size-9 rounded-full" />
+								<div className="space-y-1.5">
+									<Skeleton className="h-6 w-12" />
+									<Skeleton className="h-3 w-20" />
+								</div>
+							</CardContent>
+						</Card>
+					))}
+				</div>
+				<div className="grid gap-6 lg:grid-cols-2">
+					{[0, 1, 2, 3].map((i) => (
+						<Card key={i}>
+							<CardHeader className="pb-3">
+								<Skeleton className="h-4 w-32" />
+							</CardHeader>
+							<CardContent>
+								<Skeleton className="h-[250px] w-full" />
+							</CardContent>
+						</Card>
+					))}
+				</div>
+			</div>
+		</main>
 	);
 }
