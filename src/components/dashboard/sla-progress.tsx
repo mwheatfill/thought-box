@@ -11,8 +11,13 @@ interface SlaProgressBarProps {
 export function SlaProgressBar({ label, daysRemaining, dueDate, totalDays }: SlaProgressBarProps) {
 	if (daysRemaining === null) return null;
 
-	const elapsed = totalDays - daysRemaining;
-	const pct = Math.min(Math.max((elapsed / totalDays) * 100, 0), 100);
+	// Use calendar time for smooth visual progression
+	const now = Date.now();
+	const due = dueDate ? new Date(dueDate).getTime() : now;
+	// Estimate start from due date minus totalDays worth of calendar days (~1.4x for weekends)
+	const calendarSpan = totalDays * 1.4 * 24 * 60 * 60 * 1000;
+	const start = due - calendarSpan;
+	const pct = Math.min(Math.max(((now - start) / (due - start)) * 100, 0), 100);
 	const isOverdue = daysRemaining <= 0;
 	const isApproaching = daysRemaining > 0 && daysRemaining <= 3;
 
