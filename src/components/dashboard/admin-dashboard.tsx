@@ -50,7 +50,7 @@ interface DashboardStats {
 	slaCompliancePercent: number | null;
 }
 
-interface AdminIdea {
+export interface AdminIdea {
 	id: string;
 	submissionId: string;
 	title: string;
@@ -124,7 +124,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 // ── Column definitions ────────────────────────────────────────────────────
 
-const adminIdeaColumns: ColumnDef<AdminIdea, unknown>[] = [
+export const adminIdeaColumns: ColumnDef<AdminIdea, unknown>[] = [
 	{
 		accessorKey: "submissionId",
 		header: ({ column }) => <SortableHeader column={column}>ID</SortableHeader>,
@@ -524,7 +524,7 @@ function getHealthStatus(stats: DashboardStats): {
 	};
 }
 
-function exportIdeasCsv(ideas: AdminIdea[]) {
+export function exportIdeasCsv(ideas: AdminIdea[]) {
 	const headers = [
 		"ID",
 		"Title",

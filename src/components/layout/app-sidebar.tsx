@@ -2,6 +2,8 @@ import { Link, useRouter } from "@tanstack/react-router";
 import {
 	BarChart3,
 	ClipboardList,
+	FileText,
+	Inbox,
 	LayoutDashboard,
 	Lightbulb,
 	type LucideIcon,
@@ -36,10 +38,21 @@ interface NavItem {
 	icon: LucideIcon;
 }
 
-const mainNav: NavItem[] = [
-	{ label: "Submit", href: "/", icon: Lightbulb },
-	{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-];
+function getMainNav(role: string): NavItem[] {
+	const items: NavItem[] = [{ label: "Submit", href: "/", icon: Lightbulb }];
+
+	if (role === "admin") {
+		items.push({ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard });
+		items.push({ label: "All Ideas", href: "/admin/ideas", icon: FileText });
+	} else if (role === "leader") {
+		items.push({ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard });
+		items.push({ label: "My Queue", href: "/queue", icon: Inbox });
+	} else {
+		items.push({ label: "My Ideas", href: "/my-ideas", icon: Lightbulb });
+	}
+
+	return items;
+}
 
 const adminNav: NavItem[] = [
 	{ label: "Categories", href: "/admin/categories", icon: Tags },
@@ -72,6 +85,7 @@ export function AppSidebar({ user }: AppSidebarProps) {
 	const router = useRouter();
 	const isAdmin = user.role === "admin";
 	const currentPath = router.state.location.pathname;
+	const mainNav = getMainNav(user.role);
 
 	return (
 		<Sidebar>
@@ -84,7 +98,9 @@ export function AppSidebar({ user }: AppSidebarProps) {
 									<SidebarMenuButton
 										asChild
 										isActive={
-											item.href === "/" ? currentPath === "/" : currentPath.startsWith(item.href)
+											item.href === "/"
+												? currentPath === "/"
+												: currentPath === item.href || currentPath.startsWith(`${item.href}/`)
 										}
 									>
 										<Link to={item.href}>
