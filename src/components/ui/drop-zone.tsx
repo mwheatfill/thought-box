@@ -1,6 +1,16 @@
 "use client";
 
-import { FileUp, Loader2, Paperclip, X } from "lucide-react";
+import {
+	File,
+	FileImage,
+	FileSpreadsheet,
+	FileText,
+	FileUp,
+	Loader2,
+	Paperclip,
+	Presentation,
+	X,
+} from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "#/components/ui/button";
@@ -28,13 +38,15 @@ function formatFileSize(bytes: number): string {
 	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function getFileIcon(contentType: string): string {
-	if (contentType.startsWith("image/")) return "🖼️";
-	if (contentType === "application/pdf") return "📄";
-	if (contentType.includes("spreadsheet") || contentType === "text/csv") return "📊";
-	if (contentType.includes("presentation")) return "📋";
-	if (contentType.includes("word")) return "📝";
-	return "📎";
+function FileIcon({ contentType }: { contentType: string }) {
+	const cls = "size-4 shrink-0 text-muted-foreground";
+	if (contentType.startsWith("image/")) return <FileImage className={cls} />;
+	if (contentType === "application/pdf") return <FileText className={cls} />;
+	if (contentType.includes("spreadsheet") || contentType === "text/csv")
+		return <FileSpreadsheet className={cls} />;
+	if (contentType.includes("presentation")) return <Presentation className={cls} />;
+	if (contentType.includes("word")) return <FileText className={cls} />;
+	return <File className={cls} />;
 }
 
 interface UploadedFile {
@@ -223,12 +235,13 @@ export function DropZone({
 			// biome-ignore lint/a11y/noNoninteractiveTabindex: needed for paste events
 			tabIndex={0}
 		>
-			{/* Drag overlay */}
+			{/* Full-viewport drag overlay */}
 			{isDragging && (
-				<div className="absolute inset-0 z-50 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/5 backdrop-blur-sm">
-					<div className="flex flex-col items-center gap-2 text-primary">
-						<FileUp className="size-8" />
-						<p className="text-sm font-medium">Drop files here</p>
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+					<div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-primary bg-primary/5 px-16 py-12">
+						<FileUp className="size-12 text-primary" />
+						<p className="text-lg font-medium text-primary">Drop files here</p>
+						<p className="text-sm text-muted-foreground">Images, PDFs, documents up to 10MB</p>
 					</div>
 				</div>
 			)}
@@ -286,7 +299,7 @@ export function DropZone({
 							rel="noopener noreferrer"
 							className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
 						>
-							<span>{getFileIcon(f.contentType)}</span>
+							<FileIcon contentType={f.contentType} />
 							<span className="min-w-0 flex-1 truncate">{f.filename}</span>
 							<span className="shrink-0 text-xs text-muted-foreground">
 								{formatFileSize(f.sizeBytes)}
