@@ -30,6 +30,7 @@ import {
 	SelectValue,
 } from "#/components/ui/select";
 import { Textarea } from "#/components/ui/textarea";
+import { UserCardPopover } from "#/components/ui/user-card";
 import type { IdeaStatus } from "#/lib/constants";
 import { cn } from "#/lib/utils";
 
@@ -141,7 +142,18 @@ export function LeaderActions({
 					<div className="space-y-2">
 						<div className="flex items-center justify-between">
 							<span className="text-sm text-muted-foreground">Assigned to</span>
-							<span className="text-sm font-medium">{assignedLeaderName ?? "Unassigned"}</span>
+							{assignedLeaderId ? (
+								<UserCardPopover userId={assignedLeaderId}>
+									<button
+										type="button"
+										className="text-sm font-medium hover:text-primary hover:underline"
+									>
+										{assignedLeaderName}
+									</button>
+								</UserCardPopover>
+							) : (
+								<span className="text-sm font-medium">Unassigned</span>
+							)}
 						</div>
 						<Popover open={reassignOpen} onOpenChange={setReassignOpen}>
 							<PopoverTrigger asChild>
