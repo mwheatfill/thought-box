@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createElement } from "react";
 import { z } from "zod";
+import AccessRequested from "#/emails/AccessRequested";
 import IdeaAssigned from "#/emails/IdeaAssigned";
 import IdeaReassigned from "#/emails/IdeaReassigned";
 import IdeaSubmitted from "#/emails/IdeaSubmitted";
@@ -255,6 +256,7 @@ const TEST_TEMPLATES = [
 	"sla_reminder",
 	"user_invite_leader",
 	"user_invite_admin",
+	"access_requested",
 ] as const;
 
 export type TestEmailTemplate = (typeof TEST_TEMPLATES)[number];
@@ -419,6 +421,16 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						role: "admin",
 						invitedByName: "Nubia Ruiz",
 						dashboardUrl: `${APP_URL}/dashboard`,
+					}),
+				},
+				access_requested: {
+					subject: `[TEST] ThoughtBox access request from ${context.user.displayName}`,
+					template: createElement(AccessRequested, {
+						requesterName: context.user.displayName,
+						requesterEmail: context.user.email,
+						requesterDepartment: "Retail Banking",
+						requesterJobTitle: "Branch Manager",
+						adminUsersUrl: `${APP_URL}/admin/users`,
 					}),
 				},
 			};

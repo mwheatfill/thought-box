@@ -354,6 +354,7 @@ const EMAIL_TEMPLATE_OPTIONS: { value: TestEmailTemplate; label: string }[] = [
 	{ value: "watcher_alert", label: "System Notification (new submission)" },
 	{ value: "user_invite_leader", label: "Invite (Leader)" },
 	{ value: "user_invite_admin", label: "Invite (Admin)" },
+	{ value: "access_requested", label: "Access Requested" },
 ];
 
 function TestEmailSetting() {

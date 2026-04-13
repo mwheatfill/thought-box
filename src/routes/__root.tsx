@@ -1,6 +1,13 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HeadContent, Outlet, Scripts, createRootRoute, useLocation } from "@tanstack/react-router";
+import {
+	HeadContent,
+	Outlet,
+	Scripts,
+	createRootRoute,
+	redirect,
+	useLocation,
+} from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useState } from "react";
@@ -34,7 +41,12 @@ export const Route = createRootRoute({
 		],
 		links: [{ rel: "stylesheet", href: appCss }],
 	}),
-	beforeLoad: async () => {
+	beforeLoad: async ({ location }) => {
+		// Skip auth for the deactivated page to avoid redirect loops
+		if (location.pathname === "/deactivated") {
+			return { user: null as unknown as AuthUser };
+		}
+
 		// Cache user on client after first load — only changes on login/logout (full reload)
 		if (typeof window !== "undefined" && cachedUser) {
 			return { user: cachedUser };
@@ -46,9 +58,15 @@ export const Route = createRootRoute({
 			}
 			return { user };
 		} catch (err) {
+			const msg = err instanceof Error ? err.message : "";
+
+			// Deactivated user — redirect to a clear explanation page
+			if (msg.includes("Account deactivated")) {
+				throw redirect({ to: "/deactivated" });
+			}
+
 			// Auth expired — force full reload so Easy Auth redirects to login
 			if (typeof window !== "undefined") {
-				const msg = err instanceof Error ? err.message : "";
 				if (msg.includes("Unauthorized") || msg.includes("401")) {
 					window.location.reload();
 					// Return never-resolving promise to prevent flash
@@ -107,7 +125,21 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 function RootComponent() {
 	const { user } = Route.useRouteContext();
 	const [queryClient] = useState(() => new QueryClient());
-	const isLandingPage = useLocation().pathname === "/";
+	const pathname = useLocation().pathname;
+	const isLandingPage = pathname === "/";
+	const isDeactivatedPage = pathname === "/deactivated";
+
+	// Deactivated page renders without sidebar/header chrome
+	if (isDeactivatedPage) {
+		return (
+			<QueryClientProvider client={queryClient}>
+				<TooltipProvider>
+					<Outlet />
+					<Toaster position="bottom-right" richColors />
+				</TooltipProvider>
+			</QueryClientProvider>
+		);
+	}
 
 	return (
 		<QueryClientProvider client={queryClient}>
