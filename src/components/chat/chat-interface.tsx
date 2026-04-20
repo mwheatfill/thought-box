@@ -126,84 +126,67 @@ const RedirectToolUI: ToolCallMessagePartComponent = ({ args }) => {
 	);
 };
 
-// ── Inline option extraction ──────────────────────────────────────────────
-
-/**
- * Detects inline option lists in AI text like:
- * "Are you thinking about simplifying the form, reducing steps, or something else?"
- * Returns the extracted options, or null if no pattern found.
- */
-function extractInlineOptions(text: string): string[] | null {
-	// Split on ALL sentence boundaries including "?"
-	const sentences = text.split(/(?<=[.!?])\s+/);
-
-	// Find the last sentence with a "X, Y, or Z?" comma-or pattern
-	const candidate = sentences.filter((s) => s.includes(", or ") && s.trim().endsWith("?")).pop();
-	if (!candidate) return null;
-
-	// Skip example lists in this specific sentence
-	if (/\betc\b\.?/i.test(candidate)) return null;
-	if (/\be\.g\b\.?/i.test(candidate)) return null;
-	if (/\bfor (?:example|instance)\b/i.test(candidate)) return null;
-
-	// Find the ", or " and extract the comma-separated list around it
-	const orIdx = candidate.lastIndexOf(", or ");
-	if (orIdx === -1) return null;
-
-	const lastOption = candidate
-		.slice(orIdx + 5)
-		.replace(/\?$/, "")
-		.trim();
-	const beforeOr = candidate.slice(0, orIdx);
-
-	// Split everything before ", or " by commas
-	const parts = beforeOr.split(/,\s+/);
-	if (parts.length < 2) return null;
-
-	// The first part contains the question prefix mixed with the first option
-	// Strip the prefix up to common prepositions
-	parts[0] = parts[0].replace(/^.*?\b(?:about|for|like|between|of|to|into|whether)\s+/i, "");
-
-	const options = [...parts, lastOption];
-
-	// Filter: must be short (tappable label) and not contain question marks
-	const clean = options
-		.map((o) => o.trim())
-		.filter((o) => o.length > 0 && o.length < 60 && !o.includes("?"));
-
-	return clean.length >= 2 ? clean : null;
-}
-
 const READINESS_STEPS = ["Capture", "Clarify", "Review", "Ready"] as const;
 
 const ReadinessToolUI: ToolCallMessagePartComponent = ({ args }) => {
-	const { level, summary } = args as { level: number; summary: string };
+	const { level, summary, options } = args as {
+		level: number;
+		summary: string;
+		options?: string[];
+	};
+	const thread = useThread();
+	const threadRuntime = useThreadRuntime();
 
 	return (
-		<div className="mt-2 flex items-center gap-2.5">
-			<div className="flex items-center gap-1">
-				{READINESS_STEPS.map((step, i) => (
-					<Fragment key={step}>
-						{i > 0 && (
+		<div className="mt-3 space-y-3">
+			{/* Option buttons (from tool args) */}
+			{options && options.length >= 2 && !thread.isRunning && (
+				<div className="flex flex-col gap-1.5">
+					{options.map((option) => (
+						<Button
+							key={option}
+							variant="outline"
+							size="lg"
+							className="h-auto w-full justify-start whitespace-normal rounded-xl border-primary/20 bg-primary/5 px-4 py-3 text-left font-medium hover:border-primary/40 hover:bg-primary/10 active:scale-[0.98]"
+							onClick={() => {
+								threadRuntime.append({
+									role: "user",
+									content: [{ type: "text", text: option }],
+								});
+							}}
+						>
+							{option}
+						</Button>
+					))}
+				</div>
+			)}
+
+			{/* Readiness indicator */}
+			<div className="flex items-center gap-2.5">
+				<div className="flex items-center gap-1">
+					{READINESS_STEPS.map((step, i) => (
+						<Fragment key={step}>
+							{i > 0 && (
+								<div
+									className={cn(
+										"h-0.5 w-3 rounded-full transition-colors",
+										i < level ? (level >= 4 ? "bg-green-500" : "bg-primary") : "bg-muted",
+									)}
+								/>
+							)}
 							<div
 								className={cn(
-									"h-0.5 w-3 rounded-full transition-colors",
+									"size-2 rounded-full transition-all",
 									i < level ? (level >= 4 ? "bg-green-500" : "bg-primary") : "bg-muted",
+									i === level - 1 && level < 4 && "ring-2 ring-primary/20",
+									i === level - 1 && level >= 4 && "ring-2 ring-green-500/20",
 								)}
 							/>
-						)}
-						<div
-							className={cn(
-								"size-2 rounded-full transition-all",
-								i < level ? (level >= 4 ? "bg-green-500" : "bg-primary") : "bg-muted",
-								i === level - 1 && level < 4 && "ring-2 ring-primary/20",
-								i === level - 1 && level >= 4 && "ring-2 ring-green-500/20",
-							)}
-						/>
-					</Fragment>
-				))}
+						</Fragment>
+					))}
+				</div>
+				<span className="text-[11px] text-muted-foreground">{summary}</span>
 			</div>
-			<span className="text-[11px] text-muted-foreground">{summary}</span>
 		</div>
 	);
 };
@@ -426,16 +409,6 @@ function TypingIndicator() {
 }
 
 function AssistantMessage() {
-	const thread = useThread();
-	const threadRuntime = useThreadRuntime();
-
-	const sendOption = (text: string) => {
-		threadRuntime.append({
-			role: "user",
-			content: [{ type: "text", text }],
-		});
-	};
-
 	return (
 		<div className="flex justify-start">
 			<div className="max-w-[85%] space-y-2 rounded-2xl bg-muted px-4 py-2.5 text-sm">
@@ -443,26 +416,7 @@ function AssistantMessage() {
 					components={{
 						Text: ({ text }) => {
 							if (!text) return <TypingIndicator />;
-							const inlineOptions = !thread.isRunning ? extractInlineOptions(text) : null;
-							return (
-								<div>
-									<div className="whitespace-pre-wrap">{parseMarkdown(text)}</div>
-									{inlineOptions && (
-										<div className="mt-2 flex flex-col gap-1.5">
-											{inlineOptions.map((option) => (
-												<button
-													key={option}
-													type="button"
-													onClick={() => sendOption(option)}
-													className="w-full rounded-xl border border-primary/20 bg-primary/5 px-3.5 py-2.5 text-left text-sm font-medium transition-all hover:border-primary/40 hover:bg-primary/10 active:scale-[0.98]"
-												>
-													{option}
-												</button>
-											))}
-										</div>
-									)}
-								</div>
-							);
+							return <div className="whitespace-pre-wrap">{parseMarkdown(text)}</div>;
 						},
 						tools: {
 							by_name: {

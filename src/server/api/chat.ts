@@ -55,6 +55,14 @@ export async function handleChatRequest(request: Request): Promise<Response> {
 
 	const systemPrompt = `${basePrompt}
 
+## Conversation Rules
+
+1. Ask exactly ONE question per response. Never ask two questions, never use bullet-point lists of questions.
+2. Your response format: warm acknowledgment of what the employee said + a single follow-up question.
+3. If your question has specific options the employee can choose from, include them in the set_readiness tool's "options" field — they render as tappable buttons. Do NOT write options inline in your text.
+4. If your question is open-ended (the employee should answer in their own words), omit the "options" field.
+5. Maximum 2 clarifying questions, then present a summary and move to readiness level 4.
+
 ## Available Categories
 
 The following categories are available. Use the category ID when calling submit_idea. Categories marked [REDIRECT] should use redirect_to_form instead.
@@ -70,28 +78,30 @@ ${categoryTaxonomy}${userContext}`;
 		maxSteps: 5,
 		tools: {
 			set_readiness: tool({
-				description: `Report the current readiness level of the idea being captured. You MUST call this tool with every response to update the progress indicator shown to the employee.
+				description: `Report the current readiness level and optionally present choice buttons. You MUST call this tool with every response.
 
 Levels:
-- 1 (Capturing): Employee has shared an initial thought but you need more details about what the idea actually is.
-- 2 (Clarifying): You understand the core idea but need specifics — expected benefit, impact area, or how it would work.
-- 3 (Reviewing): You have enough information to classify and summarize the idea. Present the summary NOW.
-- 4 (Ready): The summary is complete and you're asking the employee to confirm before submission.
+- 1 (Capturing): Need more details about the core idea.
+- 2 (Clarifying): Understand the idea, need specifics.
+- 3 (Reviewing): Have enough info — present the summary now.
+- 4 (Ready): Summary complete, asking employee to confirm.
 
-IMPORTANT — pacing rules:
-- Ask a MAXIMUM of 2 clarifying questions before moving to level 3.
-- After the employee's 3rd message, you MUST be at level 3 or 4 — present a summary, do not ask more questions.
-- You do not need perfect detail. Capture the core idea and move on. Leaders will follow up if needed.
-- When at level 3, present the summary and immediately move to level 4 in the SAME response.`,
+Pacing: Max 2 clarifying questions, then summarize. After the employee's 3rd message, go to level 3-4.
+
+Options: When your question has 2-6 specific choices, include them in "options". They render as tappable buttons the employee can click instead of typing. Omit "options" for open-ended questions where the employee should type freely.`,
 				inputSchema: z.object({
 					level: z.number().min(1).max(4).describe("Readiness level 1-4"),
 					summary: z
 						.string()
+						.describe("Brief status shown to employee, e.g. 'Tell me more' or 'Ready to submit!'"),
+					options: z
+						.array(z.string())
+						.optional()
 						.describe(
-							"Brief status message shown to the employee, e.g. 'Tell me more about your idea' or 'Ready to submit!'",
+							"2-6 short tappable option labels when your question has specific choices. Omit for open-ended questions.",
 						),
 				}),
-				execute: async ({ level, summary }) => ({ level, summary }),
+				execute: async ({ level, summary, options }) => ({ level, summary, options }),
 			}),
 			submit_idea: tool({
 				description:
