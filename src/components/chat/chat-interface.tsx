@@ -126,34 +126,34 @@ const RedirectToolUI: ToolCallMessagePartComponent = ({ args }) => {
 	);
 };
 
-const PresentOptionsToolUI: ToolCallMessagePartComponent = ({ args }) => {
-	const threadRuntime = useThreadRuntime();
-	const thread = useThread();
-	const options = (args as { options: string[] }).options ?? [];
+// ── Inline option extraction ──────────────────────────────────────────────
 
-	if (options.length === 0) return null;
+/**
+ * Detects inline option lists in AI text like:
+ * "Are you thinking about simplifying the form, reducing steps, or something else?"
+ * Returns the extracted options, or null if no pattern found.
+ */
+function extractInlineOptions(text: string): string[] | null {
+	// Match a question containing "X, Y, ..., or Z?"
+	const match = text.match(/([^.!?]*(?:,\s+[^,?]+)+,\s+or\s+[^?]+)\?/);
+	if (!match) return null;
 
-	return (
-		<div className="mt-2 flex flex-col gap-1.5">
-			{options.map((option) => (
-				<button
-					key={option}
-					type="button"
-					disabled={thread.isRunning}
-					onClick={() => {
-						threadRuntime.append({
-							role: "user",
-							content: [{ type: "text", text: option }],
-						});
-					}}
-					className="w-full rounded-lg border border-foreground/10 px-3 py-2 text-left text-sm transition-all hover:border-foreground/25 hover:bg-foreground/5 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
-				>
-					{option}
-				</button>
-			))}
-		</div>
-	);
-};
+	const listText = match[1].trim();
+	const parts = listText.split(/,\s+/);
+
+	const lastPart = parts.pop();
+	if (!lastPart || !/^or\s+/i.test(lastPart)) return null;
+	if (parts.length < 1) return null;
+
+	const options = [...parts, lastPart.replace(/^or\s+/i, "")];
+
+	// Strip question prefix from the first item (up to common prepositions)
+	options[0] = options[0].replace(/^.*?\b(?:about|for|like|between|of|to|into|whether)\s+/i, "");
+
+	const clean = options.map((o) => o.trim()).filter((o) => o.length > 0 && o.length < 80);
+
+	return clean.length >= 2 ? clean : null;
+}
 
 const READINESS_STEPS = ["Capture", "Clarify", "Review", "Ready"] as const;
 
@@ -427,13 +427,29 @@ function AssistantMessage() {
 					components={{
 						Text: ({ text }) => {
 							if (!text) return <TypingIndicator />;
+							const inlineOptions = onOptionClick ? extractInlineOptions(text) : null;
 							return (
-								<div className="whitespace-pre-wrap">{parseMarkdown(text, onOptionClick)}</div>
+								<div>
+									<div className="whitespace-pre-wrap">{parseMarkdown(text, onOptionClick)}</div>
+									{inlineOptions && (
+										<div className="mt-2 flex flex-col gap-1.5">
+											{inlineOptions.map((option) => (
+												<button
+													key={option}
+													type="button"
+													onClick={() => onOptionClick?.(option)}
+													className="w-full rounded-lg border border-foreground/10 px-3 py-2 text-left text-sm transition-all hover:border-foreground/25 hover:bg-foreground/5 active:scale-[0.98]"
+												>
+													{option}
+												</button>
+											))}
+										</div>
+									)}
+								</div>
 							);
 						},
 						tools: {
 							by_name: {
-								present_options: PresentOptionsToolUI,
 								set_readiness: ReadinessToolUI,
 								submit_idea: SubmitIdeaToolUI,
 								redirect_to_form: RedirectToolUI,

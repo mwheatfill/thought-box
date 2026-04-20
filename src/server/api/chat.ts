@@ -55,10 +55,6 @@ export async function handleChatRequest(request: Request): Promise<Response> {
 
 	const systemPrompt = `${basePrompt}
 
-## CRITICAL — Interactive Options
-
-When your response mentions specific alternatives (e.g. "simplifying the form, reducing steps, or making it mobile-friendly"), you MUST call the present_options tool with those alternatives instead of writing them inline. Inline lists are NOT interactive — the employee cannot tap them. Use the tool so they render as buttons. This applies every time you list 2+ specific choices in any response.
-
 ## Available Categories
 
 The following categories are available. Use the category ID when calling submit_idea. Categories marked [REDIRECT] should use redirect_to_form instead.
@@ -96,31 +92,6 @@ IMPORTANT — pacing rules:
 						),
 				}),
 				execute: async ({ level, summary }) => ({ level, summary }),
-			}),
-			present_options: tool({
-				description: `Present clickable option buttons when you have a discrete list of choices for the employee to pick from. These render as tappable buttons in the chat.
-
-When to use:
-- You're offering 2-6 specific directions (e.g. "Are you thinking about simplifying forms, reducing steps, or something else?")
-- You're asking the employee to pick from known options (categories, impact areas, yes/no confirmation)
-
-When NOT to use:
-- The employee needs to describe their idea in their own words (first question — let them type)
-- You're asking an open-ended question like "Tell me more" or "What would that look like?"
-- You're presenting a summary for confirmation (use set_readiness level 4 instead)
-
-Rules:
-- NEVER write choices inline in your text. Use this tool so they render as buttons.
-- Keep labels short and tappable (under 60 characters).
-- Include a catch-all like "Something else" when appropriate.`,
-				inputSchema: z.object({
-					options: z
-						.array(z.string())
-						.min(2)
-						.max(6)
-						.describe("Short option labels the employee can tap"),
-				}),
-				execute: async ({ options }) => ({ options }),
 			}),
 			submit_idea: tool({
 				description:
