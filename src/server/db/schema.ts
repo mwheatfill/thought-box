@@ -117,6 +117,7 @@ export const ideas = pgTable("ideas", {
 	actionTaken: varchar("action_taken", { length: 255 }),
 	slaDueDate: timestamp("sla_due_date", { withTimezone: true }),
 	closureSlaDueDate: timestamp("closure_sla_due_date", { withTimezone: true }),
+	hasBeenReviewed: boolean("has_been_reviewed").notNull().default(false),
 	closedAt: timestamp("closed_at", { withTimezone: true }),
 	submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

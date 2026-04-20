@@ -31,11 +31,16 @@ import { addMessage, getIdeaMessages } from "#/server/functions/messages";
 export const Route = createFileRoute("/ideas/$submissionId")({
 	errorComponent: ({ error }) => <RouteError error={error} variant="not-found" />,
 	loader: async ({ params }) => {
-		const [idea, leaders] = await Promise.all([
-			getIdeaDetail({ data: { submissionId: params.submissionId } }),
-			getLeadersForReassign().catch(() => []),
-		]);
-		return { idea, leaders };
+		const leaders = getLeadersForReassign().catch(() => []);
+		try {
+			const idea = await getIdeaDetail({ data: { submissionId: params.submissionId } });
+			return { idea, leaders: await leaders };
+		} catch {
+			// Retry once — DB write may still be committing after chat submission
+			await new Promise((r) => setTimeout(r, 500));
+			const idea = await getIdeaDetail({ data: { submissionId: params.submissionId } });
+			return { idea, leaders: await leaders };
+		}
 	},
 	component: IdeaDetailPage,
 });

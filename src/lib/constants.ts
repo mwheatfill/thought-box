@@ -27,6 +27,10 @@ export const IMPACT_AREAS = {
 export type ImpactArea = keyof typeof IMPACT_AREAS;
 
 export const OPEN_STATUSES = ["new", "under_review"] as const;
+/** Statuses where the leader's identity is visible to submitters */
+export const REVIEWED_STATUSES = ["under_review", "accepted"] as const;
+/** Statuses that close an idea */
+export const CLOSED_STATUSES = ["accepted", "declined"] as const;
 
 export const KPI_COLORS = {
 	amber: { bg: "bg-amber-100 dark:bg-amber-900/30", icon: "text-amber-600 dark:text-amber-400" },

@@ -8,10 +8,10 @@ import {
 } from "@assistant-ui/react";
 import type { ToolCallMessagePartComponent } from "@assistant-ui/react";
 import { AssistantChatTransport, useChatRuntime } from "@assistant-ui/react-ai-sdk";
-import { ArrowUp, Check, ExternalLink, Loader2, RotateCcw } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { ArrowUp, Check, ExternalLink, Loader2, Pencil, RotateCcw, Send } from "lucide-react";
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { IdeaSubmittedCard } from "#/components/chat/idea-submitted-card";
+import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent } from "#/components/ui/card";
 import { DropZone } from "#/components/ui/drop-zone";
@@ -20,29 +20,23 @@ import type { AuthUser } from "#/server/middleware/auth";
 
 const ChatUserContext = createContext<string>("");
 
+const READINESS_STEPS = ["Capture", "Clarify", "Review", "Submit"] as const;
+
+const TOOL_NAMES = {
+	SET_READINESS: "set_readiness",
+	PRESENT_CONFIRMATION: "present_confirmation",
+	SUBMIT_IDEA: "submit_idea",
+	REDIRECT: "redirect_to_form",
+} as const;
+
+function sendUserMessage(threadRuntime: ReturnType<typeof useThreadRuntime>, text: string) {
+	threadRuntime.append({ role: "user", content: [{ type: "text", text }] });
+}
+
 // ── Tool UI components ─────────────────────────────────────────────────────
 
 const SubmitIdeaToolUI: ToolCallMessagePartComponent = ({ result }) => {
-	const userId = useContext(ChatUserContext);
-	const confettiFired = useRef(false);
-	const data = (
-		result as {
-			data?: {
-				id: string;
-				submissionId: string;
-				title: string;
-				categoryName: string;
-				assignedLeaderName: string | null;
-			};
-		}
-	)?.data;
-
-	useEffect(() => {
-		if (data && !confettiFired.current) {
-			confettiFired.current = true;
-			fireSubmissionConfetti();
-		}
-	}, [data]);
+	const data = (result as { data?: Record<string, unknown> })?.data;
 
 	if (!data) {
 		return (
@@ -53,16 +47,7 @@ const SubmitIdeaToolUI: ToolCallMessagePartComponent = ({ result }) => {
 		);
 	}
 
-	return (
-		<IdeaSubmittedCard
-			submissionId={data.submissionId}
-			title={data.title}
-			categoryName={data.categoryName}
-			assignedLeaderName={data.assignedLeaderName}
-		>
-			<DropZone ideaId={data.id} userId={userId} />
-		</IdeaSubmittedCard>
-	);
+	return null;
 };
 
 const RedirectToolUI: ToolCallMessagePartComponent = ({ args }) => {
@@ -87,67 +72,59 @@ const RedirectToolUI: ToolCallMessagePartComponent = ({ args }) => {
 	);
 };
 
-const READINESS_STEPS = ["Capture", "Clarify", "Review", "Ready"] as const;
-
 const ReadinessToolUI: ToolCallMessagePartComponent = ({ args }) => {
-	const { level, summary, options } = args as {
-		level: number;
-		summary: string;
-		options?: string[];
+	const { options } = args as { options?: string[] };
+	const thread = useThread();
+	const threadRuntime = useThreadRuntime();
+
+	if (!options || options.length < 2 || thread.isRunning) return null;
+
+	return (
+		<div className="mt-3 flex flex-col gap-1.5">
+			{options.map((option) => (
+				<Button
+					key={option}
+					variant="outline"
+					size="lg"
+					className="h-auto w-full justify-start whitespace-normal rounded-xl border-primary/20 bg-primary/5 px-4 py-3 text-left font-medium hover:border-primary/40 hover:bg-primary/10 active:scale-[0.98]"
+					onClick={() => sendUserMessage(threadRuntime, option)}
+				>
+					{option}
+				</Button>
+			))}
+		</div>
+	);
+};
+
+const ConfirmationToolUI: ToolCallMessagePartComponent = ({ args }) => {
+	const { confirmLabel, editLabel } = args as {
+		confirmLabel: string;
+		editLabel: string;
 	};
 	const thread = useThread();
 	const threadRuntime = useThreadRuntime();
 
-	return (
-		<div className="mt-3 space-y-3">
-			{/* Option buttons (from tool args) */}
-			{options && options.length >= 2 && !thread.isRunning && (
-				<div className="flex flex-col gap-1.5">
-					{options.map((option) => (
-						<Button
-							key={option}
-							variant="outline"
-							size="lg"
-							className="h-auto w-full justify-start whitespace-normal rounded-xl border-primary/20 bg-primary/5 px-4 py-3 text-left font-medium hover:border-primary/40 hover:bg-primary/10 active:scale-[0.98]"
-							onClick={() => {
-								threadRuntime.append({
-									role: "user",
-									content: [{ type: "text", text: option }],
-								});
-							}}
-						>
-							{option}
-						</Button>
-					))}
-				</div>
-			)}
+	if (thread.isRunning) return null;
 
-			{/* Readiness indicator */}
-			<div className="flex items-center gap-2.5">
-				<div className="flex items-center gap-1">
-					{READINESS_STEPS.map((step, i) => (
-						<Fragment key={step}>
-							{i > 0 && (
-								<div
-									className={cn(
-										"h-0.5 w-3 rounded-full transition-colors",
-										i < level ? (level >= 4 ? "bg-green-500" : "bg-primary") : "bg-muted",
-									)}
-								/>
-							)}
-							<div
-								className={cn(
-									"size-2 rounded-full transition-all",
-									i < level ? (level >= 4 ? "bg-green-500" : "bg-primary") : "bg-muted",
-									i === level - 1 && level < 4 && "ring-2 ring-primary/20",
-									i === level - 1 && level >= 4 && "ring-2 ring-green-500/20",
-								)}
-							/>
-						</Fragment>
-					))}
-				</div>
-				<span className="text-[11px] text-muted-foreground">{summary}</span>
-			</div>
+	return (
+		<div className="mt-3 flex flex-col gap-2">
+			<Button
+				size="lg"
+				className="h-auto w-full justify-start gap-2 whitespace-normal rounded-xl bg-green-600 px-4 py-3 text-left font-medium text-white hover:bg-green-700 active:scale-[0.98] dark:bg-green-600 dark:hover:bg-green-700"
+				onClick={() => sendUserMessage(threadRuntime, confirmLabel)}
+			>
+				<Send className="size-4 shrink-0" />
+				{confirmLabel}
+			</Button>
+			<Button
+				variant="outline"
+				size="lg"
+				className="h-auto w-full justify-start gap-2 whitespace-normal rounded-xl px-4 py-3 text-left font-medium active:scale-[0.98]"
+				onClick={() => sendUserMessage(threadRuntime, editLabel)}
+			>
+				<Pencil className="size-4 shrink-0" />
+				{editLabel}
+			</Button>
 		</div>
 	);
 };
@@ -155,34 +132,55 @@ const ReadinessToolUI: ToolCallMessagePartComponent = ({ args }) => {
 // ── Chat thread ────────────────────────────────────────────────────────────
 
 function ChatThread({
-	suggestedPrompts,
 	onFirstMessage,
+	onSubmitted,
 	onReset,
 	compact,
 	initialPrompt,
 }: {
-	suggestedPrompts: string[];
 	onFirstMessage?: () => void;
+	onSubmitted?: () => void;
 	onReset?: () => void;
 	compact?: boolean;
 	initialPrompt?: string | null;
 }) {
+	const userId = useContext(ChatUserContext);
 	const thread = useThread();
 	const threadRuntime = useThreadRuntime();
 	const hasMessages = thread.messages.length > 0;
 	const firedRef = useRef(false);
+	const submittedRef = useRef(false);
 	const promptSentRef = useRef(false);
 	const [inputEmpty, setInputEmpty] = useState(true);
 
-	const hasSubmitted = thread.messages.some((m) =>
-		m.content.some((part) => part.type === "tool-call" && part.toolName === "submit_idea"),
-	);
+	const submittedData = useMemo(() => {
+		for (const m of thread.messages) {
+			for (const part of m.content) {
+				if (part.type === "tool-call" && part.toolName === TOOL_NAMES.SUBMIT_IDEA && part.result) {
+					const res = part.result as {
+						data?: {
+							id: string;
+							submissionId: string;
+							title: string;
+							categoryName: string;
+						};
+					};
+					if (res.data) return res.data;
+				}
+			}
+		}
+		return null;
+	}, [thread.messages]);
+	const hasSubmitted = submittedData !== null;
 
 	const readinessLevel = useMemo(() => {
 		for (let i = thread.messages.length - 1; i >= 0; i--) {
 			const msg = thread.messages[i];
 			for (const part of msg.content) {
-				if (part.type === "tool-call" && part.toolName === "set_readiness") {
+				if (part.type === "tool-call" && part.toolName === TOOL_NAMES.PRESENT_CONFIRMATION) {
+					return 4;
+				}
+				if (part.type === "tool-call" && part.toolName === TOOL_NAMES.SET_READINESS) {
 					return (part.args as { level: number }).level;
 				}
 			}
@@ -190,15 +188,14 @@ function ChatThread({
 		return 0;
 	}, [thread.messages]);
 
-	// Readiness >= 4 = ready to submit. Fallback if AI never calls set_readiness.
+	// Fallback: if the AI never calls set_readiness/present_confirmation after 4+ messages,
+	// show confirm UI on the composer. Normal flow uses ConfirmationToolUI instead.
 	const userMessageCount = thread.messages.filter((m) => m.role === "user").length;
-	const readyToSubmit =
-		!hasSubmitted && (readinessLevel >= 4 || (readinessLevel === 0 && userMessageCount >= 4));
-	const showSubmitPill = readyToSubmit && !thread.isRunning && !compact;
+	const readyToSubmit = !hasSubmitted && readinessLevel === 0 && userMessageCount >= 4;
 	const showConfirmButton = readyToSubmit && inputEmpty;
 
 	const sendConfirm = () => {
-		threadRuntime.append({ role: "user", content: [{ type: "text", text: "Yes" }] });
+		sendUserMessage(threadRuntime, "Yes");
 		setInputEmpty(true);
 	};
 
@@ -206,10 +203,7 @@ function ChatThread({
 	useEffect(() => {
 		if (initialPrompt && !promptSentRef.current) {
 			promptSentRef.current = true;
-			threadRuntime.append({
-				role: "user",
-				content: [{ type: "text", text: initialPrompt }],
-			});
+			sendUserMessage(threadRuntime, initialPrompt);
 		}
 	}, [initialPrompt, threadRuntime]);
 
@@ -219,6 +213,30 @@ function ChatThread({
 			onFirstMessage();
 		}
 	}, [hasMessages, onFirstMessage]);
+
+	useEffect(() => {
+		if (hasSubmitted && !submittedRef.current) {
+			submittedRef.current = true;
+			fireSubmissionConfetti();
+			onSubmitted?.();
+		}
+	}, [hasSubmitted, onSubmitted]);
+
+	// Post-submission: celebration card takes over the entire chat window
+	if (hasSubmitted && submittedData) {
+		return (
+			<div className="flex h-full flex-col items-center justify-center overflow-y-auto">
+				<IdeaSubmittedCard
+					submissionId={submittedData.submissionId}
+					title={submittedData.title}
+					categoryName={submittedData.categoryName}
+					onNewIdea={onReset}
+				>
+					<DropZone ideaId={submittedData.id} userId={userId} />
+				</IdeaSubmittedCard>
+			</div>
+		);
+	}
 
 	return (
 		<div className={compact ? "flex flex-col" : "flex h-full flex-col"}>
@@ -236,54 +254,72 @@ function ChatThread({
 					</ThreadPrimitive.Viewport>
 				)}
 
-				{!compact && <SuggestedPrompts prompts={suggestedPrompts} />}
-
-				{/* Quick-action pills */}
-				{!compact && (
-					<AnimatePresence>
-						{hasMessages && !thread.isRunning && !hasSubmitted && (
-							<motion.div
-								initial={{ opacity: 0, y: 6 }}
-								animate={{ opacity: 1, y: 0 }}
-								exit={{ opacity: 0, y: 6 }}
-								transition={{ duration: 0.25, ease: "easeOut" }}
-								className="flex items-center justify-center gap-2 px-4 pb-2"
-							>
-								<AnimatePresence>
-									{showSubmitPill && (
-										<motion.div
-											initial={{ opacity: 0, scale: 0.9 }}
-											animate={{ opacity: 1, scale: 1 }}
-											transition={{ duration: 0.2, ease: "easeOut" }}
-										>
-											<Button
-												size="sm"
-												className="gap-1.5 bg-green-600 text-white hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-												onClick={sendConfirm}
-											>
-												<Check className="size-3.5" />
-												Submit to ThoughtBox
-												<kbd className="ml-1 rounded bg-green-700/50 px-1 py-0.5 font-mono text-[10px] leading-none dark:bg-green-500/30">
-													↵
-												</kbd>
-											</Button>
-										</motion.div>
-									)}
-								</AnimatePresence>
-								{onReset && (
-									<Button
-										variant="ghost"
-										size="sm"
-										className="gap-1.5 text-muted-foreground"
-										onClick={onReset}
-									>
-										<RotateCcw className="size-3" />
-										Start over
-									</Button>
-								)}
-							</motion.div>
+				{/* Status bar: progress stepper + start over */}
+				{!compact && hasMessages && !hasSubmitted && (
+					<div className="flex items-center gap-3 px-4 pb-2">
+						{/* Progress stepper */}
+						{readinessLevel > 0 && (
+							<div className="flex items-center gap-1">
+								{READINESS_STEPS.map((step, i) => {
+									const isDone = readinessLevel > i + 1;
+									const isActive = readinessLevel === i + 1;
+									return (
+										<Fragment key={step}>
+											{i > 0 && (
+												<div
+													className={cn(
+														"h-0.5 w-5 rounded-full transition-colors",
+														isDone ? "bg-primary" : "bg-muted",
+													)}
+												/>
+											)}
+											<div className="flex items-center gap-1">
+												{isDone ? (
+													<div className="flex size-4 items-center justify-center rounded-full bg-primary">
+														<Check className="size-2.5 text-primary-foreground" />
+													</div>
+												) : (
+													<div
+														className={cn(
+															"size-4 rounded-full border-2 transition-colors",
+															isActive
+																? "border-primary bg-primary/20"
+																: "border-muted-foreground/30",
+														)}
+													/>
+												)}
+												<span
+													className={cn(
+														"text-xs transition-colors",
+														isDone || isActive
+															? "font-medium text-foreground"
+															: "text-muted-foreground",
+													)}
+												>
+													{step}
+												</span>
+											</div>
+										</Fragment>
+									);
+								})}
+							</div>
 						)}
-					</AnimatePresence>
+
+						<div className="flex-1" />
+
+						{/* Start over */}
+						{onReset && (
+							<Button
+								variant="ghost"
+								size="sm"
+								className="gap-1.5 text-muted-foreground"
+								onClick={onReset}
+							>
+								<RotateCcw className="size-3" />
+								Start over
+							</Button>
+						)}
+					</div>
 				)}
 
 				<div className={compact ? "p-3" : "border-t p-4"}>
@@ -356,7 +392,11 @@ function TypingIndicator() {
 
 function AssistantMessage() {
 	return (
-		<div className="flex justify-start">
+		<div className="flex items-start gap-2.5">
+			<Avatar className="size-9 shrink-0">
+				<AvatarImage src="/agent-avatar.jpeg" alt="ThoughtBox assistant" />
+				<AvatarFallback>TB</AvatarFallback>
+			</Avatar>
 			<div className="max-w-[85%] space-y-2 rounded-2xl bg-muted px-4 py-2.5 text-sm">
 				<MessagePrimitive.Content
 					components={{
@@ -366,41 +406,15 @@ function AssistantMessage() {
 						},
 						tools: {
 							by_name: {
-								set_readiness: ReadinessToolUI,
-								submit_idea: SubmitIdeaToolUI,
-								redirect_to_form: RedirectToolUI,
+								[TOOL_NAMES.SET_READINESS]: ReadinessToolUI,
+								[TOOL_NAMES.PRESENT_CONFIRMATION]: ConfirmationToolUI,
+								[TOOL_NAMES.SUBMIT_IDEA]: SubmitIdeaToolUI,
+								[TOOL_NAMES.REDIRECT]: RedirectToolUI,
 							},
 						},
 					}}
 				/>
 			</div>
-		</div>
-	);
-}
-
-function SuggestedPrompts({ prompts }: { prompts: string[] }) {
-	const thread = useThread();
-	const threadRuntime = useThreadRuntime();
-
-	if (thread.messages.length > 0 || prompts.length === 0) return null;
-
-	return (
-		<div className="flex flex-wrap gap-2 px-4 pb-2">
-			{prompts.map((prompt) => (
-				<button
-					key={prompt}
-					type="button"
-					onClick={() => {
-						threadRuntime.append({
-							role: "user",
-							content: [{ type: "text", text: prompt }],
-						});
-					}}
-					className="rounded-full border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-				>
-					{prompt}
-				</button>
-			))}
 		</div>
 	);
 }
@@ -488,8 +502,8 @@ function parseInline(text: string): React.ReactNode[] {
 
 interface ChatInterfaceProps {
 	user: AuthUser;
-	suggestedPrompts: string[];
 	onFirstMessage?: () => void;
+	onSubmitted?: () => void;
 	onReset?: () => void;
 	onError?: () => void;
 	compact?: boolean;
@@ -498,8 +512,8 @@ interface ChatInterfaceProps {
 
 export function ChatInterface({
 	user,
-	suggestedPrompts,
 	onFirstMessage,
+	onSubmitted,
 	onReset,
 	onError,
 	compact,
@@ -530,8 +544,8 @@ export function ChatInterface({
 		<ChatUserContext.Provider value={user.id}>
 			<AssistantRuntimeProvider runtime={runtime}>
 				<ChatThread
-					suggestedPrompts={suggestedPrompts}
 					onFirstMessage={onFirstMessage}
+					onSubmitted={onSubmitted}
 					onReset={onReset}
 					compact={compact}
 					initialPrompt={initialPrompt}

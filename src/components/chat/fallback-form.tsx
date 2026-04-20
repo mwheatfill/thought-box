@@ -46,7 +46,6 @@ export function FallbackForm({ categories }: FallbackFormProps) {
 				submissionId={submittedData.submissionId}
 				title={submittedData.title}
 				categoryName={submittedData.categoryName}
-				assignedLeaderName={submittedData.assignedLeaderName}
 			/>
 		);
 	}

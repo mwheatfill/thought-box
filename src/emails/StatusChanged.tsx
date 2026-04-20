@@ -14,7 +14,7 @@ interface StatusChangedProps {
 
 const STATUS_CONTENT = {
 	under_review: {
-		headline: (leader: string) => `${leader} is reviewing your idea`,
+		headline: () => "Your idea is being reviewed",
 		body: "Your idea is being looked at. You'll hear back once a decision has been made.",
 		preview: (title: string) => `Your idea is being reviewed: ${title}`,
 	},
@@ -51,9 +51,7 @@ export default function StatusChanged({
 
 	return (
 		<EmailLayout preview={content.preview(ideaTitle)}>
-			<Text className="text-lg font-semibold text-gray-900">
-				{content.headline(leaderFirstName)}
-			</Text>
+			<Text className="text-lg font-semibold text-gray-900">{content.headline()}</Text>
 
 			<div className="my-4 rounded-md border border-gray-200 bg-gray-50 p-4">
 				<Text className="m-0 text-xs font-medium text-gray-500">{submissionId}</Text>
@@ -72,7 +70,7 @@ export default function StatusChanged({
 
 			{leaderNotes && (
 				<div className="my-3 border-l-4 border-blue-200 pl-4">
-					<Text className="m-0 text-xs font-medium text-gray-500">Note from {leaderFirstName}</Text>
+					<Text className="m-0 text-xs font-medium text-gray-500">Reviewer note</Text>
 					<Text className="m-0 mt-1 text-sm text-gray-700">{leaderNotes}</Text>
 				</div>
 			)}

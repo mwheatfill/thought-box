@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { CLOSED_STATUSES, REVIEWED_STATUSES } from "#/lib/constants";
 import { db, sql } from "#/server/db";
 import { categories, conversations, ideaEvents, ideas, settings, users } from "#/server/db/schema";
 import type { ConversationMessage } from "#/server/db/schema";
@@ -12,6 +13,7 @@ import {
 	sendWatcherAlert,
 } from "#/server/functions/email";
 import { audit } from "#/server/lib/audit";
+import { anonymizeActorName, shouldShowLeader } from "#/server/lib/leader-visibility";
 import { businessDaysRemaining, calculateSlaDueDate } from "#/server/lib/sla";
 import { nextSubmissionId } from "#/server/lib/submission-id";
 import { trackEvent } from "#/server/lib/telemetry";
@@ -229,6 +231,7 @@ export const getIdeaDetail = createServerFn()
 		});
 
 		const daysRemaining = businessDaysRemaining(idea.slaDueDate);
+		const showLeader = shouldShowLeader(context.user.role, idea.hasBeenReviewed);
 
 		return {
 			id: idea.id,
@@ -257,13 +260,19 @@ export const getIdeaDetail = createServerFn()
 			closureSlaDueDate: idea.closureSlaDueDate?.toISOString() ?? null,
 			closureSlaDaysRemaining: businessDaysRemaining(idea.closureSlaDueDate),
 			submitter: idea.submitter,
-			assignedLeader: idea.assignedLeader,
+			assignedLeader: showLeader ? idea.assignedLeader : null,
 			events: events.map((e) => ({
 				id: e.id,
 				eventType: e.eventType,
 				actorId: e.actorId,
-				actorName: e.actor.displayName,
-				actorPhotoUrl: e.actor.photoUrl,
+				actorName: anonymizeActorName(
+					e.actor.displayName,
+					e.actorId,
+					idea.assignedLeaderId,
+					context.user.role,
+					idea.hasBeenReviewed,
+				),
+				actorPhotoUrl: showLeader || e.actorId !== idea.assignedLeaderId ? e.actor.photoUrl : null,
 				oldValue: e.oldValue,
 				newValue: e.newValue,
 				note: e.note,
@@ -299,6 +308,7 @@ export const updateIdea = createServerFn({ method: "POST" })
 				submissionId: true,
 				title: true,
 				status: true,
+				hasBeenReviewed: true,
 				submitterId: true,
 				assignedLeaderId: true,
 				leaderNotes: true,
@@ -321,8 +331,12 @@ export const updateIdea = createServerFn({ method: "POST" })
 		if (data.rejectionReason !== undefined) updates.rejectionReason = data.rejectionReason;
 		if (data.leaderNotes !== undefined) updates.leaderNotes = data.leaderNotes;
 		if (data.actionTaken !== undefined) updates.actionTaken = data.actionTaken;
+		// Track when idea enters active review (for leader anonymity)
+		if (data.status && (REVIEWED_STATUSES as readonly string[]).includes(data.status)) {
+			updates.hasBeenReviewed = true;
+		}
 		// Track closure
-		if (data.status && ["accepted", "declined"].includes(data.status)) {
+		if (data.status && (CLOSED_STATUSES as readonly string[]).includes(data.status)) {
 			updates.closedAt = new Date();
 		}
 
@@ -348,13 +362,16 @@ export const updateIdea = createServerFn({ method: "POST" })
 			// Fire-and-forget: notify submitter of status change
 			const emailStatuses = ["under_review", "accepted", "declined"] as const;
 			if (emailStatuses.includes(data.status as (typeof emailStatuses)[number])) {
+				// Leader is visible if idea has been (or is being) reviewed
+				const leaderVisible =
+					idea.hasBeenReviewed || (REVIEWED_STATUSES as readonly string[]).includes(data.status);
 				sendStatusChangedEmail({
 					submitterEmail: idea.submitter.email,
 					submitterFirstName: idea.submitter.displayName.split(" ")[0],
 					submissionId: idea.submissionId,
 					ideaTitle: idea.title,
 					newStatus: data.status as "under_review" | "accepted" | "declined",
-					leaderFirstName: context.user.displayName.split(" ")[0],
+					leaderFirstName: leaderVisible ? context.user.displayName.split(" ")[0] : "Your reviewer",
 					leaderNotes: data.leaderNotes ?? idea.leaderNotes ?? null,
 					rejectionReason: data.rejectionReason ?? null,
 				});
@@ -406,7 +423,10 @@ export const bulkUpdateStatus = createServerFn({ method: "POST" })
 			if (idea.status === data.status) continue;
 
 			const updates: Record<string, unknown> = { status: data.status, updatedAt: new Date() };
-			if (["accepted", "declined"].includes(data.status)) {
+			if ((REVIEWED_STATUSES as readonly string[]).includes(data.status)) {
+				updates.hasBeenReviewed = true;
+			}
+			if ((CLOSED_STATUSES as readonly string[]).includes(data.status)) {
 				updates.closedAt = new Date();
 			}
 

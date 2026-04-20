@@ -90,14 +90,21 @@ export async function handleChatRequest(request: Request): Promise<Response> {
 2. Your response = short acknowledgment + a single question.
 3. NEVER list choices in your text. Put them in set_readiness's "options" array. Your text asks the question, the buttons show the choices.
 4. Maximum 2 clarifying questions, then present a summary and move to readiness level 4.
+5. When you reach readiness level 4, present a summary in your text, then call present_confirmation (NOT set_readiness). present_confirmation shows a green submit button and an edit button.
+6. Call set_readiness with options for all exploratory/clarifying questions. Call present_confirmation only for the final "does this look right?" step.
 
-## Example
+## Example — clarifying (use set_readiness)
 
 Employee says: "I want to improve how we onboard new hires"
 Your text response: "Great idea! What part of onboarding would you like to improve?"
 Your set_readiness call: { level: 2, summary: "Clarifying the onboarding idea", options: ["Training and orientation", "Paperwork and setup", "Mentorship and support", "Something else"] }
 
 Notice: the text does NOT mention the options. The options array contains them. Always follow this pattern.
+
+## Example — ready to submit (use present_confirmation)
+
+After enough detail, present a summary in your text, then call:
+present_confirmation: { confirmLabel: "Looks good—submit it!", editLabel: "Let me make changes", summary: "Carpool matching app idea" }
 
 ## Available Categories
 
@@ -115,13 +122,13 @@ ${categoryTaxonomy}${userContext}`;
 		tools: {
 			set_readiness: tool({
 				description:
-					"Report readiness level, status text, and choice buttons. Call this with every response. Include options array with 2-6 short labels for every question that has specific choices. Leave options empty only for open-ended questions.",
+					"Report readiness level, status text, and choice buttons. Call this for every clarifying/exploratory response (levels 1-3). Do NOT use this for the final confirmation — use present_confirmation instead.",
 				inputSchema: z.object({
 					level: z
 						.number()
 						.min(1)
-						.max(4)
-						.describe("1=capturing, 2=clarifying, 3=reviewing summary, 4=ready to submit"),
+						.max(3)
+						.describe("1=capturing, 2=clarifying, 3=reviewing summary"),
 					summary: z.string().describe("Status text, e.g. 'Clarifying your idea'"),
 					options: z
 						.array(z.string().max(80))
@@ -134,6 +141,22 @@ ${categoryTaxonomy}${userContext}`;
 					level,
 					summary,
 					options: options?.length ? options : undefined,
+				}),
+			}),
+			present_confirmation: tool({
+				description:
+					"Present the final confirmation step with a submit button and an edit button. Call this ONLY when you are ready to submit (after presenting a summary) and need the employee's final approval. Do not use set_readiness for this step.",
+				inputSchema: z.object({
+					confirmLabel: z
+						.string()
+						.describe('Label for the submit button, e.g. "Looks good—submit it!"'),
+					editLabel: z.string().describe('Label for the edit button, e.g. "Let me make changes"'),
+					summary: z.string().describe("Short summary for the progress bar"),
+				}),
+				execute: async ({ confirmLabel, editLabel, summary }) => ({
+					confirmLabel,
+					editLabel,
+					summary,
 				}),
 			}),
 			submit_idea: tool({
@@ -271,7 +294,7 @@ ${categoryTaxonomy}${userContext}`;
 							submissionId: idea.submissionId,
 							title: idea.title,
 							categoryName: category.name,
-							assignedLeaderName,
+							assignedLeaderName: null, // New ideas always hide leader from submitters
 						},
 					};
 				},
