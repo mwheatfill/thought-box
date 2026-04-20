@@ -126,6 +126,35 @@ const RedirectToolUI: ToolCallMessagePartComponent = ({ args }) => {
 	);
 };
 
+/**
+ * Fallback: extracts inline option lists like "X, Y, or Z?" from AI text.
+ * Only used when the AI omits the options field from set_readiness.
+ */
+function extractInlineOptions(text: string): string[] | null {
+	const sentences = text.split(/(?<=[.!?])\s+/);
+	const candidate = sentences.filter((s) => s.includes(", or ") && s.trim().endsWith("?")).pop();
+	if (!candidate) return null;
+	if (/\betc\b\.?|\be\.g\b\.?|\bfor (?:example|instance)\b/i.test(candidate)) return null;
+
+	const orIdx = candidate.lastIndexOf(", or ");
+	if (orIdx === -1) return null;
+
+	const lastOption = candidate
+		.slice(orIdx + 5)
+		.replace(/\?$/, "")
+		.trim();
+	const beforeOr = candidate.slice(0, orIdx);
+	const parts = beforeOr.split(/,\s+/);
+	if (parts.length < 2) return null;
+
+	parts[0] = parts[0].replace(/^.*?\b(?:about|for|like|between|of|to|into|whether)\s+/i, "");
+	const options = [...parts, lastOption];
+	const clean = options
+		.map((o) => o.trim())
+		.filter((o) => o.length > 0 && o.length < 60 && !o.includes("?"));
+	return clean.length >= 2 ? clean : null;
+}
+
 const READINESS_STEPS = ["Capture", "Clarify", "Review", "Ready"] as const;
 
 const ReadinessToolUI: ToolCallMessagePartComponent = ({ args }) => {
@@ -409,6 +438,9 @@ function TypingIndicator() {
 }
 
 function AssistantMessage() {
+	const thread = useThread();
+	const threadRuntime = useThreadRuntime();
+
 	return (
 		<div className="flex justify-start">
 			<div className="max-w-[85%] space-y-2 rounded-2xl bg-muted px-4 py-2.5 text-sm">
@@ -416,7 +448,33 @@ function AssistantMessage() {
 					components={{
 						Text: ({ text }) => {
 							if (!text) return <TypingIndicator />;
-							return <div className="whitespace-pre-wrap">{parseMarkdown(text)}</div>;
+							// Fallback: parse inline options when AI omits them from the tool
+							const fallbackOptions = !thread.isRunning ? extractInlineOptions(text) : null;
+							return (
+								<div>
+									<div className="whitespace-pre-wrap">{parseMarkdown(text)}</div>
+									{fallbackOptions && (
+										<div className="mt-3 flex flex-col gap-1.5">
+											{fallbackOptions.map((option) => (
+												<Button
+													key={option}
+													variant="outline"
+													size="lg"
+													className="h-auto w-full justify-start whitespace-normal rounded-xl border-primary/20 bg-primary/5 px-4 py-3 text-left font-medium hover:border-primary/40 hover:bg-primary/10 active:scale-[0.98]"
+													onClick={() => {
+														threadRuntime.append({
+															role: "user",
+															content: [{ type: "text", text: option }],
+														});
+													}}
+												>
+													{option}
+												</Button>
+											))}
+										</div>
+									)}
+								</div>
+							);
 						},
 						tools: {
 							by_name: {
