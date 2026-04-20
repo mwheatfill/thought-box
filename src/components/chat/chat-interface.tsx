@@ -19,6 +19,7 @@ import {
 	Loader2,
 	RotateCcw,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
@@ -261,33 +262,51 @@ function ChatThread({
 				{!compact && <SuggestedPrompts prompts={suggestedPrompts} />}
 
 				{/* Quick-action pills */}
-				{!compact && hasMessages && !thread.isRunning && !hasSubmitted && (
-					<div className="flex items-center justify-center gap-2 px-4 pb-2">
-						{showSubmitPill && (
-							<Button
-								size="sm"
-								className="gap-1.5 bg-green-600 text-white hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-								onClick={sendConfirm}
+				{!compact && (
+					<AnimatePresence>
+						{hasMessages && !thread.isRunning && !hasSubmitted && (
+							<motion.div
+								initial={{ opacity: 0, y: 6 }}
+								animate={{ opacity: 1, y: 0 }}
+								exit={{ opacity: 0, y: 6 }}
+								transition={{ duration: 0.25, ease: "easeOut" }}
+								className="flex items-center justify-center gap-2 px-4 pb-2"
 							>
-								<Check className="size-3.5" />
-								Submit to ThoughtBox
-								<kbd className="ml-1 rounded bg-green-700/50 px-1 py-0.5 font-mono text-[10px] leading-none dark:bg-green-500/30">
-									↵
-								</kbd>
-							</Button>
+								<AnimatePresence>
+									{showSubmitPill && (
+										<motion.div
+											initial={{ opacity: 0, scale: 0.9 }}
+											animate={{ opacity: 1, scale: 1 }}
+											transition={{ duration: 0.2, ease: "easeOut" }}
+										>
+											<Button
+												size="sm"
+												className="gap-1.5 bg-green-600 text-white hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
+												onClick={sendConfirm}
+											>
+												<Check className="size-3.5" />
+												Submit to ThoughtBox
+												<kbd className="ml-1 rounded bg-green-700/50 px-1 py-0.5 font-mono text-[10px] leading-none dark:bg-green-500/30">
+													↵
+												</kbd>
+											</Button>
+										</motion.div>
+									)}
+								</AnimatePresence>
+								{onReset && (
+									<Button
+										variant="ghost"
+										size="sm"
+										className="gap-1.5 text-muted-foreground"
+										onClick={onReset}
+									>
+										<RotateCcw className="size-3" />
+										Start over
+									</Button>
+								)}
+							</motion.div>
 						)}
-						{onReset && (
-							<Button
-								variant="ghost"
-								size="sm"
-								className="gap-1.5 text-muted-foreground"
-								onClick={onReset}
-							>
-								<RotateCcw className="size-3" />
-								Start over
-							</Button>
-						)}
-					</div>
+					</AnimatePresence>
 				)}
 
 				<div className={compact ? "p-3" : "border-t p-4"}>
