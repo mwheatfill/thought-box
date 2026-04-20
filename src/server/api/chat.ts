@@ -55,6 +55,10 @@ export async function handleChatRequest(request: Request): Promise<Response> {
 
 	const systemPrompt = `${basePrompt}
 
+## CRITICAL — Interactive Options
+
+When your response mentions specific alternatives (e.g. "simplifying the form, reducing steps, or making it mobile-friendly"), you MUST call the present_options tool with those alternatives instead of writing them inline. Inline lists are NOT interactive — the employee cannot tap them. Use the tool so they render as buttons. This applies every time you list 2+ specific choices in any response.
+
 ## Available Categories
 
 The following categories are available. Use the category ID when calling submit_idea. Categories marked [REDIRECT] should use redirect_to_form instead.
