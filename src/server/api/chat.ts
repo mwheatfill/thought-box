@@ -75,10 +75,14 @@ ${categoryTaxonomy}${userContext}`;
 Levels:
 - 1 (Capturing): Employee has shared an initial thought but you need more details about what the idea actually is.
 - 2 (Clarifying): You understand the core idea but need specifics — expected benefit, impact area, or how it would work.
-- 3 (Reviewing): You have enough information to classify and summarize the idea. You're presenting or refining the summary.
+- 3 (Reviewing): You have enough information to classify and summarize the idea. Present the summary NOW.
 - 4 (Ready): The summary is complete and you're asking the employee to confirm before submission.
 
-Always call this alongside your text response. Be honest about the level — don't inflate it.`,
+IMPORTANT — pacing rules:
+- Ask a MAXIMUM of 2 clarifying questions before moving to level 3.
+- After the employee's 3rd message, you MUST be at level 3 or 4 — present a summary, do not ask more questions.
+- You do not need perfect detail. Capture the core idea and move on. Leaders will follow up if needed.
+- When at level 3, present the summary and immediately move to level 4 in the SAME response.`,
 				inputSchema: z.object({
 					level: z.number().min(1).max(4).describe("Readiness level 1-4"),
 					summary: z
@@ -90,14 +94,14 @@ Always call this alongside your text response. Be honest about the level — don
 				execute: async ({ level, summary }) => ({ level, summary }),
 			}),
 			present_options: tool({
-				description: `Present clickable option buttons for the employee to choose from. You MUST call this tool EVERY time your response includes choices, alternatives, or questions with possible answers. NEVER write options as inline text, numbered lists, or comma-separated alternatives — they will not be interactive.
+				description: `Present clickable option buttons for the employee to choose from. You MUST call this tool with EVERY response that asks a question — no exceptions. The employee should always have buttons to tap rather than having to type from scratch.
 
 Rules:
-- If your response asks "Is it X, Y, or Z?" → call this tool with [X, Y, Z] instead of writing them inline.
-- If your response lists follow-up questions → call this tool with short labels for each direction.
-- Call this on EVERY turn where you present choices, not just the first time.
-- Keep option labels short and tappable (under 60 characters each).
-- Always include a catch-all option like "Something else" when appropriate.`,
+- EVERY question you ask MUST have options. Even open-ended questions should have suggested answers.
+- NEVER write choices inline in your text (e.g. "Is it X, Y, or Z?"). Use this tool instead.
+- For open-ended questions, provide 2-3 likely answers plus "Something else".
+- Keep labels short and tappable (under 60 characters).
+- Call this on EVERY turn, not just the first time.`,
 				inputSchema: z.object({
 					options: z
 						.array(z.string())
