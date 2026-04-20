@@ -151,11 +151,16 @@ function ChatThread({
 		m.content.some((part) => part.type === "tool-call" && part.toolName === "submit_idea"),
 	);
 
-	// Show quick actions when: conversation active, AI done responding, not yet submitted
-	const showQuickActions = hasMessages && !thread.isRunning && !hasSubmitted && !compact;
+	// Require at least 2 user messages before showing submit controls
+	// (idea described + at least one clarification answered)
+	const userMessageCount = thread.messages.filter((m) => m.role === "user").length;
+	const readyToSubmit = userMessageCount >= 2 && !hasSubmitted;
 
-	// Show confirm-style send button when input is empty during active conversation
-	const showConfirmButton = inputEmpty && hasMessages && !hasSubmitted;
+	// Submit pill: visible when conversation has progressed enough and AI is done
+	const showSubmitPill = readyToSubmit && !thread.isRunning && !compact;
+
+	// Confirm-style send button: green checkmark when ready + input empty
+	const showConfirmButton = readyToSubmit && inputEmpty;
 
 	// Reset inputEmpty when messages change (after send, input clears)
 	const messageCount = thread.messages.length;
@@ -207,19 +212,21 @@ function ChatThread({
 				{!compact && <SuggestedPrompts prompts={suggestedPrompts} />}
 
 				{/* Quick-action pills */}
-				{showQuickActions && (
+				{!compact && hasMessages && !thread.isRunning && !hasSubmitted && (
 					<div className="flex items-center justify-center gap-2 px-4 pb-2">
-						<Button
-							size="sm"
-							className="gap-1.5 bg-green-600 text-white hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
-							onClick={sendConfirm}
-						>
-							<Check className="size-3.5" />
-							Submit to ThoughtBox
-							<kbd className="ml-1 rounded bg-green-700/50 px-1 py-0.5 font-mono text-[10px] leading-none dark:bg-green-500/30">
-								↵
-							</kbd>
-						</Button>
+						{showSubmitPill && (
+							<Button
+								size="sm"
+								className="gap-1.5 bg-green-600 text-white hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
+								onClick={sendConfirm}
+							>
+								<Check className="size-3.5" />
+								Submit to ThoughtBox
+								<kbd className="ml-1 rounded bg-green-700/50 px-1 py-0.5 font-mono text-[10px] leading-none dark:bg-green-500/30">
+									↵
+								</kbd>
+							</Button>
+						)}
 						{onReset && (
 							<Button
 								variant="ghost"
@@ -238,7 +245,7 @@ function ChatThread({
 					<ComposerPrimitive.Root className="flex items-end gap-2">
 						<ComposerPrimitive.Input
 							placeholder={
-								hasMessages && !hasSubmitted
+								readyToSubmit
 									? "Add details or press Enter to confirm..."
 									: compact
 										? "Describe your idea here..."
@@ -251,8 +258,7 @@ function ChatThread({
 								if (
 									e.key === "Enter" &&
 									!e.shiftKey &&
-									hasMessages &&
-									!hasSubmitted &&
+									readyToSubmit &&
 									!(e.target as HTMLTextAreaElement).value.trim()
 								) {
 									e.preventDefault();
