@@ -1,15 +1,49 @@
 import { anthropic } from "@ai-sdk/anthropic";
 import { convertToModelMessages, streamText, tool } from "ai";
 import { eq } from "drizzle-orm";
-import postgres from "postgres";
 import { z } from "zod";
-import { db } from "#/server/db";
+import { db, sql } from "#/server/db";
 import { categories, conversations, ideaEvents, ideas, settings, users } from "#/server/db/schema";
 import type { ConversationMessage } from "#/server/db/schema";
 import { sendIdeaAssignedEmail, sendIdeaSubmittedEmail } from "#/server/functions/email";
 import { calculateSlaDueDate } from "#/server/lib/sla";
 import { nextSubmissionId } from "#/server/lib/submission-id";
 import { trackEvent } from "#/server/lib/telemetry";
+
+// ── In-memory cache for system prompt + category taxonomy (30s TTL) ──────
+let cachedPromptAndTaxonomy: { basePrompt: string; categoryTaxonomy: string } | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL_MS = 30_000;
+
+async function getPromptAndTaxonomy(): Promise<{ basePrompt: string; categoryTaxonomy: string }> {
+	const now = Date.now();
+	if (cachedPromptAndTaxonomy && now - cacheTimestamp < CACHE_TTL_MS) {
+		return cachedPromptAndTaxonomy;
+	}
+
+	const [promptSetting, allCategories] = await Promise.all([
+		db.query.settings.findFirst({ where: eq(settings.key, "system_prompt") }),
+		db.query.categories.findMany({
+			where: eq(categories.active, true),
+			orderBy: (c, { asc }) => [asc(c.sortOrder)],
+		}),
+	]);
+
+	const basePrompt = promptSetting?.value ?? "You are a helpful assistant.";
+
+	const categoryTaxonomy = allCategories
+		.map((c) => {
+			if (c.routingType === "redirect") {
+				return `- ${c.name} [REDIRECT]: ${c.description}\n  → Redirect URL: ${c.redirectUrl}\n  → Link label: ${c.redirectLabel}`;
+			}
+			return `- ${c.name} (ID: ${c.id}): ${c.description}`;
+		})
+		.join("\n");
+
+	cachedPromptAndTaxonomy = { basePrompt, categoryTaxonomy };
+	cacheTimestamp = now;
+	return cachedPromptAndTaxonomy;
+}
 
 function extractConversationMessages(
 	messages: unknown[],
@@ -30,25 +64,8 @@ export async function handleChatRequest(request: Request): Promise<Response> {
 	// Convert UI messages to model messages for streamText
 	const messages = await convertToModelMessages(body.messages);
 
-	// Load system prompt and category taxonomy
-	const [promptSetting, allCategories] = await Promise.all([
-		db.query.settings.findFirst({ where: eq(settings.key, "system_prompt") }),
-		db.query.categories.findMany({
-			where: eq(categories.active, true),
-			orderBy: (c, { asc }) => [asc(c.sortOrder)],
-		}),
-	]);
-
-	const basePrompt = promptSetting?.value ?? "You are a helpful assistant.";
-
-	const categoryTaxonomy = allCategories
-		.map((c) => {
-			if (c.routingType === "redirect") {
-				return `- ${c.name} [REDIRECT]: ${c.description}\n  → Redirect URL: ${c.redirectUrl}\n  → Link label: ${c.redirectLabel}`;
-			}
-			return `- ${c.name} (ID: ${c.id}): ${c.description}`;
-		})
-		.join("\n");
+	// Load system prompt and category taxonomy (cached, 30s TTL)
+	const { basePrompt, categoryTaxonomy } = await getPromptAndTaxonomy();
 
 	// Load user info for personalized greeting context
 	let userContext = "";
@@ -143,17 +160,8 @@ ${categoryTaxonomy}${userContext}`;
 					});
 					if (!category) return { error: "Category not found" };
 
-					// Generate submission ID from PostgreSQL sequence
-					const connectionString = process.env.DATABASE_URL;
-					if (!connectionString) return { error: "Database not configured" };
-					const sql = postgres(connectionString, { max: 1 });
-
-					let submissionId: string;
-					try {
-						submissionId = await nextSubmissionId(sql);
-					} finally {
-						await sql.end();
-					}
+					// Generate submission ID from PostgreSQL sequence (reuses connection pool)
+					const submissionId = await nextSubmissionId(sql);
 
 					const now = new Date();
 					const slaDueDate = calculateSlaDueDate(now, 15);

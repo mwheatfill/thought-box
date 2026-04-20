@@ -8,23 +8,14 @@ import {
 } from "@assistant-ui/react";
 import type { ToolCallMessagePartComponent } from "@assistant-ui/react";
 import { AssistantChatTransport, useChatRuntime } from "@assistant-ui/react-ai-sdk";
-import { Link } from "@tanstack/react-router";
-import confetti from "canvas-confetti";
-import {
-	ArrowRight,
-	ArrowUp,
-	Check,
-	ExternalLink,
-	Lightbulb,
-	Loader2,
-	RotateCcw,
-} from "lucide-react";
+import { ArrowUp, Check, ExternalLink, Loader2, RotateCcw } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { IdeaSubmittedCard } from "#/components/chat/idea-submitted-card";
 import { Button } from "#/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
+import { Card, CardContent } from "#/components/ui/card";
 import { DropZone } from "#/components/ui/drop-zone";
-import { cn } from "#/lib/utils";
+import { cn, fireSubmissionConfetti } from "#/lib/utils";
 import type { AuthUser } from "#/server/middleware/auth";
 
 const ChatUserContext = createContext<string>("");
@@ -49,12 +40,7 @@ const SubmitIdeaToolUI: ToolCallMessagePartComponent = ({ result }) => {
 	useEffect(() => {
 		if (data && !confettiFired.current) {
 			confettiFired.current = true;
-			confetti({
-				particleCount: 80,
-				spread: 60,
-				origin: { y: 0.7 },
-				colors: ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6"],
-			});
+			fireSubmissionConfetti();
 		}
 	}, [data]);
 
@@ -68,39 +54,14 @@ const SubmitIdeaToolUI: ToolCallMessagePartComponent = ({ result }) => {
 	}
 
 	return (
-		<Card className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950">
-			<CardHeader className="pb-3">
-				<CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-300">
-					<Lightbulb className="size-5" />
-					Idea Submitted!
-				</CardTitle>
-			</CardHeader>
-			<CardContent className="space-y-2 text-sm">
-				<p>
-					<span className="font-medium">ID:</span> {data.submissionId}
-				</p>
-				<p>
-					<span className="font-medium">Title:</span> {data.title}
-				</p>
-				<p>
-					<span className="font-medium">Category:</span> {data.categoryName}
-				</p>
-				{data.assignedLeaderName && (
-					<p>
-						<span className="font-medium">Reviewer:</span> {data.assignedLeaderName}
-					</p>
-				)}
-				<div className="mt-3">
-					<DropZone ideaId={data.id} userId={userId} />
-				</div>
-				<Button asChild variant="outline" size="sm" className="mt-2 w-full">
-					<Link to="/ideas/$submissionId" params={{ submissionId: data.submissionId }}>
-						View Idea
-						<ArrowRight className="ml-2 size-3.5" />
-					</Link>
-				</Button>
-			</CardContent>
-		</Card>
+		<IdeaSubmittedCard
+			submissionId={data.submissionId}
+			title={data.title}
+			categoryName={data.categoryName}
+			assignedLeaderName={data.assignedLeaderName}
+		>
+			<DropZone ideaId={data.id} userId={userId} />
+		</IdeaSubmittedCard>
 	);
 };
 

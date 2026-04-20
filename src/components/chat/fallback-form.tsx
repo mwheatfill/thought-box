@@ -1,13 +1,11 @@
 import { useMutation } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import confetti from "canvas-confetti";
-import { AlertTriangle, ArrowRight, Lightbulb } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { IdeaSubmittedCard } from "#/components/chat/idea-submitted-card";
 import { Alert, AlertDescription } from "#/components/ui/alert";
 import { Button } from "#/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { Label } from "#/components/ui/label";
 import {
 	Select,
@@ -17,6 +15,7 @@ import {
 	SelectValue,
 } from "#/components/ui/select";
 import { Textarea } from "#/components/ui/textarea";
+import { fireSubmissionConfetti } from "#/lib/utils";
 import { createIdea } from "#/server/functions/ideas";
 
 interface FallbackFormProps {
@@ -33,12 +32,7 @@ export function FallbackForm({ categories }: FallbackFormProps) {
 		mutationFn: () => submitFn({ data: { title, description, categoryId } }),
 		onSuccess: (result) => {
 			if (result && "data" in result && result.data) {
-				confetti({
-					particleCount: 80,
-					spread: 60,
-					origin: { y: 0.7 },
-					colors: ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6"],
-				});
+				fireSubmissionConfetti();
 			}
 		},
 		onError: () => toast.error("Failed to submit idea"),
@@ -48,36 +42,12 @@ export function FallbackForm({ categories }: FallbackFormProps) {
 
 	if (submittedData) {
 		return (
-			<Card className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950">
-				<CardHeader className="pb-3">
-					<CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-300">
-						<Lightbulb className="size-5" />
-						Idea Submitted!
-					</CardTitle>
-				</CardHeader>
-				<CardContent className="space-y-2 text-sm">
-					<p>
-						<span className="font-medium">ID:</span> {submittedData.submissionId}
-					</p>
-					<p>
-						<span className="font-medium">Title:</span> {submittedData.title}
-					</p>
-					<p>
-						<span className="font-medium">Category:</span> {submittedData.categoryName}
-					</p>
-					{submittedData.assignedLeaderName && (
-						<p>
-							<span className="font-medium">Reviewer:</span> {submittedData.assignedLeaderName}
-						</p>
-					)}
-					<Button asChild variant="outline" size="sm" className="mt-2 w-full">
-						<Link to="/ideas/$submissionId" params={{ submissionId: submittedData.submissionId }}>
-							View Idea
-							<ArrowRight className="ml-2 size-3.5" />
-						</Link>
-					</Button>
-				</CardContent>
-			</Card>
+			<IdeaSubmittedCard
+				submissionId={submittedData.submissionId}
+				title={submittedData.title}
+				categoryName={submittedData.categoryName}
+				assignedLeaderName={submittedData.assignedLeaderName}
+			/>
 		);
 	}
 

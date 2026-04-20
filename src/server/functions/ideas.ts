@@ -1,8 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
-import postgres from "postgres";
 import { z } from "zod";
-import { db } from "#/server/db";
+import { db, sql } from "#/server/db";
 import { categories, conversations, ideaEvents, ideas, settings, users } from "#/server/db/schema";
 import type { ConversationMessage } from "#/server/db/schema";
 import {
@@ -54,17 +53,8 @@ export const createIdea = createServerFn({ method: "POST" })
 			return { error: "Category not found" };
 		}
 
-		// Generate submission ID from PostgreSQL sequence
-		const connectionString = process.env.DATABASE_URL;
-		if (!connectionString) throw new Error("DATABASE_URL is required");
-		const sql = postgres(connectionString, { max: 1 });
-
-		let submissionId: string;
-		try {
-			submissionId = await nextSubmissionId(sql);
-		} finally {
-			await sql.end();
-		}
+		// Generate submission ID from PostgreSQL sequence (reuses connection pool)
+		const submissionId = await nextSubmissionId(sql);
 
 		const slaDueDate = calculateSlaDueDate(now);
 
@@ -82,6 +72,7 @@ export const createIdea = createServerFn({ method: "POST" })
 				submitterId: context.user.id,
 				assignedLeaderId: category.defaultLeaderId,
 				slaDueDate,
+				closureSlaDueDate: calculateSlaDueDate(now, 30),
 				submittedAt: now,
 			})
 			.returning();
