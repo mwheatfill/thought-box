@@ -1,5 +1,5 @@
-import { Button, Text } from "@react-email/components";
-import { EmailLayout } from "./components/EmailLayout";
+import { Hr, Text } from "@react-email/components";
+import { EmailLayout, HeroIcon, IdeaCard, StepCard } from "./components/EmailLayout";
 
 interface IdeaSubmittedProps {
 	submitterFirstName: string;
@@ -18,36 +18,129 @@ export default function IdeaSubmitted({
 	ideaCount = 3,
 	viewUrl = "https://thoughtbox.desertfinancial.com/ideas/TB-0001",
 }: IdeaSubmittedProps) {
-	const countMessage =
-		ideaCount === 1
-			? "Your first idea! Welcome to ThoughtBox."
-			: `That's your ${ordinal(ideaCount)} idea this year. Thanks for making Desert Financial better.`;
+	const baseUrl = viewUrl.replace(/\/ideas\/.*$/, "");
 
 	return (
-		<EmailLayout preview={`Your idea has been submitted: ${ideaTitle}`}>
-			<Text className="text-lg font-semibold text-gray-900">
-				Thanks for sharing, {submitterFirstName}!
+		<EmailLayout preview={`Your idea has been submitted: ${ideaTitle}`} accentColor="#16a34a">
+			{/* Hero */}
+			<HeroIcon bgColor="#dcfce7" color="#16a34a">
+				{"✓"}
+			</HeroIcon>
+
+			<Text className="m-0 text-center text-xl font-bold text-gray-900">
+				Thank you, {submitterFirstName}!
 			</Text>
 
-			<Text className="text-sm text-gray-600">
-				Your idea has been submitted and a leader will review it soon.
+			<Text className="m-0 mt-2 text-center text-sm text-gray-500">
+				Your idea has been assigned to the <strong className="text-gray-700">{categoryName}</strong>{" "}
+				category for review.
 			</Text>
 
-			<div className="my-4 rounded-md border border-gray-200 bg-gray-50 p-4">
-				<Text className="m-0 text-xs font-medium text-gray-500">
-					{submissionId} · {categoryName}
-				</Text>
-				<Text className="m-0 mt-1 text-sm font-semibold text-gray-900">{ideaTitle}</Text>
-			</div>
+			{/* Idea card */}
+			<IdeaCard submissionId={submissionId} title={ideaTitle} />
 
-			<Text className="text-sm text-gray-600">{countMessage}</Text>
-
-			<Button
-				href={viewUrl}
-				className="mt-4 rounded-md bg-[#1e3a5f] px-6 py-3 text-sm font-medium text-white"
+			{/* What happens next */}
+			<Hr className="my-1 border-gray-100" />
+			<Text
+				className="m-0 text-center"
+				style={{
+					fontSize: 10,
+					fontWeight: 700,
+					letterSpacing: "0.1em",
+					textTransform: "uppercase" as const,
+					color: "#9ca3af",
+					margin: "16px 0",
+				}}
 			>
-				View Your Idea
-			</Button>
+				What happens next
+			</Text>
+
+			<StepCard
+				icon="→"
+				iconBg="#dbeafe"
+				iconColor="#3b82f6"
+				title="Assigned for review"
+				description="A category leader will review your idea"
+			/>
+			<StepCard
+				icon="✉"
+				iconBg="#fef3c7"
+				iconColor="#d97706"
+				title="They may follow up"
+				description="You might hear from them with questions or next steps"
+			/>
+			<StepCard
+				icon="★"
+				iconBg="#dcfce7"
+				iconColor="#16a34a"
+				title="You'll stay in the loop"
+				description="We'll notify you as your idea moves forward"
+			/>
+
+			{/* Idea count */}
+			<Text className="m-0 mt-4 text-center text-xs text-gray-400">
+				{ideaCount === 1
+					? "Your first idea! Welcome to ThoughtBox."
+					: `That's your ${ordinal(ideaCount)} idea this year. Thanks for making Desert Financial better.`}
+			</Text>
+
+			{/* Attachments prompt */}
+			<Text className="m-0 mt-4 text-center text-xs text-gray-500">
+				Have supporting files? You can attach images, PDFs, and documents from your idea page.
+			</Text>
+
+			{/* CTA buttons */}
+			<table
+				cellPadding="0"
+				cellSpacing="0"
+				role="presentation"
+				width="100%"
+				style={{ marginTop: 20 }}
+			>
+				<tbody>
+					<tr>
+						<td style={{ paddingRight: 6, width: "50%" }}>
+							{/* biome-ignore lint/a11y/useValidAnchor: email template */}
+							<a
+								href={viewUrl}
+								style={{
+									display: "block",
+									textAlign: "center" as const,
+									backgroundColor: "#3b82f6",
+									color: "#ffffff",
+									borderRadius: 8,
+									padding: "12px 0",
+									fontSize: 14,
+									fontWeight: 600,
+									textDecoration: "none",
+								}}
+							>
+								View Idea →
+							</a>
+						</td>
+						<td style={{ paddingLeft: 6, width: "50%" }}>
+							{/* biome-ignore lint/a11y/useValidAnchor: email template */}
+							<a
+								href={baseUrl}
+								style={{
+									display: "block",
+									textAlign: "center" as const,
+									backgroundColor: "#ffffff",
+									color: "#374151",
+									borderRadius: 8,
+									padding: "11px 0",
+									fontSize: 14,
+									fontWeight: 600,
+									textDecoration: "none",
+									border: "1px solid #d1d5db",
+								}}
+							>
+								+ Submit Another
+							</a>
+						</td>
+					</tr>
+				</tbody>
+			</table>
 		</EmailLayout>
 	);
 }

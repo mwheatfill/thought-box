@@ -1,5 +1,12 @@
-import { Button, Text } from "@react-email/components";
-import { EmailLayout } from "./components/EmailLayout";
+import { Hr, Text } from "@react-email/components";
+import {
+	EmailLayout,
+	HeroIcon,
+	IdeaCard,
+	PrimaryButton,
+	QuoteBlock,
+	StepCard,
+} from "./components/EmailLayout";
 
 interface StatusChangedProps {
 	submitterFirstName: string;
@@ -12,20 +19,32 @@ interface StatusChangedProps {
 	viewUrl: string;
 }
 
-const STATUS_CONTENT = {
+const STATUS_CONFIG = {
 	under_review: {
-		headline: () => "Your idea is being reviewed",
-		body: "Your idea is being looked at. You'll hear back once a decision has been made.",
+		accent: "#3b82f6",
+		iconBg: "#dbeafe",
+		iconColor: "#3b82f6",
+		icon: "◎",
+		headline: "Your idea is being reviewed",
+		body: "A leader is looking into your idea. You'll hear back once a decision has been made.",
 		preview: (title: string) => `Your idea is being reviewed: ${title}`,
 	},
 	accepted: {
-		headline: () => "Great news: your idea is moving forward!",
-		body: "Your idea has been accepted. Here's what happens next:",
+		accent: "#16a34a",
+		iconBg: "#dcfce7",
+		iconColor: "#16a34a",
+		icon: "✓",
+		headline: "Your idea is moving forward!",
+		body: "Great news — your idea has been accepted.",
 		preview: (title: string) => `Your idea has been accepted: ${title}`,
 	},
 	declined: {
-		headline: () => "Update on your idea",
-		body: "After review, your idea won't be moving forward at this time. Here's why:",
+		accent: "#9ca3af",
+		iconBg: "#f3f4f6",
+		iconColor: "#6b7280",
+		icon: "—",
+		headline: "Update on your idea",
+		body: "After careful review, your idea won't be moving forward at this time.",
 		preview: (title: string) => `Update on your idea: ${title}`,
 	},
 };
@@ -47,46 +66,80 @@ export default function StatusChanged({
 	rejectionReason = null,
 	viewUrl = "https://thoughtbox.desertfinancial.com/ideas/TB-0001",
 }: StatusChangedProps) {
-	const content = STATUS_CONTENT[newStatus];
+	const config = STATUS_CONFIG[newStatus];
 
 	return (
-		<EmailLayout preview={content.preview(ideaTitle)}>
-			<Text className="text-lg font-semibold text-gray-900">{content.headline()}</Text>
+		<EmailLayout preview={config.preview(ideaTitle)} accentColor={config.accent}>
+			<HeroIcon bgColor={config.iconBg} color={config.iconColor}>
+				{config.icon}
+			</HeroIcon>
 
-			<div className="my-4 rounded-md border border-gray-200 bg-gray-50 p-4">
-				<Text className="m-0 text-xs font-medium text-gray-500">{submissionId}</Text>
-				<Text className="m-0 mt-1 text-sm font-semibold text-gray-900">{ideaTitle}</Text>
-			</div>
+			<Text className="m-0 text-center text-xl font-bold text-gray-900">{config.headline}</Text>
 
-			<Text className="text-sm text-gray-600">
-				Hi {submitterFirstName}, {content.body}
+			<Text className="m-0 mt-2 text-center text-sm text-gray-500">
+				Hi {submitterFirstName}, {config.body}
 			</Text>
 
-			{newStatus === "declined" && rejectionReason && (
-				<Text className="text-sm font-medium text-gray-700">
-					Reason: {REJECTION_LABELS[rejectionReason] ?? rejectionReason}
-				</Text>
-			)}
+			<IdeaCard submissionId={submissionId} title={ideaTitle} />
 
-			{leaderNotes && (
-				<div className="my-3 border-l-4 border-blue-200 pl-4">
-					<Text className="m-0 text-xs font-medium text-gray-500">Reviewer note</Text>
-					<Text className="m-0 mt-1 text-sm text-gray-700">{leaderNotes}</Text>
+			{newStatus === "declined" && rejectionReason && (
+				<div
+					style={{
+						backgroundColor: "#f9fafb",
+						borderRadius: 8,
+						padding: "12px 16px",
+						margin: "0 0 12px",
+					}}
+				>
+					<Text className="m-0 text-[11px] font-semibold text-gray-400">REASON</Text>
+					<Text className="m-0 mt-1 text-sm font-medium text-gray-700">
+						{REJECTION_LABELS[rejectionReason] ?? rejectionReason}
+					</Text>
 				</div>
 			)}
 
+			{leaderNotes && <QuoteBlock label={`Note from ${leaderFirstName}`}>{leaderNotes}</QuoteBlock>}
+
+			{newStatus === "accepted" && (
+				<>
+					<Hr className="my-1 border-gray-100" />
+					<Text
+						className="m-0 text-center"
+						style={{
+							fontSize: 10,
+							fontWeight: 700,
+							letterSpacing: "0.1em",
+							textTransform: "uppercase" as const,
+							color: "#9ca3af",
+							margin: "16px 0",
+						}}
+					>
+						What happens next
+					</Text>
+					<StepCard
+						icon="✓"
+						iconBg="#dcfce7"
+						iconColor="#16a34a"
+						title="Implementation planning"
+						description="Your idea will be evaluated for scope and timeline"
+					/>
+					<StepCard
+						icon="★"
+						iconBg="#dbeafe"
+						iconColor="#3b82f6"
+						title="You'll stay in the loop"
+						description="We'll keep you updated as things progress"
+					/>
+				</>
+			)}
+
 			{newStatus === "declined" && (
-				<Text className="text-sm text-gray-600">
-					Don't let this stop you — every idea matters, and we'd love to hear your next one.
+				<Text className="m-0 mt-2 text-center text-xs text-gray-400">
+					Every idea matters — we'd love to hear your next one.
 				</Text>
 			)}
 
-			<Button
-				href={viewUrl}
-				className="mt-4 rounded-md bg-[#1e3a5f] px-6 py-3 text-sm font-medium text-white"
-			>
-				View Idea
-			</Button>
+			<PrimaryButton href={viewUrl}>View Idea →</PrimaryButton>
 		</EmailLayout>
 	);
 }

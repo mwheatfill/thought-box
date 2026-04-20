@@ -1,5 +1,11 @@
-import { Button, Text } from "@react-email/components";
-import { EmailLayout } from "./components/EmailLayout";
+import { Text } from "@react-email/components";
+import {
+	EmailLayout,
+	HeroIcon,
+	IdeaCard,
+	PrimaryButton,
+	QuoteBlock,
+} from "./components/EmailLayout";
 
 interface NewMessageProps {
 	recipientFirstName: string;
@@ -20,35 +26,27 @@ export default function NewMessage({
 	isFromLeader = true,
 	viewUrl = "https://thoughtbox.desertfinancial.com/ideas/TB-0001",
 }: NewMessageProps) {
-	const subject = isFromLeader
-		? `A leader has a question about your idea: ${ideaTitle}`
-		: `The submitter responded on: ${ideaTitle}`;
+	const headline = isFromLeader
+		? `${senderName} has a question about your idea`
+		: `${senderName} responded on ${submissionId}`;
 
 	return (
-		<EmailLayout preview={subject}>
-			<Text className="text-lg font-semibold text-gray-900">
-				Hi {recipientFirstName},{" "}
-				{isFromLeader
-					? `${senderName} has a question about your idea`
-					: `${senderName} responded on ${submissionId}`}
+		<EmailLayout preview={headline} accentColor="#3b82f6">
+			<HeroIcon bgColor="#dbeafe" color="#3b82f6">
+				{"✉"}
+			</HeroIcon>
+
+			<Text className="m-0 text-center text-xl font-bold text-gray-900">
+				New message, {recipientFirstName}
 			</Text>
 
-			<div className="my-4 rounded-md border border-gray-200 bg-gray-50 p-4">
-				<Text className="m-0 text-xs font-medium text-gray-500">{submissionId}</Text>
-				<Text className="m-0 mt-1 text-sm font-semibold text-gray-900">{ideaTitle}</Text>
-			</div>
+			<Text className="m-0 mt-2 text-center text-sm text-gray-500">{headline}</Text>
 
-			<div className="my-3 border-l-4 border-blue-200 pl-4">
-				<Text className="m-0 text-xs font-medium text-gray-500">{senderName}</Text>
-				<Text className="m-0 mt-1 text-sm text-gray-700">{messagePreview}</Text>
-			</div>
+			<IdeaCard submissionId={submissionId} title={ideaTitle} />
 
-			<Button
-				href={viewUrl}
-				className="mt-4 rounded-md bg-[#1e3a5f] px-6 py-3 text-sm font-medium text-white"
-			>
-				Reply
-			</Button>
+			<QuoteBlock label={senderName}>{messagePreview}</QuoteBlock>
+
+			<PrimaryButton href={viewUrl}>Reply →</PrimaryButton>
 		</EmailLayout>
 	);
 }

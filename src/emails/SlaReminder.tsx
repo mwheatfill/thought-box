@@ -1,5 +1,5 @@
-import { Button, Text } from "@react-email/components";
-import { EmailLayout } from "./components/EmailLayout";
+import { Text } from "@react-email/components";
+import { EmailLayout, HeroIcon, PrimaryButton } from "./components/EmailLayout";
 
 interface SlaReminderProps {
 	leaderFirstName: string;
@@ -23,35 +23,42 @@ export default function SlaReminder({
 	viewUrl = "https://thoughtbox.desertfinancial.com/ideas/TB-0001",
 }: SlaReminderProps) {
 	return (
-		<EmailLayout preview={`Reminder: ${submissionId} needs your attention`}>
-			<Text className="text-lg font-semibold text-gray-900">Idea Needs Attention</Text>
+		<EmailLayout preview={`Reminder: ${submissionId} needs your attention`} accentColor="#d97706">
+			<HeroIcon bgColor="#fef3c7" color="#d97706">
+				{"!"}
+			</HeroIcon>
 
-			<Text className="text-sm text-gray-600">Hi {leaderFirstName},</Text>
+			<Text className="m-0 text-center text-xl font-bold text-gray-900">Idea needs attention</Text>
 
-			<Text className="text-sm text-gray-600">
-				The following idea has been in <strong>{currentStatus}</strong> status for{" "}
-				<strong>{daysSinceSubmission} days</strong> and is waiting for your review.
+			<Text className="m-0 mt-2 text-center text-sm text-gray-500">
+				Hi {leaderFirstName}, this idea has been in{" "}
+				<strong className="text-gray-700">{currentStatus}</strong> status for{" "}
+				<strong className="text-gray-700">{daysSinceSubmission} days</strong>.
 			</Text>
 
-			<div className="my-4 rounded-md border border-yellow-200 bg-yellow-50 p-4">
-				<Text className="m-0 text-xs font-medium text-yellow-800">
+			{/* Idea card with amber accent */}
+			<div
+				style={{
+					border: "1px solid #fde68a",
+					borderLeft: "3px solid #d97706",
+					borderRadius: 8,
+					padding: "14px 16px",
+					margin: "16px 0",
+					backgroundColor: "#fffbeb",
+				}}
+			>
+				<Text className="m-0 text-xs font-bold" style={{ color: "#d97706" }}>
 					{submissionId} · {categoryName}
 				</Text>
-				<Text className="m-0 mt-1 text-sm font-semibold text-yellow-900">{ideaTitle}</Text>
-				<Text className="m-0 mt-1 text-xs text-yellow-700">Submitted by {submitterName}</Text>
+				<Text className="m-0 mt-1 text-sm font-semibold text-gray-900">{ideaTitle}</Text>
+				<Text className="m-0 mt-1 text-xs text-gray-500">Submitted by {submitterName}</Text>
 			</div>
 
-			<Text className="text-sm text-gray-600">
-				Please review this idea and update its status when you can. Every response matters to the
-				employee who shared it.
+			<Text className="m-0 text-center text-xs text-gray-400">
+				Every response matters to the employee who shared it.
 			</Text>
 
-			<Button
-				href={viewUrl}
-				className="mt-2 rounded-md bg-[#1e3a5f] px-6 py-3 text-sm font-medium text-white"
-			>
-				Review Idea
-			</Button>
+			<PrimaryButton href={viewUrl}>Review Idea →</PrimaryButton>
 		</EmailLayout>
 	);
 }

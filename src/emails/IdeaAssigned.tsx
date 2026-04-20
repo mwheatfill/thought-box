@@ -1,5 +1,5 @@
-import { Button, Text } from "@react-email/components";
-import { EmailLayout } from "./components/EmailLayout";
+import { Text } from "@react-email/components";
+import { EmailLayout, HeroIcon, IdeaCard, PrimaryButton } from "./components/EmailLayout";
 
 interface IdeaAssignedProps {
 	leaderFirstName: string;
@@ -21,30 +21,24 @@ export default function IdeaAssigned({
 	viewUrl = "https://thoughtbox.desertfinancial.com/ideas/TB-0001",
 }: IdeaAssignedProps) {
 	return (
-		<EmailLayout preview={`New idea assigned to you: ${ideaTitle}`}>
-			<Text className="text-lg font-semibold text-gray-900">
+		<EmailLayout preview={`New idea assigned to you: ${ideaTitle}`} accentColor="#3b82f6">
+			<HeroIcon bgColor="#dbeafe" color="#3b82f6">
+				{"→"}
+			</HeroIcon>
+
+			<Text className="m-0 text-center text-xl font-bold text-gray-900">
 				New idea for you, {leaderFirstName}
 			</Text>
 
-			<Text className="text-sm text-gray-600">
+			<Text className="m-0 mt-2 text-center text-sm text-gray-500">
 				{submitterName}
-				{submitterDepartment ? ` from ${submitterDepartment}` : ""} has submitted a new idea that's
-				been routed to you for review.
+				{submitterDepartment ? ` from ${submitterDepartment}` : ""} submitted an idea that's been
+				routed to you for review.
 			</Text>
 
-			<div className="my-4 rounded-md border border-gray-200 bg-gray-50 p-4">
-				<Text className="m-0 text-xs font-medium text-gray-500">
-					{submissionId} · {categoryName}
-				</Text>
-				<Text className="m-0 mt-1 text-sm font-semibold text-gray-900">{ideaTitle}</Text>
-			</div>
+			<IdeaCard submissionId={submissionId} title={ideaTitle} meta={categoryName} />
 
-			<Button
-				href={viewUrl}
-				className="mt-4 rounded-md bg-[#1e3a5f] px-6 py-3 text-sm font-medium text-white"
-			>
-				Review Idea
-			</Button>
+			<PrimaryButton href={viewUrl}>Review Idea →</PrimaryButton>
 		</EmailLayout>
 	);
 }

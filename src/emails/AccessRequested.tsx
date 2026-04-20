@@ -1,5 +1,5 @@
-import { Button, Text } from "@react-email/components";
-import { EmailLayout } from "./components/EmailLayout";
+import { Text } from "@react-email/components";
+import { EmailLayout, HeroIcon, PrimaryButton } from "./components/EmailLayout";
 
 interface AccessRequestedProps {
 	requesterName: string;
@@ -17,35 +17,44 @@ export default function AccessRequested({
 	adminUsersUrl = "https://thoughtbox.desertfinancial.com/admin/users",
 }: AccessRequestedProps) {
 	return (
-		<EmailLayout preview={`${requesterName} is requesting access to ThoughtBox`}>
-			<Text className="text-lg font-semibold text-gray-900">Access Request</Text>
+		<EmailLayout
+			preview={`${requesterName} is requesting access to ThoughtBox`}
+			accentColor="#d97706"
+		>
+			<HeroIcon bgColor="#fef3c7" color="#d97706">
+				{"?"}
+			</HeroIcon>
 
-			<Text className="text-sm text-gray-600">
-				A deactivated user is requesting access to ThoughtBox:
+			<Text className="m-0 text-center text-xl font-bold text-gray-900">Access Request</Text>
+
+			<Text className="m-0 mt-2 text-center text-sm text-gray-500">
+				A deactivated user is trying to sign into ThoughtBox.
 			</Text>
 
-			<div className="my-4 rounded-md border border-amber-200 bg-amber-50 p-4">
-				<Text className="m-0 text-sm font-medium text-gray-900">{requesterName}</Text>
-				<Text className="m-0 mt-1 text-sm text-gray-600">{requesterEmail}</Text>
+			{/* Requester card */}
+			<div
+				style={{
+					border: "1px solid #e5e7eb",
+					borderRadius: 8,
+					padding: "14px 16px",
+					margin: "16px 0",
+				}}
+			>
+				<Text className="m-0 text-sm font-semibold text-gray-900">{requesterName}</Text>
+				<Text className="m-0 mt-1 text-xs text-gray-500">{requesterEmail}</Text>
 				{requesterJobTitle && (
-					<Text className="m-0 mt-1 text-sm text-gray-600">{requesterJobTitle}</Text>
+					<Text className="m-0 mt-1 text-xs text-gray-500">{requesterJobTitle}</Text>
 				)}
 				{requesterDepartment && (
-					<Text className="m-0 mt-1 text-sm text-gray-600">{requesterDepartment}</Text>
+					<Text className="m-0 mt-1 text-xs text-gray-500">{requesterDepartment}</Text>
 				)}
 			</div>
 
-			<Text className="text-sm text-gray-600">
-				Their account is currently deactivated. To reactivate, visit the Users page in admin
-				settings.
+			<Text className="m-0 text-center text-xs text-gray-400">
+				To reactivate this account, visit the Users page in admin settings.
 			</Text>
 
-			<Button
-				href={adminUsersUrl}
-				className="mt-2 rounded-md bg-[#1e3a5f] px-6 py-3 text-sm font-medium text-white"
-			>
-				View Users
-			</Button>
+			<PrimaryButton href={adminUsersUrl}>View Users →</PrimaryButton>
 		</EmailLayout>
 	);
 }
