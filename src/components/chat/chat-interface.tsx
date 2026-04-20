@@ -134,31 +134,37 @@ const RedirectToolUI: ToolCallMessagePartComponent = ({ args }) => {
  * Returns the extracted options, or null if no pattern found.
  */
 function extractInlineOptions(text: string): string[] | null {
-	// Skip example lists and parenthetical asides
-	if (/\betc\b\.?/i.test(text) || /\be\.g\b\.?/i.test(text)) return null;
-	if (/\bfor (?:example|instance)\b/i.test(text)) return null;
+	// Split on ALL sentence boundaries including "?"
+	const sentences = text.split(/(?<=[.!?])\s+/);
 
-	// Only match the LAST sentence that contains "X, Y, or Z?"
-	// Split on sentence boundaries but keep the delimiters
-	const sentences = text.split(/(?<=[.!])\s+/);
+	// Find the last sentence with a "X, Y, or Z?" comma-or pattern
 	const candidate = sentences.filter((s) => s.includes(", or ") && s.trim().endsWith("?")).pop();
 	if (!candidate) return null;
 
-	// Match the comma-or list pattern within the sentence
-	const match = candidate.match(/([^:]*(?:,\s+[^,?]+)+,\s+or\s+[^?]+)\?$/);
-	if (!match) return null;
+	// Skip example lists in this specific sentence
+	if (/\betc\b\.?/i.test(candidate)) return null;
+	if (/\be\.g\b\.?/i.test(candidate)) return null;
+	if (/\bfor (?:example|instance)\b/i.test(candidate)) return null;
 
-	const listText = match[1].trim();
-	const parts = listText.split(/,\s+/);
+	// Find the ", or " and extract the comma-separated list around it
+	const orIdx = candidate.lastIndexOf(", or ");
+	if (orIdx === -1) return null;
 
-	const lastPart = parts.pop();
-	if (!lastPart || !/^or\s+/i.test(lastPart)) return null;
-	if (parts.length < 1) return null;
+	const lastOption = candidate
+		.slice(orIdx + 5)
+		.replace(/\?$/, "")
+		.trim();
+	const beforeOr = candidate.slice(0, orIdx);
 
-	const options = [...parts, lastPart.replace(/^or\s+/i, "")];
+	// Split everything before ", or " by commas
+	const parts = beforeOr.split(/,\s+/);
+	if (parts.length < 2) return null;
 
-	// Strip question prefix from the first item (up to common prepositions)
-	options[0] = options[0].replace(/^.*?\b(?:about|for|like|between|of|to|into|whether)\s+/i, "");
+	// The first part contains the question prefix mixed with the first option
+	// Strip the prefix up to common prepositions
+	parts[0] = parts[0].replace(/^.*?\b(?:about|for|like|between|of|to|into|whether)\s+/i, "");
+
+	const options = [...parts, lastOption];
 
 	// Filter: must be short (tappable label) and not contain question marks
 	const clean = options
