@@ -67,8 +67,28 @@ ${categoryTaxonomy}${userContext}`;
 		model: anthropic("claude-haiku-4-5-20251001"),
 		system: systemPrompt,
 		messages,
-		maxSteps: 3,
+		maxSteps: 5,
 		tools: {
+			set_readiness: tool({
+				description: `Report the current readiness level of the idea being captured. You MUST call this tool with every response to update the progress indicator shown to the employee.
+
+Levels:
+- 1 (Capturing): Employee has shared an initial thought but you need more details about what the idea actually is.
+- 2 (Clarifying): You understand the core idea but need specifics — expected benefit, impact area, or how it would work.
+- 3 (Reviewing): You have enough information to classify and summarize the idea. You're presenting or refining the summary.
+- 4 (Ready): The summary is complete and you're asking the employee to confirm before submission.
+
+Always call this alongside your text response. Be honest about the level — don't inflate it.`,
+				inputSchema: z.object({
+					level: z.number().min(1).max(4).describe("Readiness level 1-4"),
+					summary: z
+						.string()
+						.describe(
+							"Brief status message shown to the employee, e.g. 'Tell me more about your idea' or 'Ready to submit!'",
+						),
+				}),
+				execute: async ({ level, summary }) => ({ level, summary }),
+			}),
 			submit_idea: tool({
 				description:
 					"Submit the employee's idea to ThoughtBox after they confirm the summary. Call this only after presenting a summary and getting the employee's confirmation.",

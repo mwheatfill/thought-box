@@ -19,10 +19,11 @@ import {
 	Loader2,
 	RotateCcw,
 } from "lucide-react";
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { DropZone } from "#/components/ui/drop-zone";
+import { cn } from "#/lib/utils";
 import type { AuthUser } from "#/server/middleware/auth";
 
 const ChatUserContext = createContext<string>("");
@@ -124,6 +125,40 @@ const RedirectToolUI: ToolCallMessagePartComponent = ({ args }) => {
 	);
 };
 
+const READINESS_STEPS = ["Capture", "Clarify", "Review", "Ready"] as const;
+
+const ReadinessToolUI: ToolCallMessagePartComponent = ({ args }) => {
+	const { level, summary } = args as { level: number; summary: string };
+
+	return (
+		<div className="mt-2 flex items-center gap-2.5">
+			<div className="flex items-center gap-1">
+				{READINESS_STEPS.map((step, i) => (
+					<Fragment key={step}>
+						{i > 0 && (
+							<div
+								className={cn(
+									"h-0.5 w-3 rounded-full transition-colors",
+									i < level ? (level >= 4 ? "bg-green-500" : "bg-primary") : "bg-muted",
+								)}
+							/>
+						)}
+						<div
+							className={cn(
+								"size-2 rounded-full transition-all",
+								i < level ? (level >= 4 ? "bg-green-500" : "bg-primary") : "bg-muted",
+								i === level - 1 && level < 4 && "ring-2 ring-primary/20",
+								i === level - 1 && level >= 4 && "ring-2 ring-green-500/20",
+							)}
+						/>
+					</Fragment>
+				))}
+			</div>
+			<span className="text-[11px] text-muted-foreground">{summary}</span>
+		</div>
+	);
+};
+
 // ── Chat thread ────────────────────────────────────────────────────────────
 
 function ChatThread({
@@ -151,12 +186,26 @@ function ChatThread({
 		m.content.some((part) => part.type === "tool-call" && part.toolName === "submit_idea"),
 	);
 
-	// Require at least 2 user messages before showing submit controls
-	// (idea described + at least one clarification answered)
-	const userMessageCount = thread.messages.filter((m) => m.role === "user").length;
-	const readyToSubmit = userMessageCount >= 2 && !hasSubmitted;
+	// AI-driven readiness: scan messages for the latest set_readiness tool call
+	const readinessLevel = useMemo(() => {
+		for (let i = thread.messages.length - 1; i >= 0; i--) {
+			const msg = thread.messages[i];
+			for (const part of msg.content) {
+				if (part.type === "tool-call" && part.toolName === "set_readiness") {
+					return (part.args as { level: number }).level;
+				}
+			}
+		}
+		return 0;
+	}, [thread.messages]);
 
-	// Submit pill: visible when conversation has progressed enough and AI is done
+	// Primary gate: AI reports readiness >= 4
+	// Fallback: 4+ user messages if AI never called set_readiness
+	const userMessageCount = thread.messages.filter((m) => m.role === "user").length;
+	const readyToSubmit =
+		!hasSubmitted && (readinessLevel >= 4 || (readinessLevel === 0 && userMessageCount >= 4));
+
+	// Submit pill: visible when ready and AI is done responding
 	const showSubmitPill = readyToSubmit && !thread.isRunning && !compact;
 
 	// Confirm-style send button: green checkmark when ready + input empty
@@ -321,6 +370,7 @@ function AssistantMessage() {
 						},
 						tools: {
 							by_name: {
+								set_readiness: ReadinessToolUI,
 								submit_idea: SubmitIdeaToolUI,
 								redirect_to_form: RedirectToolUI,
 							},
