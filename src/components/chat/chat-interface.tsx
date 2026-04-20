@@ -438,7 +438,7 @@ function AssistantMessage() {
 													key={option}
 													type="button"
 													onClick={() => onOptionClick?.(option)}
-													className="w-full rounded-lg border border-foreground/10 px-3 py-2 text-left text-sm transition-all hover:border-foreground/25 hover:bg-foreground/5 active:scale-[0.98]"
+													className="w-full rounded-xl border border-primary/20 bg-primary/5 px-3.5 py-2.5 text-left text-sm font-medium transition-all hover:border-primary/40 hover:bg-primary/10 active:scale-[0.98]"
 												>
 													{option}
 												</button>
@@ -515,7 +515,7 @@ function parseMarkdown(text: string, onOptionClick?: (text: string) => void): Re
 						key={key}
 						type="button"
 						onClick={() => onOptionClick(bulletText)}
-						className="my-0.5 block w-full rounded-lg border border-foreground/10 px-3 py-2 text-left text-sm transition-all hover:border-foreground/25 hover:bg-foreground/5 active:scale-[0.98]"
+						className="my-0.5 block w-full rounded-xl border border-primary/20 bg-primary/5 px-3.5 py-2.5 text-left text-sm font-medium transition-all hover:border-primary/40 hover:bg-primary/10 active:scale-[0.98]"
 					>
 						{parseInline(bulletText)}
 					</button>,
