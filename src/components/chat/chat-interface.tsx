@@ -126,6 +126,35 @@ const RedirectToolUI: ToolCallMessagePartComponent = ({ args }) => {
 	);
 };
 
+const PresentOptionsToolUI: ToolCallMessagePartComponent = ({ args }) => {
+	const threadRuntime = useThreadRuntime();
+	const thread = useThread();
+	const options = (args as { options: string[] }).options ?? [];
+
+	if (options.length === 0) return null;
+
+	return (
+		<div className="mt-2 flex flex-col gap-1.5">
+			{options.map((option) => (
+				<button
+					key={option}
+					type="button"
+					disabled={thread.isRunning}
+					onClick={() => {
+						threadRuntime.append({
+							role: "user",
+							content: [{ type: "text", text: option }],
+						});
+					}}
+					className="w-full rounded-lg border border-foreground/10 px-3 py-2 text-left text-sm transition-all hover:border-foreground/25 hover:bg-foreground/5 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
+				>
+					{option}
+				</button>
+			))}
+		</div>
+	);
+};
+
 const READINESS_STEPS = ["Capture", "Clarify", "Review", "Ready"] as const;
 
 const ReadinessToolUI: ToolCallMessagePartComponent = ({ args }) => {
@@ -404,6 +433,7 @@ function AssistantMessage() {
 						},
 						tools: {
 							by_name: {
+								present_options: PresentOptionsToolUI,
 								set_readiness: ReadinessToolUI,
 								submit_idea: SubmitIdeaToolUI,
 								redirect_to_form: RedirectToolUI,

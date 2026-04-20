@@ -55,10 +55,6 @@ export async function handleChatRequest(request: Request): Promise<Response> {
 
 	const systemPrompt = `${basePrompt}
 
-## Formatting Rules
-
-When you present multiple options or choices for the employee to pick from, ALWAYS format them as a markdown bullet list (using - prefix), one option per line. Never list options inline separated by commas or "or". This is critical because bullet points are rendered as interactive buttons the employee can tap.
-
 ## Available Categories
 
 The following categories are available. Use the category ID when calling submit_idea. Categories marked [REDIRECT] should use redirect_to_form instead.
@@ -92,6 +88,20 @@ Always call this alongside your text response. Be honest about the level — don
 						),
 				}),
 				execute: async ({ level, summary }) => ({ level, summary }),
+			}),
+			present_options: tool({
+				description:
+					"Present clickable option buttons for the employee to choose from. Call this WHENEVER you ask a question that has distinct possible answers or directions (e.g. clarifying what type of idea, which area it impacts, whether to adjust a summary). Do NOT list options inline in your text — use this tool instead so they render as tappable buttons.",
+				inputSchema: z.object({
+					options: z
+						.array(z.string())
+						.min(2)
+						.max(6)
+						.describe(
+							"Short option labels the employee can tap, e.g. ['Simplifying the form', 'Adding shortcuts', 'Something else']",
+						),
+				}),
+				execute: async ({ options }) => ({ options }),
 			}),
 			submit_idea: tool({
 				description:
