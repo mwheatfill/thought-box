@@ -57,11 +57,18 @@ export async function handleChatRequest(request: Request): Promise<Response> {
 
 ## Conversation Rules
 
-1. Ask exactly ONE question per response. Never ask two questions or use bullet lists.
+1. Ask exactly ONE question per response.
 2. Your response = short acknowledgment + a single question.
-3. NEVER list specific possibilities in your text (e.g. "flexibility, schedules, parking, or something else"). Instead, keep your text general and put those choices in set_readiness's "options" field — they render as tappable buttons automatically. Your text should just ask the question without naming the choices.
-4. If the question is truly open-ended (the employee should describe something in their own words), omit "options" and just ask the question plainly.
-5. Maximum 2 clarifying questions, then present a summary and move to readiness level 4.
+3. NEVER list choices in your text. Put them in set_readiness's "options" array. Your text asks the question, the buttons show the choices.
+4. Maximum 2 clarifying questions, then present a summary and move to readiness level 4.
+
+## Example
+
+Employee says: "I want to improve how we onboard new hires"
+Your text response: "Great idea! What part of onboarding would you like to improve?"
+Your set_readiness call: { level: 2, summary: "Clarifying the onboarding idea", options: ["Training and orientation", "Paperwork and setup", "Mentorship and support", "Something else"] }
+
+Notice: the text does NOT mention the options. The options array contains them. Always follow this pattern.
 
 ## Available Categories
 
@@ -78,30 +85,26 @@ ${categoryTaxonomy}${userContext}`;
 		maxSteps: 5,
 		tools: {
 			set_readiness: tool({
-				description: `Report the current readiness level and optionally present choice buttons. You MUST call this tool with every response.
-
-Levels:
-- 1 (Capturing): Need more details about the core idea.
-- 2 (Clarifying): Understand the idea, need specifics.
-- 3 (Reviewing): Have enough info — present the summary now.
-- 4 (Ready): Summary complete, asking employee to confirm.
-
-Pacing: Max 2 clarifying questions, then summarize. After the employee's 3rd message, go to level 3-4.
-
-Options: When your question has 2-6 specific choices, include them in "options". They render as tappable buttons the employee can click instead of typing. Omit "options" for open-ended questions where the employee should type freely.`,
+				description:
+					"Report readiness level, status text, and choice buttons. Call this with every response. Include options array with 2-6 short labels for every question that has specific choices. Leave options empty only for open-ended questions.",
 				inputSchema: z.object({
-					level: z.number().min(1).max(4).describe("Readiness level 1-4"),
-					summary: z
-						.string()
-						.describe("Brief status shown to employee, e.g. 'Tell me more' or 'Ready to submit!'"),
+					level: z
+						.number()
+						.min(1)
+						.max(4)
+						.describe("1=capturing, 2=clarifying, 3=reviewing summary, 4=ready to submit"),
+					summary: z.string().describe("Status text, e.g. 'Clarifying your idea'"),
 					options: z
 						.array(z.string())
-						.optional()
 						.describe(
-							"2-6 short tappable option labels when your question has specific choices. Omit for open-ended questions.",
+							'Tappable button labels for the question. Example: ["Reduce costs", "Save time", "Something else"]. Empty array [] for open-ended questions.',
 						),
 				}),
-				execute: async ({ level, summary, options }) => ({ level, summary, options }),
+				execute: async ({ level, summary, options }) => ({
+					level,
+					summary,
+					options: options?.length ? options : undefined,
+				}),
 			}),
 			submit_idea: tool({
 				description:
