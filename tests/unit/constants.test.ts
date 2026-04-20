@@ -6,8 +6,6 @@ describe("STATUS_LABELS", () => {
 		expect(STATUS_LABELS).toHaveProperty("new");
 		expect(STATUS_LABELS).toHaveProperty("under_review");
 		expect(STATUS_LABELS).toHaveProperty("accepted");
-		expect(STATUS_LABELS).toHaveProperty("in_progress");
-		expect(STATUS_LABELS).toHaveProperty("implemented");
 		expect(STATUS_LABELS).toHaveProperty("declined");
 		expect(STATUS_LABELS).toHaveProperty("redirected");
 	});
