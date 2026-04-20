@@ -134,8 +134,18 @@ const RedirectToolUI: ToolCallMessagePartComponent = ({ args }) => {
  * Returns the extracted options, or null if no pattern found.
  */
 function extractInlineOptions(text: string): string[] | null {
-	// Match a question containing "X, Y, ..., or Z?"
-	const match = text.match(/([^.!?]*(?:,\s+[^,?]+)+,\s+or\s+[^?]+)\?/);
+	// Skip example lists and parenthetical asides
+	if (/\betc\b\.?/i.test(text) || /\be\.g\b\.?/i.test(text)) return null;
+	if (/\bfor (?:example|instance)\b/i.test(text)) return null;
+
+	// Only match the LAST sentence that contains "X, Y, or Z?"
+	// Split on sentence boundaries but keep the delimiters
+	const sentences = text.split(/(?<=[.!])\s+/);
+	const candidate = sentences.filter((s) => s.includes(", or ") && s.trim().endsWith("?")).pop();
+	if (!candidate) return null;
+
+	// Match the comma-or list pattern within the sentence
+	const match = candidate.match(/([^:]*(?:,\s+[^,?]+)+,\s+or\s+[^?]+)\?$/);
 	if (!match) return null;
 
 	const listText = match[1].trim();
@@ -150,7 +160,10 @@ function extractInlineOptions(text: string): string[] | null {
 	// Strip question prefix from the first item (up to common prepositions)
 	options[0] = options[0].replace(/^.*?\b(?:about|for|like|between|of|to|into|whether)\s+/i, "");
 
-	const clean = options.map((o) => o.trim()).filter((o) => o.length > 0 && o.length < 80);
+	// Filter: must be short (tappable label) and not contain question marks
+	const clean = options
+		.map((o) => o.trim())
+		.filter((o) => o.length > 0 && o.length < 60 && !o.includes("?"));
 
 	return clean.length >= 2 ? clean : null;
 }
@@ -410,15 +423,12 @@ function AssistantMessage() {
 	const thread = useThread();
 	const threadRuntime = useThreadRuntime();
 
-	// Only make bullets clickable when AI is done responding
-	const onOptionClick = thread.isRunning
-		? undefined
-		: (text: string) => {
-				threadRuntime.append({
-					role: "user",
-					content: [{ type: "text", text }],
-				});
-			};
+	const sendOption = (text: string) => {
+		threadRuntime.append({
+			role: "user",
+			content: [{ type: "text", text }],
+		});
+	};
 
 	return (
 		<div className="flex justify-start">
@@ -427,17 +437,17 @@ function AssistantMessage() {
 					components={{
 						Text: ({ text }) => {
 							if (!text) return <TypingIndicator />;
-							const inlineOptions = onOptionClick ? extractInlineOptions(text) : null;
+							const inlineOptions = !thread.isRunning ? extractInlineOptions(text) : null;
 							return (
 								<div>
-									<div className="whitespace-pre-wrap">{parseMarkdown(text, onOptionClick)}</div>
+									<div className="whitespace-pre-wrap">{parseMarkdown(text)}</div>
 									{inlineOptions && (
 										<div className="mt-2 flex flex-col gap-1.5">
 											{inlineOptions.map((option) => (
 												<button
 													key={option}
 													type="button"
-													onClick={() => onOptionClick?.(option)}
+													onClick={() => sendOption(option)}
 													className="w-full rounded-xl border border-primary/20 bg-primary/5 px-3.5 py-2.5 text-left text-sm font-medium transition-all hover:border-primary/40 hover:bg-primary/10 active:scale-[0.98]"
 												>
 													{option}
@@ -491,7 +501,7 @@ function SuggestedPrompts({ prompts }: { prompts: string[] }) {
 
 // ── Simple markdown parser ─────────────────────────────────────────────────
 
-function parseMarkdown(text: string, onOptionClick?: (text: string) => void): React.ReactNode[] {
+function parseMarkdown(text: string): React.ReactNode[] {
 	// Split into lines, then process inline formatting
 	return text.split("\n").flatMap((line, lineIdx, lines) => {
 		const nodes: React.ReactNode[] = [];
@@ -506,28 +516,14 @@ function parseMarkdown(text: string, onOptionClick?: (text: string) => void): Re
 				</p>,
 			);
 		}
-		// Bullet points (- text or * text) — render as clickable options when handler provided
+		// Bullet points (- text or * text)
 		else if (/^[-*]\s+/.test(line)) {
-			const bulletText = line.replace(/^[-*]\s+/, "");
-			if (onOptionClick) {
-				nodes.push(
-					<button
-						key={key}
-						type="button"
-						onClick={() => onOptionClick(bulletText)}
-						className="my-0.5 block w-full rounded-xl border border-primary/20 bg-primary/5 px-3.5 py-2.5 text-left text-sm font-medium transition-all hover:border-primary/40 hover:bg-primary/10 active:scale-[0.98]"
-					>
-						{parseInline(bulletText)}
-					</button>,
-				);
-			} else {
-				nodes.push(
-					<p key={key} className="ml-3">
-						{"• "}
-						{parseInline(bulletText)}
-					</p>,
-				);
-			}
+			nodes.push(
+				<p key={key} className="ml-3">
+					{"• "}
+					{parseInline(line.replace(/^[-*]\s+/, ""))}
+				</p>,
+			);
 		}
 		// Numbered lists (1. text)
 		else if (/^\d+\.\s+/.test(line)) {
@@ -543,8 +539,8 @@ function parseMarkdown(text: string, onOptionClick?: (text: string) => void): Re
 			nodes.push(<span key={key}>{parseInline(line)}</span>);
 		}
 
-		// Add newline between lines (except last, and skip after option buttons)
-		if (lineIdx < lines.length - 1 && !(onOptionClick && /^[-*]\s+/.test(line))) {
+		// Add newline between lines (except last)
+		if (lineIdx < lines.length - 1) {
 			nodes.push("\n");
 		}
 
