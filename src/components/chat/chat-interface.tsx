@@ -10,7 +10,7 @@ import type { ToolCallMessagePartComponent } from "@assistant-ui/react";
 import { AssistantChatTransport, useChatRuntime } from "@assistant-ui/react-ai-sdk";
 import { Link } from "@tanstack/react-router";
 import confetti from "canvas-confetti";
-import { ArrowRight, ArrowUp, ExternalLink, Lightbulb, Loader2, X } from "lucide-react";
+import { ArrowRight, ArrowUp, ExternalLink, Lightbulb, Loader2, RotateCcw } from "lucide-react";
 import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
@@ -121,11 +121,13 @@ const RedirectToolUI: ToolCallMessagePartComponent = ({ args }) => {
 function ChatThread({
 	suggestedPrompts,
 	onFirstMessage,
+	onReset,
 	compact,
 	initialPrompt,
 }: {
 	suggestedPrompts: string[];
 	onFirstMessage?: () => void;
+	onReset?: () => void;
 	compact?: boolean;
 	initialPrompt?: string | null;
 }) {
@@ -174,37 +176,48 @@ function ChatThread({
 				<div className={compact ? "p-3" : "border-t p-4"}>
 					<ComposerPrimitive.Root className="flex items-end gap-2">
 						<ComposerPrimitive.Input
-							placeholder={compact ? "Describe your idea here..." : "Tell me about your idea..."}
+							placeholder={
+								hasMessages
+									? "Type a message or press Enter to confirm..."
+									: compact
+										? "Describe your idea here..."
+										: "Tell me about your idea..."
+							}
 							className={`flex-1 resize-none rounded-lg border border-transparent bg-muted/50 px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-border/50 ${compact ? "h-[72px] min-h-[72px] max-h-[72px]" : ""}`}
 							autoFocus
-						/>
-						{hasMessages && (
-							<Button
-								variant="ghost"
-								size="icon"
-								className="shrink-0 text-muted-foreground hover:text-destructive"
-								aria-label="Cancel submission"
-								onClick={() => {
+							onKeyDown={(e) => {
+								if (
+									e.key === "Enter" &&
+									!e.shiftKey &&
+									hasMessages &&
+									!(e.target as HTMLTextAreaElement).value.trim()
+								) {
+									e.preventDefault();
 									threadRuntime.append({
 										role: "user",
-										content: [
-											{
-												type: "text",
-												text: "Cancel — I changed my mind and don't want to submit this idea.",
-											},
-										],
+										content: [{ type: "text", text: "Yes" }],
 									});
-								}}
-							>
-								<X className="size-4" />
-							</Button>
-						)}
+								}
+							}}
+						/>
 						<ComposerPrimitive.Send asChild>
 							<Button size="icon" className="shrink-0" aria-label="Send message">
 								<ArrowUp className="size-4" />
 							</Button>
 						</ComposerPrimitive.Send>
 					</ComposerPrimitive.Root>
+					{hasMessages && onReset && (
+						<div className="flex justify-center pt-2">
+							<button
+								type="button"
+								onClick={onReset}
+								className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+							>
+								<RotateCcw className="size-3" />
+								Start over
+							</button>
+						</div>
+					)}
 				</div>
 			</ThreadPrimitive.Root>
 		</div>
@@ -366,6 +379,7 @@ interface ChatInterfaceProps {
 	user: AuthUser;
 	suggestedPrompts: string[];
 	onFirstMessage?: () => void;
+	onReset?: () => void;
 	onError?: () => void;
 	compact?: boolean;
 	initialPrompt?: string | null;
@@ -375,6 +389,7 @@ export function ChatInterface({
 	user,
 	suggestedPrompts,
 	onFirstMessage,
+	onReset,
 	onError,
 	compact,
 	initialPrompt,
@@ -406,6 +421,7 @@ export function ChatInterface({
 				<ChatThread
 					suggestedPrompts={suggestedPrompts}
 					onFirstMessage={onFirstMessage}
+					onReset={onReset}
 					compact={compact}
 					initialPrompt={initialPrompt}
 				/>

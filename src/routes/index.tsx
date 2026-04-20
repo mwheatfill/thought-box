@@ -24,6 +24,14 @@ function LandingPage() {
 	const [hasStarted, setHasStarted] = useState(false);
 	const [initialPrompt, setInitialPrompt] = useState<string | null>(null);
 	const [chatFailed, setChatFailed] = useState(false);
+	const [chatKey, setChatKey] = useState(0);
+
+	const handleReset = () => {
+		setHasStarted(false);
+		setInitialPrompt(null);
+		setChatFailed(false);
+		setChatKey((k) => k + 1);
+	};
 	const firstName = user.displayName.split(" ")[0];
 
 	return (
@@ -111,9 +119,11 @@ function LandingPage() {
 					<FallbackForm categories={categories} />
 				) : (
 					<ChatInterface
+						key={chatKey}
 						user={user}
 						suggestedPrompts={suggestedPrompts}
 						onFirstMessage={() => setHasStarted(true)}
+						onReset={handleReset}
 						onError={() => {
 							setHasStarted(true);
 							setChatFailed(true);
