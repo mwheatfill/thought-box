@@ -10,8 +10,16 @@ import type { ToolCallMessagePartComponent } from "@assistant-ui/react";
 import { AssistantChatTransport, useChatRuntime } from "@assistant-ui/react-ai-sdk";
 import { Link } from "@tanstack/react-router";
 import confetti from "canvas-confetti";
-import { ArrowRight, ArrowUp, ExternalLink, Lightbulb, Loader2, RotateCcw } from "lucide-react";
-import { createContext, useContext, useEffect, useMemo, useRef } from "react";
+import {
+	ArrowRight,
+	ArrowUp,
+	Check,
+	ExternalLink,
+	Lightbulb,
+	Loader2,
+	RotateCcw,
+} from "lucide-react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { DropZone } from "#/components/ui/drop-zone";
@@ -136,6 +144,31 @@ function ChatThread({
 	const hasMessages = thread.messages.length > 0;
 	const firedRef = useRef(false);
 	const promptSentRef = useRef(false);
+	const [inputEmpty, setInputEmpty] = useState(true);
+
+	// Check if the submit_idea tool has already been called
+	const hasSubmitted = thread.messages.some((m) =>
+		m.content.some((part) => part.type === "tool-call" && part.toolName === "submit_idea"),
+	);
+
+	// Show quick actions when: conversation active, AI done responding, not yet submitted
+	const showQuickActions = hasMessages && !thread.isRunning && !hasSubmitted && !compact;
+
+	// Show confirm-style send button when input is empty during active conversation
+	const showConfirmButton = inputEmpty && hasMessages && !hasSubmitted;
+
+	// Reset inputEmpty when messages change (after send, input clears)
+	const messageCount = thread.messages.length;
+	useEffect(() => {
+		if (messageCount > 0) setInputEmpty(true);
+	}, [messageCount]);
+
+	const sendConfirm = () => {
+		threadRuntime.append({
+			role: "user",
+			content: [{ type: "text", text: "Yes" }],
+		});
+	};
 
 	// Send initial prompt from landing page card click
 	useEffect(() => {
@@ -173,51 +206,77 @@ function ChatThread({
 
 				{!compact && <SuggestedPrompts prompts={suggestedPrompts} />}
 
+				{/* Quick-action pills */}
+				{showQuickActions && (
+					<div className="flex items-center justify-center gap-2 px-4 pb-2">
+						<Button
+							size="sm"
+							className="gap-1.5 bg-green-600 text-white hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
+							onClick={sendConfirm}
+						>
+							<Check className="size-3.5" />
+							Submit to ThoughtBox
+							<kbd className="ml-1 rounded bg-green-700/50 px-1 py-0.5 font-mono text-[10px] leading-none dark:bg-green-500/30">
+								↵
+							</kbd>
+						</Button>
+						{onReset && (
+							<Button
+								variant="ghost"
+								size="sm"
+								className="gap-1.5 text-muted-foreground"
+								onClick={onReset}
+							>
+								<RotateCcw className="size-3" />
+								Start over
+							</Button>
+						)}
+					</div>
+				)}
+
 				<div className={compact ? "p-3" : "border-t p-4"}>
 					<ComposerPrimitive.Root className="flex items-end gap-2">
 						<ComposerPrimitive.Input
 							placeholder={
-								hasMessages
-									? "Type a message or press Enter to confirm..."
+								hasMessages && !hasSubmitted
+									? "Add details or press Enter to confirm..."
 									: compact
 										? "Describe your idea here..."
 										: "Tell me about your idea..."
 							}
 							className={`flex-1 resize-none rounded-lg border border-transparent bg-muted/50 px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-border/50 ${compact ? "h-[72px] min-h-[72px] max-h-[72px]" : ""}`}
 							autoFocus
+							onChange={(e) => setInputEmpty(!(e.target as HTMLTextAreaElement).value.trim())}
 							onKeyDown={(e) => {
 								if (
 									e.key === "Enter" &&
 									!e.shiftKey &&
 									hasMessages &&
+									!hasSubmitted &&
 									!(e.target as HTMLTextAreaElement).value.trim()
 								) {
 									e.preventDefault();
-									threadRuntime.append({
-										role: "user",
-										content: [{ type: "text", text: "Yes" }],
-									});
+									sendConfirm();
 								}
 							}}
 						/>
-						<ComposerPrimitive.Send asChild>
-							<Button size="icon" className="shrink-0" aria-label="Send message">
-								<ArrowUp className="size-4" />
-							</Button>
-						</ComposerPrimitive.Send>
-					</ComposerPrimitive.Root>
-					{hasMessages && onReset && (
-						<div className="flex justify-center pt-2">
-							<button
-								type="button"
-								onClick={onReset}
-								className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+						{showConfirmButton ? (
+							<Button
+								size="icon"
+								className="shrink-0 bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
+								aria-label="Confirm and submit"
+								onClick={sendConfirm}
 							>
-								<RotateCcw className="size-3" />
-								Start over
-							</button>
-						</div>
-					)}
+								<Check className="size-4" />
+							</Button>
+						) : (
+							<ComposerPrimitive.Send asChild>
+								<Button size="icon" className="shrink-0" aria-label="Send message">
+									<ArrowUp className="size-4" />
+								</Button>
+							</ComposerPrimitive.Send>
+						)}
+					</ComposerPrimitive.Root>
 				</div>
 			</ThreadPrimitive.Root>
 		</div>
