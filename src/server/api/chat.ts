@@ -104,7 +104,7 @@ Notice: the text does NOT mention the options. The options array contains them. 
 ## Example — ready to submit (use present_confirmation)
 
 After enough detail, present a summary in your text, then call:
-present_confirmation: { confirmLabel: "Looks good—submit it!", editLabel: "Let me make changes", summary: "Carpool matching app idea" }
+present_confirmation: { confirmLabel: "Looks good — submit it!", editLabel: "Let me make changes", summary: "Carpool matching app idea" }
 
 ## Available Categories
 
@@ -149,7 +149,7 @@ ${categoryTaxonomy}${userContext}`;
 				inputSchema: z.object({
 					confirmLabel: z
 						.string()
-						.describe('Label for the submit button, e.g. "Looks good—submit it!"'),
+						.describe("Label for the submit button, e.g. Looks good — submit it!"),
 					editLabel: z.string().describe('Label for the edit button, e.g. "Let me make changes"'),
 					summary: z.string().describe("Short summary for the progress bar"),
 				}),

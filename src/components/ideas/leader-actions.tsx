@@ -390,7 +390,9 @@ export function LeaderActions({
 			>
 				<AlertDialogContent className="max-w-md">
 					<AlertDialogHeader>
-						<AlertDialogTitle>Reassign this idea?</AlertDialogTitle>
+						<AlertDialogTitle>
+							{assignedLeaderId ? "Reassign this idea?" : "Assign this idea?"}
+						</AlertDialogTitle>
 					</AlertDialogHeader>
 
 					{/* Idea context */}
@@ -437,9 +439,11 @@ export function LeaderActions({
 					)}
 
 					<AlertDialogDescription>
-						{userRole === "admin"
-							? "This will send a notification email and reset SLA timers."
-							: "This will send a notification email, reset SLA timers, and you will lose access to this idea."}
+						{assignedLeaderId
+							? userRole === "admin"
+								? "This will send a notification email and reset SLA timers."
+								: "This will send a notification email, reset SLA timers, and you will lose access to this idea."
+							: "This will send a notification email and start SLA timers."}
 					</AlertDialogDescription>
 
 					<AlertDialogFooter>
@@ -454,7 +458,7 @@ export function LeaderActions({
 								}
 							}}
 						>
-							Reassign
+							{assignedLeaderId ? "Reassign" : "Assign"}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
