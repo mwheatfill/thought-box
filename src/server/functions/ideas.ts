@@ -288,9 +288,7 @@ export const getIdeaDetail = createServerFn()
 
 const UpdateIdeaSchema = z.object({
 	ideaId: z.string(),
-	status: z
-		.enum(["new", "under_review", "accepted", "in_progress", "implemented", "declined"])
-		.optional(),
+	status: z.enum(["new", "under_review", "accepted", "declined"]).optional(),
 	rejectionReason: z
 		.enum(["already_in_progress", "not_feasible", "not_aligned", "not_thoughtbox"])
 		.nullable()
@@ -333,7 +331,7 @@ export const updateIdea = createServerFn({ method: "POST" })
 		if (data.leaderNotes !== undefined) updates.leaderNotes = data.leaderNotes;
 		if (data.actionTaken !== undefined) updates.actionTaken = data.actionTaken;
 		// Track closure
-		if (data.status && ["accepted", "implemented", "declined"].includes(data.status)) {
+		if (data.status && ["accepted", "declined"].includes(data.status)) {
 			updates.closedAt = new Date();
 		}
 
@@ -402,7 +400,7 @@ export const bulkUpdateStatus = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
 			ideaIds: z.array(z.string()).min(1),
-			status: z.enum(["new", "under_review", "accepted", "in_progress", "implemented", "declined"]),
+			status: z.enum(["new", "under_review", "accepted", "declined"]),
 		}),
 	)
 	.handler(async ({ context, data }) => {
@@ -417,7 +415,7 @@ export const bulkUpdateStatus = createServerFn({ method: "POST" })
 			if (idea.status === data.status) continue;
 
 			const updates: Record<string, unknown> = { status: data.status, updatedAt: new Date() };
-			if (["accepted", "implemented", "declined"].includes(data.status)) {
+			if (["accepted", "declined"].includes(data.status)) {
 				updates.closedAt = new Date();
 			}
 

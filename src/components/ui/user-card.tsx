@@ -198,10 +198,10 @@ export function UserCardPopover({ userId, children }: UserCardPopoverProps) {
 									<p className="text-[11px] text-muted-foreground">Ideas</p>
 								</div>
 								<div className="border-r py-3">
-									<p className="text-base font-semibold text-emerald-600 dark:text-emerald-400">
-										{user.stats.implemented}
+									<p className="text-base font-semibold text-green-600 dark:text-green-400">
+										{user.stats.accepted}
 									</p>
-									<p className="text-[11px] text-muted-foreground">Implemented</p>
+									<p className="text-[11px] text-muted-foreground">Accepted</p>
 								</div>
 								<div className="py-3">
 									<p className="text-base font-semibold text-blue-600 dark:text-blue-400">

@@ -65,7 +65,7 @@ function IdeaDetailPage() {
 		queryFn: () => getIdeaAttachments({ data: { ideaId: idea.id } }),
 	});
 
-	const lockedStatuses = ["accepted", "implemented", "declined"];
+	const lockedStatuses = ["accepted", "declined"];
 	const isLocked = lockedStatuses.includes(idea.status) && !idea.canEdit;
 
 	// Update mutation

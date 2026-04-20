@@ -32,7 +32,7 @@ interface MyIdea {
 	submittedAt: string;
 }
 
-type KpiFilter = "all" | "active" | "implemented" | null;
+type KpiFilter = "all" | "active" | "accepted" | null;
 
 const columns: ColumnDef<MyIdea, unknown>[] = [
 	{
@@ -85,14 +85,14 @@ function MyIdeasPage() {
 
 	const stats = useMemo(() => {
 		const active = ideas.filter((i) => OPEN_STATUSES.includes(i.status)).length;
-		const implemented = ideas.filter((i) => i.status === "implemented").length;
-		return { active, implemented };
+		const accepted = ideas.filter((i) => i.status === "accepted").length;
+		return { active, accepted };
 	}, [ideas]);
 
 	const filteredIdeas = useMemo(() => {
 		if (!kpiFilter) return ideas;
 		if (kpiFilter === "active") return ideas.filter((i) => OPEN_STATUSES.includes(i.status));
-		if (kpiFilter === "implemented") return ideas.filter((i) => i.status === "implemented");
+		if (kpiFilter === "accepted") return ideas.filter((i) => i.status === "accepted");
 		return ideas; // "all"
 	}, [ideas, kpiFilter]);
 
@@ -150,11 +150,11 @@ function MyIdeasPage() {
 				/>
 				<KpiCard
 					icon={CheckCircle}
-					label="Implemented"
-					value={stats.implemented}
+					label="Accepted"
+					value={stats.accepted}
 					color="emerald"
-					onClick={() => toggleKpi("implemented")}
-					isActive={kpiFilter === "implemented"}
+					onClick={() => toggleKpi("accepted")}
+					isActive={kpiFilter === "accepted"}
 				/>
 			</div>
 

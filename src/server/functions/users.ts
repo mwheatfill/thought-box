@@ -48,13 +48,11 @@ export const getUserCard = createServerFn()
 		if (!user) return null;
 
 		const totalIdeas = userIdeas.length;
-		const implemented = userIdeas.filter((i) => i.status === "implemented").length;
-		const open = userIdeas.filter((i) =>
-			["new", "under_review", "in_progress"].includes(i.status),
-		).length;
+		const accepted = userIdeas.filter((i) => i.status === "accepted").length;
+		const open = userIdeas.filter((i) => ["new", "under_review"].includes(i.status)).length;
 
 		// Fire-and-forget presence — don't block on it failing
 		const presence = await getUserPresence(user.entraId).catch(() => null);
 
-		return { ...user, presence, stats: { totalIdeas, implemented, open } };
+		return { ...user, presence, stats: { totalIdeas, accepted, open } };
 	});

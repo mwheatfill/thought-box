@@ -299,7 +299,6 @@ export function LeaderDashboard({
 										<SelectContent>
 											<SelectItem value="under_review">Under Review</SelectItem>
 											<SelectItem value="accepted">Accepted</SelectItem>
-											<SelectItem value="in_progress">In Progress</SelectItem>
 											<SelectItem value="declined">Declined</SelectItem>
 										</SelectContent>
 									</Select>

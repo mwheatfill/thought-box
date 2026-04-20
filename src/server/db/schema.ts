@@ -23,8 +23,6 @@ export const ideaStatusEnum = pgEnum("idea_status", [
 	"new",
 	"under_review",
 	"accepted",
-	"in_progress",
-	"implemented",
 	"declined",
 	"redirected",
 ]);

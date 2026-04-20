@@ -2,8 +2,6 @@ export const STATUS_LABELS = {
 	new: "New",
 	under_review: "Under Review",
 	accepted: "Accepted",
-	in_progress: "In Progress",
-	implemented: "Implemented",
 	declined: "Declined",
 	redirected: "Redirected",
 } as const;
@@ -28,7 +26,7 @@ export const IMPACT_AREAS = {
 
 export type ImpactArea = keyof typeof IMPACT_AREAS;
 
-export const OPEN_STATUSES = ["new", "under_review", "in_progress"] as const;
+export const OPEN_STATUSES = ["new", "under_review"] as const;
 
 export const KPI_COLORS = {
 	amber: { bg: "bg-amber-100 dark:bg-amber-900/30", icon: "text-amber-600 dark:text-amber-400" },

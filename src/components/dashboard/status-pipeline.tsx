@@ -5,16 +5,12 @@ const PIPELINE_STEPS: { status: IdeaStatus; label: string }[] = [
 	{ status: "new", label: "New" },
 	{ status: "under_review", label: "Review" },
 	{ status: "accepted", label: "Accepted" },
-	{ status: "in_progress", label: "In Progress" },
-	{ status: "implemented", label: "Done" },
 ];
 
 const STEP_COLORS: Record<string, string> = {
 	new: "bg-blue-500",
 	under_review: "bg-yellow-500",
 	accepted: "bg-green-500",
-	in_progress: "bg-purple-500",
-	implemented: "bg-emerald-500",
 };
 
 const TERMINAL_STATUSES = new Set<string>(["declined", "redirected"]);

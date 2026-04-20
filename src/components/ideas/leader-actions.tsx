@@ -112,7 +112,7 @@ export function LeaderActions({
 	isReassigning,
 	isCommunicating,
 }: LeaderActionsProps) {
-	const closedStatuses = ["accepted", "implemented", "declined"];
+	const closedStatuses = ["accepted", "declined"];
 	const isClosed = closedStatuses.includes(currentStatus);
 
 	const [status, setStatus] = useState(currentStatus);
@@ -271,14 +271,6 @@ export function LeaderActions({
 									<SelectItem value="accepted">
 										<span>Accepted</span>
 										<span className="ml-1 text-xs text-muted-foreground">— Moving forward</span>
-									</SelectItem>
-									<SelectItem value="in_progress">
-										<span>In Progress</span>
-										<span className="ml-1 text-xs text-muted-foreground">— Being implemented</span>
-									</SelectItem>
-									<SelectItem value="implemented">
-										<span>Implemented</span>
-										<span className="ml-1 text-xs text-muted-foreground">— Done</span>
 									</SelectItem>
 									<SelectItem value="declined">
 										<span>Declined</span>

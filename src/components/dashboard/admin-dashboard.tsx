@@ -120,8 +120,6 @@ const STATUS_COLORS: Record<string, string> = {
 	new: "#3b82f6",
 	under_review: "#f59e0b",
 	accepted: "#10b981",
-	in_progress: "#8b5cf6",
-	implemented: "#06b6d4",
 	declined: "#ef4444",
 	redirected: "#9ca3af",
 };

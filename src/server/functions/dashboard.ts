@@ -81,7 +81,7 @@ export const getLeaderStats = createServerFn()
 			columns: { status: true, slaDueDate: true },
 		});
 
-		const openStatuses = ["new", "under_review", "in_progress"] as const;
+		const openStatuses = ["new", "under_review"] as const;
 		const openIdeas = myIdeas.filter((i) =>
 			openStatuses.includes(i.status as (typeof openStatuses)[number]),
 		);
@@ -118,7 +118,7 @@ export const getDashboardStats = createServerFn()
 		const thisMonth = allIdeas.filter((i) => i.submittedAt >= startOfMonth);
 		const thisYear = allIdeas.filter((i) => i.submittedAt >= startOfYear);
 
-		const openStatuses = ["new", "under_review", "in_progress"];
+		const openStatuses = ["new", "under_review"];
 		const openIdeas = allIdeas.filter((i) => openStatuses.includes(i.status));
 		const overdueOpen = openIdeas.filter((i) => {
 			const days = businessDaysRemaining(i.slaDueDate);

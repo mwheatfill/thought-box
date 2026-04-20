@@ -10,7 +10,7 @@ import type { ToolCallMessagePartComponent } from "@assistant-ui/react";
 import { AssistantChatTransport, useChatRuntime } from "@assistant-ui/react-ai-sdk";
 import { Link } from "@tanstack/react-router";
 import confetti from "canvas-confetti";
-import { ArrowRight, ArrowUp, ExternalLink, Lightbulb, Loader2 } from "lucide-react";
+import { ArrowRight, ArrowUp, ExternalLink, Lightbulb, Loader2, X } from "lucide-react";
 import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
@@ -178,6 +178,27 @@ function ChatThread({
 							className={`flex-1 resize-none rounded-lg border border-transparent bg-muted/50 px-3 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-border/50 ${compact ? "h-[72px] min-h-[72px] max-h-[72px]" : ""}`}
 							autoFocus
 						/>
+						{hasMessages && (
+							<Button
+								variant="ghost"
+								size="icon"
+								className="shrink-0 text-muted-foreground hover:text-destructive"
+								aria-label="Cancel submission"
+								onClick={() => {
+									threadRuntime.append({
+										role: "user",
+										content: [
+											{
+												type: "text",
+												text: "Cancel — I changed my mind and don't want to submit this idea.",
+											},
+										],
+									});
+								}}
+							>
+								<X className="size-4" />
+							</Button>
+						)}
 						<ComposerPrimitive.Send asChild>
 							<Button size="icon" className="shrink-0" aria-label="Send message">
 								<ArrowUp className="size-4" />
