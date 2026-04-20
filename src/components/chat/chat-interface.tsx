@@ -213,12 +213,10 @@ function ChatThread({
 	const promptSentRef = useRef(false);
 	const [inputEmpty, setInputEmpty] = useState(true);
 
-	// Check if the submit_idea tool has already been called
 	const hasSubmitted = thread.messages.some((m) =>
 		m.content.some((part) => part.type === "tool-call" && part.toolName === "submit_idea"),
 	);
 
-	// AI-driven readiness: scan messages for the latest set_readiness tool call
 	const readinessLevel = useMemo(() => {
 		for (let i = thread.messages.length - 1; i >= 0; i--) {
 			const msg = thread.messages[i];
@@ -231,29 +229,16 @@ function ChatThread({
 		return 0;
 	}, [thread.messages]);
 
-	// Primary gate: AI reports readiness >= 4
-	// Fallback: 4+ user messages if AI never called set_readiness
+	// Readiness >= 4 = ready to submit. Fallback if AI never calls set_readiness.
 	const userMessageCount = thread.messages.filter((m) => m.role === "user").length;
 	const readyToSubmit =
 		!hasSubmitted && (readinessLevel >= 4 || (readinessLevel === 0 && userMessageCount >= 4));
-
-	// Submit pill: visible when ready and AI is done responding
 	const showSubmitPill = readyToSubmit && !thread.isRunning && !compact;
-
-	// Confirm-style send button: green checkmark when ready + input empty
 	const showConfirmButton = readyToSubmit && inputEmpty;
 
-	// Reset inputEmpty when messages change (after send, input clears)
-	const messageCount = thread.messages.length;
-	useEffect(() => {
-		if (messageCount > 0) setInputEmpty(true);
-	}, [messageCount]);
-
 	const sendConfirm = () => {
-		threadRuntime.append({
-			role: "user",
-			content: [{ type: "text", text: "Yes" }],
-		});
+		threadRuntime.append({ role: "user", content: [{ type: "text", text: "Yes" }] });
+		setInputEmpty(true);
 	};
 
 	// Send initial prompt from landing page card click

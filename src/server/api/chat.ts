@@ -11,6 +11,18 @@ import { calculateSlaDueDate } from "#/server/lib/sla";
 import { nextSubmissionId } from "#/server/lib/submission-id";
 import { trackEvent } from "#/server/lib/telemetry";
 
+function extractConversationMessages(
+	messages: unknown[],
+	timestamp: string,
+): ConversationMessage[] {
+	return (messages ?? [])
+		.filter((m: unknown): m is { role: "user" | "assistant"; content: string } => {
+			const msg = m as { role: string; content: unknown };
+			return (msg.role === "user" || msg.role === "assistant") && typeof msg.content === "string";
+		})
+		.map((m) => ({ role: m.role, content: m.content, timestamp }));
+}
+
 export async function handleChatRequest(request: Request): Promise<Response> {
 	const body = await request.json();
 	const userId = body.userId;
@@ -95,7 +107,8 @@ ${categoryTaxonomy}${userContext}`;
 						.describe("1=capturing, 2=clarifying, 3=reviewing summary, 4=ready to submit"),
 					summary: z.string().describe("Status text, e.g. 'Clarifying your idea'"),
 					options: z
-						.array(z.string())
+						.array(z.string().max(80))
+						.max(6)
 						.describe(
 							'Tappable button labels for the question. Example: ["Reduce costs", "Save time", "Something else"]. Empty array [] for open-ended questions.',
 						),
@@ -181,18 +194,12 @@ ${categoryTaxonomy}${userContext}`;
 					});
 
 					// Save the conversation
-					const conversationMessages: ConversationMessage[] = body.messages
-						?.filter(
-							(m: { role: string; content: unknown }) =>
-								(m.role === "user" || m.role === "assistant") && typeof m.content === "string",
-						)
-						.map((m: { role: string; content: string }) => ({
-							role: m.role as "user" | "assistant",
-							content: m.content,
-							timestamp: now.toISOString(),
-						}));
+					const conversationMessages = extractConversationMessages(
+						body.messages,
+						now.toISOString(),
+					);
 
-					if (conversationMessages?.length > 0) {
+					if (conversationMessages.length > 0) {
 						await db.insert(conversations).values({
 							ideaId: idea.id,
 							userId,
@@ -272,18 +279,12 @@ ${categoryTaxonomy}${userContext}`;
 				execute: async ({ categoryName, redirectUrl, redirectLabel }) => {
 					// Save the redirected conversation
 					if (userId) {
-						const conversationMessages: ConversationMessage[] = body.messages
-							?.filter(
-								(m: { role: string; content: unknown }) =>
-									(m.role === "user" || m.role === "assistant") && typeof m.content === "string",
-							)
-							.map((m: { role: string; content: string }) => ({
-								role: m.role as "user" | "assistant",
-								content: m.content,
-								timestamp: new Date().toISOString(),
-							}));
+						const conversationMessages = extractConversationMessages(
+							body.messages,
+							new Date().toISOString(),
+						);
 
-						if (conversationMessages?.length > 0) {
+						if (conversationMessages.length > 0) {
 							await db.insert(conversations).values({
 								userId,
 								messages: conversationMessages,
