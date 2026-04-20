@@ -94,14 +94,21 @@ IMPORTANT — pacing rules:
 				execute: async ({ level, summary }) => ({ level, summary }),
 			}),
 			present_options: tool({
-				description: `Present clickable option buttons for the employee to choose from. You MUST call this tool with EVERY response that asks a question — no exceptions. The employee should always have buttons to tap rather than having to type from scratch.
+				description: `Present clickable option buttons when you have a discrete list of choices for the employee to pick from. These render as tappable buttons in the chat.
+
+When to use:
+- You're offering 2-6 specific directions (e.g. "Are you thinking about simplifying forms, reducing steps, or something else?")
+- You're asking the employee to pick from known options (categories, impact areas, yes/no confirmation)
+
+When NOT to use:
+- The employee needs to describe their idea in their own words (first question — let them type)
+- You're asking an open-ended question like "Tell me more" or "What would that look like?"
+- You're presenting a summary for confirmation (use set_readiness level 4 instead)
 
 Rules:
-- EVERY question you ask MUST have options. Even open-ended questions should have suggested answers.
-- NEVER write choices inline in your text (e.g. "Is it X, Y, or Z?"). Use this tool instead.
-- For open-ended questions, provide 2-3 likely answers plus "Something else".
+- NEVER write choices inline in your text. Use this tool so they render as buttons.
 - Keep labels short and tappable (under 60 characters).
-- Call this on EVERY turn, not just the first time.`,
+- Include a catch-all like "Something else" when appropriate.`,
 				inputSchema: z.object({
 					options: z
 						.array(z.string())
