@@ -55,6 +55,10 @@ export async function handleChatRequest(request: Request): Promise<Response> {
 
 	const systemPrompt = `${basePrompt}
 
+## Formatting Rules
+
+When you present multiple options or choices for the employee to pick from, ALWAYS format them as a markdown bullet list (using - prefix), one option per line. Never list options inline separated by commas or "or". This is critical because bullet points are rendered as interactive buttons the employee can tap.
+
 ## Available Categories
 
 The following categories are available. Use the category ID when calling submit_idea. Categories marked [REDIRECT] should use redirect_to_form instead.
