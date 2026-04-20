@@ -378,6 +378,19 @@ function TypingIndicator() {
 }
 
 function AssistantMessage() {
+	const thread = useThread();
+	const threadRuntime = useThreadRuntime();
+
+	// Only make bullets clickable when AI is done responding
+	const onOptionClick = thread.isRunning
+		? undefined
+		: (text: string) => {
+				threadRuntime.append({
+					role: "user",
+					content: [{ type: "text", text }],
+				});
+			};
+
 	return (
 		<div className="flex justify-start">
 			<div className="max-w-[85%] space-y-2 rounded-2xl bg-muted px-4 py-2.5 text-sm">
@@ -385,7 +398,9 @@ function AssistantMessage() {
 					components={{
 						Text: ({ text }) => {
 							if (!text) return <TypingIndicator />;
-							return <div className="whitespace-pre-wrap">{parseMarkdown(text)}</div>;
+							return (
+								<div className="whitespace-pre-wrap">{parseMarkdown(text, onOptionClick)}</div>
+							);
 						},
 						tools: {
 							by_name: {
@@ -430,7 +445,7 @@ function SuggestedPrompts({ prompts }: { prompts: string[] }) {
 
 // ── Simple markdown parser ─────────────────────────────────────────────────
 
-function parseMarkdown(text: string): React.ReactNode[] {
+function parseMarkdown(text: string, onOptionClick?: (text: string) => void): React.ReactNode[] {
 	// Split into lines, then process inline formatting
 	return text.split("\n").flatMap((line, lineIdx, lines) => {
 		const nodes: React.ReactNode[] = [];
@@ -445,14 +460,28 @@ function parseMarkdown(text: string): React.ReactNode[] {
 				</p>,
 			);
 		}
-		// Bullet points (- text or * text)
+		// Bullet points (- text or * text) — render as clickable options when handler provided
 		else if (/^[-*]\s+/.test(line)) {
-			nodes.push(
-				<p key={key} className="ml-3">
-					{"• "}
-					{parseInline(line.replace(/^[-*]\s+/, ""))}
-				</p>,
-			);
+			const bulletText = line.replace(/^[-*]\s+/, "");
+			if (onOptionClick) {
+				nodes.push(
+					<button
+						key={key}
+						type="button"
+						onClick={() => onOptionClick(bulletText)}
+						className="my-0.5 block w-full rounded-lg border border-foreground/10 px-3 py-2 text-left text-sm transition-all hover:border-foreground/25 hover:bg-foreground/5 active:scale-[0.98]"
+					>
+						{parseInline(bulletText)}
+					</button>,
+				);
+			} else {
+				nodes.push(
+					<p key={key} className="ml-3">
+						{"• "}
+						{parseInline(bulletText)}
+					</p>,
+				);
+			}
 		}
 		// Numbered lists (1. text)
 		else if (/^\d+\.\s+/.test(line)) {
@@ -468,8 +497,8 @@ function parseMarkdown(text: string): React.ReactNode[] {
 			nodes.push(<span key={key}>{parseInline(line)}</span>);
 		}
 
-		// Add newline between lines (except last)
-		if (lineIdx < lines.length - 1) {
+		// Add newline between lines (except last, and skip after option buttons)
+		if (lineIdx < lines.length - 1 && !(onOptionClick && /^[-*]\s+/.test(line))) {
 			nodes.push("\n");
 		}
 
