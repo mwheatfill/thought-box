@@ -90,16 +90,20 @@ Always call this alongside your text response. Be honest about the level — don
 				execute: async ({ level, summary }) => ({ level, summary }),
 			}),
 			present_options: tool({
-				description:
-					"Present clickable option buttons for the employee to choose from. Call this WHENEVER you ask a question that has distinct possible answers or directions (e.g. clarifying what type of idea, which area it impacts, whether to adjust a summary). Do NOT list options inline in your text — use this tool instead so they render as tappable buttons.",
+				description: `Present clickable option buttons for the employee to choose from. You MUST call this tool EVERY time your response includes choices, alternatives, or questions with possible answers. NEVER write options as inline text, numbered lists, or comma-separated alternatives — they will not be interactive.
+
+Rules:
+- If your response asks "Is it X, Y, or Z?" → call this tool with [X, Y, Z] instead of writing them inline.
+- If your response lists follow-up questions → call this tool with short labels for each direction.
+- Call this on EVERY turn where you present choices, not just the first time.
+- Keep option labels short and tappable (under 60 characters each).
+- Always include a catch-all option like "Something else" when appropriate.`,
 				inputSchema: z.object({
 					options: z
 						.array(z.string())
 						.min(2)
 						.max(6)
-						.describe(
-							"Short option labels the employee can tap, e.g. ['Simplifying the form', 'Adding shortcuts', 'Something else']",
-						),
+						.describe("Short option labels the employee can tap"),
 				}),
 				execute: async ({ options }) => ({ options }),
 			}),
