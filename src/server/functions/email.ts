@@ -273,6 +273,7 @@ const TEST_TEMPLATES = [
 	"status_accepted",
 	"status_declined",
 	"idea_reassigned",
+	"idea_reassigned_submitter",
 	"message_from_leader",
 	"message_from_submitter",
 	"watcher_alert",
