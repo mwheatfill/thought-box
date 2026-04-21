@@ -8,6 +8,7 @@ import type { ConversationMessage } from "#/server/db/schema";
 import {
 	sendIdeaAssignedEmail,
 	sendIdeaReassignedEmail,
+	sendIdeaReassignedSubmitterEmail,
 	sendIdeaSubmittedEmail,
 	sendStatusChangedEmail,
 	sendWatcherAlert,
@@ -462,7 +463,7 @@ export const reassignIdea = createServerFn({ method: "POST" })
 			},
 			with: {
 				category: { columns: { name: true } },
-				submitter: { columns: { displayName: true } },
+				submitter: { columns: { displayName: true, email: true } },
 			},
 		});
 
@@ -521,6 +522,15 @@ export const reassignIdea = createServerFn({ method: "POST" })
 			categoryName: idea.category.name,
 			submitterName: idea.submitter.displayName,
 			reassignedByName: context.user.displayName,
+		});
+
+		// Fire-and-forget: notify submitter (no leader name revealed)
+		sendIdeaReassignedSubmitterEmail({
+			submitterEmail: idea.submitter.email,
+			submitterFirstName: idea.submitter.displayName.split(" ")[0],
+			submissionId: idea.submissionId,
+			ideaTitle: idea.title,
+			categoryName: idea.category.name,
 		});
 
 		audit({

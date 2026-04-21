@@ -4,6 +4,7 @@ import { z } from "zod";
 import AccessRequested from "#/emails/AccessRequested";
 import IdeaAssigned from "#/emails/IdeaAssigned";
 import IdeaReassigned from "#/emails/IdeaReassigned";
+import IdeaReassignedSubmitter from "#/emails/IdeaReassignedSubmitter";
 import IdeaSubmitted from "#/emails/IdeaSubmitted";
 import NewMessage from "#/emails/NewMessage";
 import SlaReminder from "#/emails/SlaReminder";
@@ -154,6 +155,28 @@ export async function sendIdeaReassignedEmail(params: {
 			categoryName: params.categoryName,
 			submitterName: params.submitterName,
 			reassignedByName: params.reassignedByName,
+			viewUrl: ideaUrl(params.submissionId),
+		}),
+	});
+}
+
+/** Notify the submitter that their idea has been reassigned (no leader name revealed). */
+export async function sendIdeaReassignedSubmitterEmail(params: {
+	submitterEmail: string;
+	submitterFirstName: string;
+	submissionId: string;
+	ideaTitle: string;
+	categoryName: string;
+}) {
+	await sendEmail({
+		to: params.submitterEmail,
+		subject: `Your idea ${params.submissionId} has a new reviewer`,
+		templateName: "IdeaReassignedSubmitter",
+		template: createElement(IdeaReassignedSubmitter, {
+			submitterFirstName: params.submitterFirstName,
+			submissionId: params.submissionId,
+			ideaTitle: params.ideaTitle,
+			categoryName: params.categoryName,
 			viewUrl: ideaUrl(params.submissionId),
 		}),
 	});
@@ -349,6 +372,16 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						categoryName: sample.categoryName,
 						submitterName: "Sarah Chen",
 						reassignedByName: "Nubia Ruiz",
+						viewUrl,
+					}),
+				},
+				idea_reassigned_submitter: {
+					subject: `[TEST] Your idea ${sample.submissionId} has a new reviewer`,
+					template: createElement(IdeaReassignedSubmitter, {
+						submitterFirstName: firstName,
+						submissionId: sample.submissionId,
+						ideaTitle: sample.ideaTitle,
+						categoryName: sample.categoryName,
 						viewUrl,
 					}),
 				},
