@@ -357,7 +357,7 @@ resource authSettings 'Microsoft.Web/sites/config@2024-04-01' = {
     globalValidation: {
       unauthenticatedClientAction: 'RedirectToLoginPage'
       requireAuthentication: true
-      excludedPaths: ['/health']
+      excludedPaths: ['/health', '/logo.png']
     }
     identityProviders: {
       azureActiveDirectory: {
