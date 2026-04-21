@@ -1,4 +1,14 @@
-import { Body, Container, Head, Hr, Html, Preview, Section, Text } from "@react-email/components";
+import {
+	Body,
+	Container,
+	Head,
+	Hr,
+	Html,
+	Img,
+	Preview,
+	Section,
+	Text,
+} from "@react-email/components";
 import { Tailwind } from "@react-email/tailwind";
 
 interface EmailLayoutProps {
@@ -27,10 +37,16 @@ export function EmailLayout({ preview, accentColor = "#3b82f6", children }: Emai
 						{/* Main card */}
 						<Section className="bg-white px-8 pt-6 pb-8" style={{ borderRadius: "0 0 8px 8px" }}>
 							{/* Brand */}
-							<Text className="m-0 text-base font-bold tracking-tight text-gray-800">
+							<Img
+								src="https://thoughtbox.desertfinancial.com/logo.png"
+								alt="Desert Financial"
+								width="140"
+								height="53"
+								style={{ margin: "0 auto 8px" }}
+							/>
+							<Text className="m-0 text-center text-sm font-bold tracking-tight text-gray-800">
 								ThoughtBox
 							</Text>
-							<Text className="m-0 text-[11px] text-gray-400">Desert Financial Credit Union</Text>
 
 							<Hr className="my-5 border-gray-100" />
 
