@@ -242,3 +242,22 @@ export function QuoteBlock({
 		</div>
 	);
 }
+
+/** Centered uppercase section divider label */
+export function SectionLabel({ children }: { children: string }) {
+	return (
+		<Text
+			className="m-0 text-center"
+			style={{
+				fontSize: 10,
+				fontWeight: 700,
+				letterSpacing: "0.1em",
+				textTransform: "uppercase" as const,
+				color: "#9ca3af",
+				margin: "16px 0",
+			}}
+		>
+			{children}
+		</Text>
+	);
+}

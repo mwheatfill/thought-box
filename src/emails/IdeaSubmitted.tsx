@@ -1,5 +1,5 @@
 import { Hr, Text } from "@react-email/components";
-import { EmailLayout, HeroIcon, IdeaCard, StepCard } from "./components/EmailLayout";
+import { EmailLayout, HeroIcon, IdeaCard, SectionLabel, StepCard } from "./components/EmailLayout";
 
 interface IdeaSubmittedProps {
 	submitterFirstName: string;
@@ -41,19 +41,7 @@ export default function IdeaSubmitted({
 
 			{/* What happens next */}
 			<Hr className="my-1 border-gray-100" />
-			<Text
-				className="m-0 text-center"
-				style={{
-					fontSize: 10,
-					fontWeight: 700,
-					letterSpacing: "0.1em",
-					textTransform: "uppercase" as const,
-					color: "#9ca3af",
-					margin: "16px 0",
-				}}
-			>
-				What happens next
-			</Text>
+			<SectionLabel>What happens next</SectionLabel>
 
 			<StepCard
 				icon="→"
