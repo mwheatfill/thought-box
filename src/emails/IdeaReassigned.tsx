@@ -40,6 +40,10 @@ export default function IdeaReassigned({
 				meta={`${categoryName} · Submitted by ${submitterName}`}
 			/>
 
+			<Text className="m-0 text-center text-sm font-medium text-gray-700">
+				Please review and change status within 5 days.
+			</Text>
+
 			<PrimaryButton href={viewUrl}>Review Idea →</PrimaryButton>
 		</EmailLayout>
 	);
