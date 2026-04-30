@@ -28,17 +28,20 @@ export function calculateSlaDueDate(submittedAt: Date, businessDays = 15): Date 
 /**
  * Count business days elapsed between two dates (skipping weekends).
  * Returns 0 if `end` is before `start`.
+ *
+ * Inverse of `addBusinessDays`: businessDaysBetween(d, addBusinessDays(d, n)) === n.
  */
 export function businessDaysBetween(start: Date, end: Date): number {
 	if (end <= start) return 0;
 	let count = 0;
 	const cursor = new Date(start);
-	while (cursor < end) {
-		cursor.setDate(cursor.getDate() + 1);
+	cursor.setDate(cursor.getDate() + 1);
+	while (cursor <= end) {
 		const dayOfWeek = cursor.getDay();
 		if (dayOfWeek !== 0 && dayOfWeek !== 6) {
 			count++;
 		}
+		cursor.setDate(cursor.getDate() + 1);
 	}
 	return count;
 }
