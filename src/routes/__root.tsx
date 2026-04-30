@@ -39,7 +39,11 @@ export const Route = createRootRoute({
 				content: "Share an idea to make things better for our team and our members.",
 			},
 		],
-		links: [{ rel: "stylesheet", href: appCss }],
+		links: [
+			{ rel: "stylesheet", href: appCss },
+			{ rel: "icon", type: "image/png", href: "/thoughtbox-logo.png" },
+			{ rel: "apple-touch-icon", href: "/thoughtbox-logo.png" },
+		],
 	}),
 	beforeLoad: async ({ location }) => {
 		// Skip auth for the deactivated page to avoid redirect loops

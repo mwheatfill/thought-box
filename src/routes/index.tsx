@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Lightbulb } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { ChatInterface } from "#/components/chat/chat-interface";
@@ -57,9 +56,12 @@ function LandingPage() {
 					transition={{ duration: 0.4, delay: 0.05 }}
 					className="mb-6"
 				>
-					<div className="rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 p-4">
-						<Lightbulb className="size-10 text-primary" />
-					</div>
+					<img
+						src="/thoughtbox-logo.png"
+						alt="ThoughtBox"
+						className="size-24 select-none"
+						draggable={false}
+					/>
 				</motion.div>
 
 				{/* Greeting */}
