@@ -8,7 +8,7 @@ interface SlaReminderProps {
 	submitterName: string;
 	categoryName: string;
 	currentStatus: string;
-	daysSinceSubmission: number;
+	businessDaysSinceStart: number;
 	viewUrl: string;
 }
 
@@ -19,7 +19,7 @@ export default function SlaReminder({
 	submitterName = "Sarah Chen",
 	categoryName = "Process Improvement",
 	currentStatus = "New",
-	daysSinceSubmission = 5,
+	businessDaysSinceStart = 5,
 	viewUrl = "https://thoughtbox.desertfinancial.com/ideas/TB-0001",
 }: SlaReminderProps) {
 	return (
@@ -33,7 +33,10 @@ export default function SlaReminder({
 			<Text className="m-0 mt-2 text-center text-sm text-gray-500">
 				Hi {leaderFirstName}, this idea has been in{" "}
 				<strong className="text-gray-700">{currentStatus}</strong> status for{" "}
-				<strong className="text-gray-700">{daysSinceSubmission} days</strong>.
+				<strong className="text-gray-700">
+					{businessDaysSinceStart} business {businessDaysSinceStart === 1 ? "day" : "days"}
+				</strong>
+				.
 			</Text>
 
 			{/* Idea card with amber accent */}

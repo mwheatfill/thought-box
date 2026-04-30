@@ -26,6 +26,24 @@ export function calculateSlaDueDate(submittedAt: Date, businessDays = 15): Date 
 }
 
 /**
+ * Count business days elapsed between two dates (skipping weekends).
+ * Returns 0 if `end` is before `start`.
+ */
+export function businessDaysBetween(start: Date, end: Date): number {
+	if (end <= start) return 0;
+	let count = 0;
+	const cursor = new Date(start);
+	while (cursor < end) {
+		cursor.setDate(cursor.getDate() + 1);
+		const dayOfWeek = cursor.getDay();
+		if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+			count++;
+		}
+	}
+	return count;
+}
+
+/**
  * Check if an idea is overdue based on its SLA due date.
  */
 export function isOverdue(slaDueDate: Date | null): boolean {

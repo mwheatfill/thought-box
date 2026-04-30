@@ -66,42 +66,51 @@ function SettingsPage() {
 				/>
 				<NumberSetting
 					settingKey="sla_business_days"
-					title="SLA Business Days"
-					description="Number of business days for the initial review SLA deadline."
+					title="Review SLA Deadline"
+					description="Business days from submission until the initial review is due. Weekends are skipped."
 					value={settings.sla_business_days ?? "15"}
 					queryClient={queryClient}
+					unit="business days"
+					showBusinessDayHelper
 				/>
 				<Card>
 					<CardHeader>
 						<CardTitle>SLA Reminders</CardTitle>
 						<CardDescription>
-							Automated email reminders sent to assigned leaders when ideas are overdue.
+							Automated email reminders sent to assigned leaders. All thresholds are in business
+							days, counted from submission (or from the most recent reassignment).
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="space-y-4">
 						<NumberSetting
 							settingKey="sla_new_first_reminder_days"
 							title="First Reminder (New)"
-							description="Days after submission to send first reminder when status is still New."
+							description="First reminder sent when an idea has been in New status for this many business days."
 							value={settings.sla_new_first_reminder_days ?? "5"}
 							queryClient={queryClient}
+							unit="business days"
 							inline
+							showBusinessDayHelper
 						/>
 						<NumberSetting
 							settingKey="sla_new_second_reminder_days"
 							title="Second Reminder (New)"
-							description="Days after submission to send second reminder when status is still New."
+							description="Second reminder for ideas still in New status. Typically set to 1 day before the SLA deadline."
 							value={settings.sla_new_second_reminder_days ?? "14"}
 							queryClient={queryClient}
+							unit="business days"
 							inline
+							showBusinessDayHelper
 						/>
 						<NumberSetting
 							settingKey="sla_review_reminder_days"
 							title="Reminder (Under Review)"
-							description="Days after submission to remind when status is still Under Review."
+							description="Reminder for ideas in Under Review status, counted from initial submission."
 							value={settings.sla_review_reminder_days ?? "30"}
 							queryClient={queryClient}
+							unit="business days"
 							inline
+							showBusinessDayHelper
 						/>
 					</CardContent>
 				</Card>
@@ -225,6 +234,8 @@ function NumberSetting({
 	value,
 	queryClient,
 	inline,
+	unit = "days",
+	showBusinessDayHelper = false,
 }: {
 	settingKey: string;
 	title: string;
@@ -232,6 +243,8 @@ function NumberSetting({
 	value: string;
 	queryClient: ReturnType<typeof useQueryClient>;
 	inline?: boolean;
+	unit?: string;
+	showBusinessDayHelper?: boolean;
 }) {
 	const [draft, setDraft] = useState(value);
 	const saveFn = useServerFn(updateSetting);
@@ -245,12 +258,15 @@ function NumberSetting({
 		onError: () => toast.error("Failed to save"),
 	});
 
-	const content = (
+	const helper = showBusinessDayHelper ? formatBusinessDayHelper(draft) : null;
+
+	const inputRow = (
 		<div className="flex items-center gap-3">
 			{inline && (
 				<div className="min-w-0 flex-1">
 					<p className="text-sm font-medium">{title}</p>
 					<p className="text-xs text-muted-foreground">{description}</p>
+					{helper && <p className="mt-1 text-xs text-muted-foreground/80">{helper}</p>}
 				</div>
 			)}
 			<Input
@@ -259,7 +275,7 @@ function NumberSetting({
 				onChange={(e) => setDraft(e.target.value)}
 				className="w-[80px]"
 			/>
-			<span className="text-xs text-muted-foreground">days</span>
+			<span className="text-xs text-muted-foreground">{unit}</span>
 			<Button
 				onClick={() => mutation.mutate()}
 				disabled={draft === value || mutation.isPending}
@@ -272,7 +288,7 @@ function NumberSetting({
 		</div>
 	);
 
-	if (inline) return content;
+	if (inline) return inputRow;
 
 	return (
 		<Card>
@@ -280,9 +296,34 @@ function NumberSetting({
 				<CardTitle>{title}</CardTitle>
 				<CardDescription>{description}</CardDescription>
 			</CardHeader>
-			<CardContent>{content}</CardContent>
+			<CardContent className="space-y-2">
+				{inputRow}
+				{helper && <p className="text-xs text-muted-foreground/80">{helper}</p>}
+			</CardContent>
 		</Card>
 	);
+}
+
+function formatBusinessDayHelper(value: string): string | null {
+	const days = Number(value);
+	if (!Number.isFinite(days) || days <= 0) return null;
+
+	const target = new Date();
+	let added = 0;
+	while (added < days) {
+		target.setDate(target.getDate() + 1);
+		const dow = target.getDay();
+		if (dow !== 0 && dow !== 6) added++;
+	}
+
+	const start = new Date();
+	const calendarDays = Math.round((target.getTime() - start.getTime()) / 86400000);
+	const formatted = target.toLocaleDateString("en-US", {
+		weekday: "short",
+		month: "short",
+		day: "numeric",
+	});
+	return `≈ ${calendarDays} calendar days. If submitted today, this fires on ${formatted}.`;
 }
 
 function TextSetting({

@@ -224,11 +224,12 @@ export async function sendSlaReminderEmail(params: {
 	submitterName: string;
 	categoryName: string;
 	currentStatus: string;
-	daysSinceSubmission: number;
+	businessDaysSinceStart: number;
 }) {
+	const dayLabel = params.businessDaysSinceStart === 1 ? "business day" : "business days";
 	await sendEmail({
 		to: params.leaderEmail,
-		subject: `Reminder: ${params.submissionId} needs your review (${params.daysSinceSubmission} days)`,
+		subject: `Reminder: ${params.submissionId} needs your review (${params.businessDaysSinceStart} ${dayLabel})`,
 		templateName: "SlaReminder",
 		template: createElement(SlaReminder, {
 			leaderFirstName: params.leaderFirstName,
@@ -237,7 +238,7 @@ export async function sendSlaReminderEmail(params: {
 			submitterName: params.submitterName,
 			categoryName: params.categoryName,
 			currentStatus: params.currentStatus,
-			daysSinceSubmission: params.daysSinceSubmission,
+			businessDaysSinceStart: params.businessDaysSinceStart,
 			viewUrl: ideaUrl(params.submissionId),
 		}),
 	});
@@ -427,7 +428,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 					}),
 				},
 				sla_reminder: {
-					subject: `[TEST] Reminder: ${sample.submissionId} needs your review (5 days)`,
+					subject: `[TEST] Reminder: ${sample.submissionId} needs your review (5 business days)`,
 					template: createElement(SlaReminder, {
 						leaderFirstName: firstName,
 						submissionId: sample.submissionId,
@@ -435,7 +436,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						submitterName: "Sarah Chen",
 						categoryName: sample.categoryName,
 						currentStatus: "New",
-						daysSinceSubmission: 5,
+						businessDaysSinceStart: 5,
 						viewUrl,
 					}),
 				},
