@@ -7,9 +7,9 @@ import { sendSlaReminderEmail } from "#/server/functions/email";
  * Check all open ideas against SLA reminder thresholds and send emails.
  * Idempotent — checks idea_events for existing reminder_sent at each threshold.
  *
- * Default thresholds:
- * - Status "new": remind at 5 days and 14 days after submission
- * - Status "under_review": remind at 30 days after submission
+ * Default thresholds (measured from `slaStartedAt`, which resets on reassignment):
+ * - Status "new": remind at 5 days and 14 days
+ * - Status "under_review": remind at 30 days
  *
  * Thresholds are configurable via admin settings.
  */
@@ -28,11 +28,13 @@ export async function checkSlaReminders(): Promise<{ sent: number; checked: numb
 	const now = new Date();
 	let sent = 0;
 
-	// Find ideas in "new" status submitted >= NEW_FIRST days ago
+	// SLA reference date is `slaStartedAt`, which resets to `now` on reassignment.
+	// Falls back to `submittedAt` for legacy rows that predate the column.
+	// Find ideas in "new" status whose SLA cycle started >= NEW_FIRST days ago
 	const newIdeas = await db.query.ideas.findMany({
 		where: and(
 			eq(ideas.status, "new"),
-			lte(ideas.submittedAt, new Date(now.getTime() - NEW_FIRST * 86400000)),
+			lte(ideas.slaStartedAt, new Date(now.getTime() - NEW_FIRST * 86400000)),
 		),
 		with: {
 			submitter: { columns: { displayName: true } },
@@ -41,11 +43,11 @@ export async function checkSlaReminders(): Promise<{ sent: number; checked: numb
 		},
 	});
 
-	// Find ideas in "under_review" status submitted >= REVIEW_DAYS days ago
+	// Find ideas in "under_review" status whose SLA cycle started >= REVIEW_DAYS days ago
 	const reviewIdeas = await db.query.ideas.findMany({
 		where: and(
 			eq(ideas.status, "under_review"),
-			lte(ideas.submittedAt, new Date(now.getTime() - REVIEW_DAYS * 86400000)),
+			lte(ideas.slaStartedAt, new Date(now.getTime() - REVIEW_DAYS * 86400000)),
 		),
 		with: {
 			submitter: { columns: { displayName: true } },
@@ -72,7 +74,8 @@ export async function checkSlaReminders(): Promise<{ sent: number; checked: numb
 	for (const { idea, thresholds, statusLabel } of allIdeas) {
 		if (!idea.assignedLeader) continue;
 
-		const daysSince = Math.floor((now.getTime() - new Date(idea.submittedAt).getTime()) / 86400000);
+		const referenceDate = idea.slaStartedAt ?? idea.submittedAt;
+		const daysSince = Math.floor((now.getTime() - new Date(referenceDate).getTime()) / 86400000);
 
 		// Check each threshold for this idea
 		for (const threshold of thresholds) {

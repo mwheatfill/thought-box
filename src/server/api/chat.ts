@@ -205,6 +205,7 @@ ${categoryTaxonomy}${userContext}`;
 							assignedLeaderId: category.defaultLeaderId,
 							slaDueDate,
 							closureSlaDueDate,
+							slaStartedAt: now,
 							submittedAt: now,
 						})
 						.returning();

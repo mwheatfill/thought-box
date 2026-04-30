@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { CLOSED_STATUSES, REVIEWED_STATUSES } from "#/lib/constants";
 import { db, sql } from "#/server/db";
@@ -76,6 +76,7 @@ export const createIdea = createServerFn({ method: "POST" })
 				assignedLeaderId: category.defaultLeaderId,
 				slaDueDate,
 				closureSlaDueDate: calculateSlaDueDate(now, 30),
+				slaStartedAt: now,
 				submittedAt: now,
 			})
 			.returning();
@@ -500,9 +501,16 @@ export const reassignIdea = createServerFn({ method: "POST" })
 				assignedLeaderId: data.newLeaderId,
 				slaDueDate: newSlaDueDate,
 				closureSlaDueDate: newClosureSlaDueDate,
+				slaStartedAt: now,
 				updatedAt: now,
 			})
 			.where(eq(ideas.id, data.ideaId));
+
+		// Reset SLA reminder cycle: clear prior reminder_sent events so the new
+		// leader gets fresh reminders based on the new slaStartedAt.
+		await db
+			.delete(ideaEvents)
+			.where(and(eq(ideaEvents.ideaId, data.ideaId), eq(ideaEvents.eventType, "reminder_sent")));
 
 		// Log reassignment event
 		await db.insert(ideaEvents).values({
