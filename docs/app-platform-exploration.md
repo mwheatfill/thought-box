@@ -21,7 +21,8 @@ The platform should be repeatable (template-based), cost-effective (Azure-native
 | Path | When to use |
 |---|---|
 | **Microsoft 365** (SharePoint, Power Automate, Power Apps) | The hardest part is the data model and the workflow. Business team can own development and maintenance. |
-| **Internal App Platform** (this) | The hardest part is the user experience or the business logic. Needs richer UI, custom logic, or AI integration. |
+| **Internal App Platform — Tier 1** ([SPA + thin proxy](./app-platform-tier1.md)) | Read-only viewer, dashboard, lookup tool, or simple API mashup. No persistent relational data, no streaming. |
+| **Internal App Platform — Tier 2** (full-stack, this doc) | The hardest part is the user experience or the business logic. Needs richer UI, custom logic, persistent state, or AI integration. |
 | **Development team** | Full product with dedicated development resources and long-term roadmap. |
 
 ### First app
@@ -59,11 +60,13 @@ These need further exploration or validation.
 
 ## Architecture decisions
 
-### Hosting: Azure App Service
+### Hosting (Tier 2): Azure App Service
 
-**Decision: App Service (Linux, Node.js), not Azure Static Web Apps.**
+**Decision: App Service (Linux, Node.js) for Tier 2 apps.**
 
-SWA was the initial candidate for its simplicity and built-in Entra ID auth. It's the right choice for static SPAs with simple serverless APIs. But three requirements pushed us beyond what SWA supports:
+> Tier 1 apps (read-only viewers, lookup tools, simple proxies) use Azure Static Web Apps — see [app-platform-tier1.md](./app-platform-tier1.md). The discussion below is specific to apps that need a full server runtime.
+
+SWA was the initial candidate for its simplicity and built-in Entra ID auth. It's the right choice for static SPAs with simple serverless APIs (now codified as Tier 1). But three requirements pushed Tier 2 beyond what SWA supports:
 
 - **Streaming responses.** AI chat interfaces need SSE or WebSocket to stream LLM responses to the client. SWA's managed Functions have a 45-second timeout and no WebSocket/SSE support.
 - **Full-stack framework.** TanStack Start (and Next.js, Remix, etc.) need a running server process for SSR and server functions. SWA is built for static files + serverless, not full-stack apps.
@@ -82,7 +85,7 @@ App Service provides:
 
 | Option | Why not |
 |---|---|
-| Azure Static Web Apps | No WebSocket/SSE, 45s API timeout, no SSR support |
+| Azure Static Web Apps | No WebSocket/SSE, 45s API timeout, no SSR support (these are Tier 2 needs; SWA hosts Tier 1) |
 | Azure Container Apps | More operational complexity (container images, registry), higher cost floor. Good "scale up" path if App Service limits become a constraint. |
 | Vercel/Netlify | Can't bill through Azure subscription. External auth dependency. |
 
@@ -279,7 +282,44 @@ When an AI agent builds a new app from the template, the design language is inhe
 - AI SDK (`ai` npm package) for streaming, tool calling, structured output.
 - Works with TanStack Start server functions.
 - assistant-ui for chat UI components (integrates with AI SDK and shadcn theming).
-- Provider choice (Azure OpenAI vs. Anthropic) decided per-app. AI SDK supports both. Azure OpenAI keeps billing in Azure. Anthropic may offer better model quality for certain tasks.
+- Provider choice (Azure OpenAI vs. Anthropic) decided per-app. AI SDK supports both. Azure OpenAI is served via [Microsoft Foundry](#model-serving-microsoft-foundry) and keeps billing in the Azure subscription. Anthropic may offer better model quality for certain tasks.
+
+### Model serving: Microsoft Foundry
+
+**Decision: Microsoft Foundry is the AI platform substrate. Azure OpenAI deployments are the consumption surface used today. Other Foundry capabilities (Agent Service, Model Router, Content Safety, Evaluations) are deferred until specific apps need them.**
+
+Microsoft Foundry (formerly Azure AI Foundry, before that Azure AI Studio) is Microsoft's unified AI platform on Azure. The full surface area:
+
+- **Model catalog & deployment** — Azure OpenAI plus Anthropic, Mistral, Llama, DeepSeek, xAI, etc. (11,000+ models)
+- **Foundry Agent Service** (GA) — managed agents with persistence, threads, native tools (file search, code interpreter); wire-compatible with the OpenAI Agents SDK
+- **Model router** — auto-picks best-fit model per prompt (cost vs. quality trade)
+- **Content Safety** — input/output guardrails (PII, prompt injection, harmful content)
+- **Evaluations** — pipelines for testing prompt and agent quality + safety
+- **Defender + Entra integration** — centralized governance and observability across all AI usage
+
+When the AI SDK ([above](#ai-integration-vercel-ai-sdk-not-tanstack-ai-yet)) talks to "Azure OpenAI," it's calling a Foundry deployment. The `AZURE_OPENAI_RESOURCE_NAME` / `AZURE_OPENAI_DEPLOYMENT` / `AZURE_OPENAI_API_KEY` env vars all point at Foundry resources. This satisfies Requirement #2 (Azure-native, billable through the existing Azure subscription).
+
+**Cost architecture** — there's an important asymmetry between agent surfaces:
+
+| Surface | Token cost paid by |
+| --- | --- |
+| In-app Cmd+K (`+cmdk-prompt`) → AI SDK → Foundry Azure OpenAI | Your Azure subscription |
+| M365 declarative agent (`+copilot-agent`) → M365 Copilot's LLM → your API plugin | The user's M365 Copilot license — your subscription pays nothing for the LLM |
+| MCP server (`+mcp-server`) → external MCP client (Claude Desktop, Cursor, etc.) | The MCP client's LLM provider (whatever the user signed in to) |
+
+The M365 declarative-agent path is structurally cheap to the platform — Microsoft's Copilot infrastructure runs the LLM; your API plugin only handles the structured calls. This is one reason the declarative-agent path is the right default for "agent in M365 Copilot" rather than building a custom-engine agent on Foundry directly.
+
+**Foundry capabilities to adopt when needed (not now):**
+
+| Capability | Adopt when |
+| --- | --- |
+| **Foundry Agent Service** | An app needs persistent multi-turn agent state, threads, or built-in tools (file search, code interpreter). Single-turn Q&A doesn't justify it. Could become a `+foundry-agent` recipe parallel to `+cmdk-prompt`. |
+| **Content Safety** | AI surfaces are exposed beyond Entra-gated internal users, or the app processes regulated data (PII/PHI/financial). Internal-only viewers are low-risk. |
+| **Evaluations** | Prompt quality becomes a real problem — agent behavior changes break user trust, you're A/B-testing system prompts, or building an eval gate into CI. |
+| **Model router** | Token cost becomes a meaningful platform expense. Adds opacity (which model answered?), so adopt only when the cost saving is concrete. |
+| **Foundry connected models** (Anthropic, Mistral, etc. via Foundry endpoint) | Already covered by AI SDK's provider abstraction. Going through Foundry's connected models adds a layer with no clear benefit at this scale. Revisit if Defender integration across providers becomes important. |
+
+**Identity:** Foundry resources support managed identity. For Tier 2 apps, prefer managed-identity auth to Foundry over API-key auth — same pattern as the database. For Tier 1 (SWA Free, no managed identity), API key in app settings is the working default; upgrade to SWA Standard if you need managed identity end-to-end.
 
 ### Email: React Email + Microsoft Graph
 
