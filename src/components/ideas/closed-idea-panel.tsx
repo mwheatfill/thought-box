@@ -1,7 +1,7 @@
 import { Lock } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Badge } from "#/components/ui/badge";
-import { Card, CardContent } from "#/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { UserCardPopover } from "#/components/ui/user-card";
 import { cn } from "#/lib/utils";
 import { businessDaysBetween } from "#/server/lib/sla";
@@ -17,27 +17,17 @@ interface ClosedIdeaPanelProps {
 	className?: string;
 }
 
-const OUTCOME_CONFIG: Record<
-	ClosedStatus,
-	{
-		label: string;
-		blurb: string;
-		badgeClass: string;
-	}
-> = {
+const OUTCOME_CONFIG: Record<ClosedStatus, { label: string; badgeClass: string }> = {
 	accepted: {
 		label: "Accepted",
-		blurb: "This idea is moving forward.",
 		badgeClass: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",
 	},
 	declined: {
 		label: "Declined",
-		blurb: "This idea won't be pursued.",
 		badgeClass: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400",
 	},
 	redirected: {
 		label: "Redirected",
-		blurb: "This idea was sent to another team.",
 		badgeClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
 	},
 };
@@ -80,18 +70,16 @@ export function ClosedIdeaPanel({
 
 	return (
 		<Card className={className}>
-			<CardContent className="space-y-4 p-5">
-				<div className="space-y-1.5">
-					<div className="flex items-center justify-between gap-3">
-						<span className="text-xs uppercase tracking-wide text-muted-foreground">Outcome</span>
-						<Badge variant="outline" className={cn("border-0", config.badgeClass)}>
-							{config.label}
-						</Badge>
-					</div>
-					<p className="text-xs text-muted-foreground">{config.blurb}</p>
+			<CardHeader className="pb-3">
+				<div className="flex items-center justify-between gap-3">
+					<CardTitle className="text-sm font-medium">Outcome</CardTitle>
+					<Badge variant="outline" className={cn("border-0", config.badgeClass)}>
+						{config.label}
+					</Badge>
 				</div>
-
-				<dl className="space-y-3 border-t pt-4">
+			</CardHeader>
+			<CardContent className="space-y-4">
+				<dl className="space-y-3">
 					{rejectionReason && (
 						<div className="flex items-baseline justify-between gap-3">
 							<dt className="text-xs text-muted-foreground">Reason</dt>
