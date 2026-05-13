@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { DualSlaProgress } from "#/components/dashboard/sla-progress";
 import { StatusBadge } from "#/components/dashboard/status-badge";
 import { ActivityTimeline } from "#/components/ideas/activity-timeline";
+import { ClosedIdeaPanel } from "#/components/ideas/closed-idea-panel";
 import { LeaderActions } from "#/components/ideas/leader-actions";
 import { MessageThread } from "#/components/ideas/message-thread";
 import { PageTransition } from "#/components/ui/animated";
@@ -70,7 +71,7 @@ function IdeaDetailPage() {
 		queryFn: () => getIdeaAttachments({ data: { ideaId: idea.id } }),
 	});
 
-	const lockedStatuses = ["accepted", "declined"];
+	const lockedStatuses = ["accepted", "declined", "redirected"];
 	const isLocked = lockedStatuses.includes(idea.status) && !idea.canEdit;
 
 	// Update mutation
@@ -320,6 +321,8 @@ function IdeaDetailPage() {
 								slaDueDate={idea.slaDueDate}
 								closureSlaDueDate={idea.closureSlaDueDate}
 								closureSlaDaysRemaining={idea.closureSlaDaysRemaining}
+								submittedAt={idea.submittedAt}
+								closedAt={idea.closedAt}
 								assignedLeaderName={idea.assignedLeader?.displayName ?? null}
 								assignedLeaderId={idea.assignedLeader?.id ?? null}
 								assignedLeaderPhotoUrl={idea.assignedLeader?.photoUrl ?? null}
@@ -356,38 +359,50 @@ function IdeaDetailPage() {
 					{/* Right column - Read-only for submitters */}
 					{!idea.canEdit && (
 						<div className="space-y-6">
-							<Card>
-								<CardHeader className="pb-3">
-									<CardTitle className="text-sm font-medium">SLA</CardTitle>
-								</CardHeader>
-								<CardContent className="space-y-4">
-									<DualSlaProgress
-										reviewSlaDaysRemaining={idea.slaDaysRemaining}
-										reviewSlaDueDate={idea.slaDueDate}
-										closureSlaDaysRemaining={idea.closureSlaDaysRemaining}
-										closureSlaDueDate={idea.closureSlaDueDate}
-									/>
-									{idea.assignedLeader && (
-										<div className="flex items-center justify-between">
-											<span className="text-sm text-muted-foreground">Reviewer</span>
-											<UserCardPopover userId={idea.assignedLeader.id}>
-												<button
-													type="button"
-													className="text-sm font-medium hover:text-primary hover:underline"
-												>
-													{idea.assignedLeader.displayName}
-												</button>
-											</UserCardPopover>
-										</div>
-									)}
-									{idea.rejectionReason && (
-										<div>
-											<span className="text-sm text-muted-foreground">Reason: </span>
-											<span className="text-sm">{idea.rejectionReason.replace(/_/g, " ")}</span>
-										</div>
-									)}
-								</CardContent>
-							</Card>
+							{isLocked ? (
+								<ClosedIdeaPanel
+									status={idea.status as "accepted" | "declined" | "redirected"}
+									rejectionReason={idea.rejectionReason}
+									closedAt={idea.closedAt}
+									submittedAt={idea.submittedAt}
+									assignedLeader={
+										idea.assignedLeader
+											? {
+													id: idea.assignedLeader.id,
+													displayName: idea.assignedLeader.displayName,
+													photoUrl: idea.assignedLeader.photoUrl ?? null,
+												}
+											: null
+									}
+								/>
+							) : (
+								<Card>
+									<CardHeader className="pb-3">
+										<CardTitle className="text-sm font-medium">SLA</CardTitle>
+									</CardHeader>
+									<CardContent className="space-y-4">
+										<DualSlaProgress
+											reviewSlaDaysRemaining={idea.slaDaysRemaining}
+											reviewSlaDueDate={idea.slaDueDate}
+											closureSlaDaysRemaining={idea.closureSlaDaysRemaining}
+											closureSlaDueDate={idea.closureSlaDueDate}
+										/>
+										{idea.assignedLeader && (
+											<div className="flex items-center justify-between">
+												<span className="text-sm text-muted-foreground">Reviewer</span>
+												<UserCardPopover userId={idea.assignedLeader.id}>
+													<button
+														type="button"
+														className="text-sm font-medium hover:text-primary hover:underline"
+													>
+														{idea.assignedLeader.displayName}
+													</button>
+												</UserCardPopover>
+											</div>
+										)}
+									</CardContent>
+								</Card>
+							)}
 
 							{/* Activity */}
 							<Card>

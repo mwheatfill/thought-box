@@ -54,6 +54,26 @@ export function isOverdue(slaDueDate: Date | null): boolean {
 	return new Date() > slaDueDate;
 }
 
+export type SlaStatus = "on_track" | "approaching" | "overdue" | "none";
+
+/**
+ * Bucket an idea's review SLA into a status label.
+ *
+ * Closed ideas (accepted/declined) always return "none" regardless of their
+ * slaDueDate — the SLA only meaningfully applies while an idea is open.
+ * Historical slaDueDate values stay on the row for audit but never count as
+ * overdue once a decision has been recorded.
+ */
+export function calculateSlaStatus(ideaStatus: string, daysRemaining: number | null): SlaStatus {
+	if (ideaStatus === "accepted" || ideaStatus === "declined" || ideaStatus === "redirected") {
+		return "none";
+	}
+	if (daysRemaining === null) return "none";
+	if (daysRemaining <= 0) return "overdue";
+	if (daysRemaining <= 3) return "approaching";
+	return "on_track";
+}
+
 /**
  * Calculate business days remaining until the SLA due date.
  * Returns negative values if overdue.

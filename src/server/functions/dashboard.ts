@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { count, eq, gte, sql } from "drizzle-orm";
 import { db } from "#/server/db";
 import { categories, ideaEvents, ideas, users } from "#/server/db/schema";
-import { businessDaysRemaining } from "#/server/lib/sla";
+import { businessDaysRemaining, calculateSlaStatus } from "#/server/lib/sla";
 import { adminMiddleware, authMiddleware, leaderMiddleware } from "#/server/middleware/auth";
 
 // ── Submitter: My Ideas ───────────────────────────────────────────────────
@@ -59,14 +59,7 @@ export const getAssignedIdeas = createServerFn()
 				submittedAt: idea.submittedAt.toISOString(),
 				slaDueDate: idea.slaDueDate?.toISOString() ?? null,
 				slaDaysRemaining: daysRemaining,
-				slaStatus:
-					daysRemaining === null
-						? ("none" as const)
-						: daysRemaining <= 0
-							? ("overdue" as const)
-							: daysRemaining <= 3
-								? ("approaching" as const)
-								: ("on_track" as const),
+				slaStatus: calculateSlaStatus(idea.status, daysRemaining),
 			};
 		});
 	});
@@ -189,14 +182,7 @@ export const getAllIdeas = createServerFn()
 				submittedAt: idea.submittedAt.toISOString(),
 				slaDueDate: idea.slaDueDate?.toISOString() ?? null,
 				slaDaysRemaining: daysRemaining,
-				slaStatus:
-					daysRemaining === null
-						? ("none" as const)
-						: daysRemaining <= 0
-							? ("overdue" as const)
-							: daysRemaining <= 3
-								? ("approaching" as const)
-								: ("on_track" as const),
+				slaStatus: calculateSlaStatus(idea.status, daysRemaining),
 			};
 		});
 	});

@@ -1,6 +1,7 @@
-import { ChevronsUpDown, Lock, Mail, RefreshCw } from "lucide-react";
+import { ChevronsUpDown, Mail, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { DualSlaProgress } from "#/components/dashboard/sla-progress";
+import { ClosedIdeaPanel } from "#/components/ideas/closed-idea-panel";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -68,6 +69,8 @@ interface LeaderActionsProps {
 	slaDueDate: string | null;
 	closureSlaDueDate: string | null;
 	closureSlaDaysRemaining: number | null;
+	submittedAt: string;
+	closedAt: string | null;
 	assignedLeaderName: string | null;
 	assignedLeaderId: string | null;
 	assignedLeaderPhotoUrl: string | null;
@@ -100,6 +103,8 @@ export function LeaderActions({
 	slaDueDate,
 	closureSlaDueDate,
 	closureSlaDaysRemaining,
+	submittedAt,
+	closedAt,
 	assignedLeaderName,
 	assignedLeaderId,
 	assignedLeaderPhotoUrl,
@@ -112,7 +117,7 @@ export function LeaderActions({
 	isReassigning,
 	isCommunicating,
 }: LeaderActionsProps) {
-	const closedStatuses = ["accepted", "declined"];
+	const closedStatuses = ["accepted", "declined", "redirected"];
 	const isClosed = closedStatuses.includes(currentStatus);
 
 	const [status, setStatus] = useState(currentStatus);
@@ -145,102 +150,114 @@ export function LeaderActions({
 
 	return (
 		<div className="space-y-4">
-			{/* SLA & Assignment */}
-			<Card>
-				<CardHeader className="pb-3">
-					<CardTitle className="text-sm font-medium">SLA</CardTitle>
-				</CardHeader>
-				<CardContent className="space-y-4">
-					<DualSlaProgress
-						reviewSlaDaysRemaining={slaDaysRemaining}
-						reviewSlaDueDate={slaDueDate}
-						closureSlaDaysRemaining={closureSlaDaysRemaining}
-						closureSlaDueDate={closureSlaDueDate}
-					/>
-
-					{/* Assigned leader with reassign */}
-					<div className="space-y-3">
-						<div className="flex items-center justify-between">
-							<span className="text-sm text-muted-foreground">Assigned to</span>
-							{assignedLeaderId ? (
-								<UserCardPopover userId={assignedLeaderId}>
-									<button type="button" className="flex items-center gap-2 hover:text-primary">
-										<Avatar className="size-6">
-											{assignedLeaderPhotoUrl && (
-												<AvatarImage src={assignedLeaderPhotoUrl} alt={assignedLeaderName ?? ""} />
-											)}
-											<AvatarFallback className="text-[10px]">
-												{(assignedLeaderName ?? "")
-													.split(" ")
-													.map((n) => n[0])
-													.join("")
-													.slice(0, 2)}
-											</AvatarFallback>
-										</Avatar>
-										<span className="text-sm font-medium hover:underline">
-											{assignedLeaderName}
-										</span>
-									</button>
-								</UserCardPopover>
-							) : (
-								<span className="text-sm font-medium">Unassigned</span>
-							)}
-						</div>
-						<Popover open={reassignOpen} onOpenChange={setReassignOpen}>
-							<PopoverTrigger asChild>
-								<Button
-									variant="outline"
-									size="sm"
-									className="w-full justify-between font-normal"
-									disabled={isReassigning}
-								>
-									<span className="flex items-center gap-2">
-										<RefreshCw className={cn("size-3.5", isReassigning && "animate-spin")} />
-										{isReassigning ? "Assigning..." : assignedLeaderId ? "Reassign" : "Assign"}
-									</span>
-									<ChevronsUpDown className="size-3.5 opacity-50" />
-								</Button>
-							</PopoverTrigger>
-							<PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-								<Command>
-									<CommandInput placeholder="Search leaders..." />
-									<CommandList>
-										<CommandEmpty>No leaders found.</CommandEmpty>
-										<CommandGroup>
-											{leaders
-												.filter((l) => l.id !== assignedLeaderId)
-												.map((l) => (
-													<CommandItem
-														key={l.id}
-														value={l.displayName}
-														onSelect={() => {
-															setReassignOpen(false);
-															setPendingReassign(l);
-														}}
-													>
-														{l.displayName}
-														<span className="ml-auto text-xs text-muted-foreground capitalize">
-															{l.role}
-														</span>
-													</CommandItem>
-												))}
-										</CommandGroup>
-									</CommandList>
-								</Command>
-							</PopoverContent>
-						</Popover>
-					</div>
-				</CardContent>
-			</Card>
-
-			{/* Locked banner */}
+			{/* Closed idea: summary panel replaces SLA/reassign/locked banner */}
 			{isClosed && (
+				<ClosedIdeaPanel
+					status={currentStatus as "accepted" | "declined" | "redirected"}
+					rejectionReason={currentRejectionReason}
+					closedAt={closedAt}
+					submittedAt={submittedAt}
+					assignedLeader={
+						assignedLeaderId && assignedLeaderName
+							? {
+									id: assignedLeaderId,
+									displayName: assignedLeaderName,
+									photoUrl: assignedLeaderPhotoUrl,
+								}
+							: null
+					}
+				/>
+			)}
+
+			{/* SLA & Assignment — open ideas only */}
+			{!isClosed && (
 				<Card>
-					<CardContent className="flex items-center gap-3 p-4">
-						<Lock className="size-4 text-muted-foreground" />
-						<p className="text-sm text-muted-foreground">
-							This idea is closed and locked from further edits.
-						</p>
+					<CardHeader className="pb-3">
+						<CardTitle className="text-sm font-medium">SLA</CardTitle>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						<DualSlaProgress
+							reviewSlaDaysRemaining={slaDaysRemaining}
+							reviewSlaDueDate={slaDueDate}
+							closureSlaDaysRemaining={closureSlaDaysRemaining}
+							closureSlaDueDate={closureSlaDueDate}
+						/>
+
+						{/* Assigned leader with reassign */}
+						<div className="space-y-3">
+							<div className="flex items-center justify-between">
+								<span className="text-sm text-muted-foreground">Assigned to</span>
+								{assignedLeaderId ? (
+									<UserCardPopover userId={assignedLeaderId}>
+										<button type="button" className="flex items-center gap-2 hover:text-primary">
+											<Avatar className="size-6">
+												{assignedLeaderPhotoUrl && (
+													<AvatarImage
+														src={assignedLeaderPhotoUrl}
+														alt={assignedLeaderName ?? ""}
+													/>
+												)}
+												<AvatarFallback className="text-[10px]">
+													{(assignedLeaderName ?? "")
+														.split(" ")
+														.map((n) => n[0])
+														.join("")
+														.slice(0, 2)}
+												</AvatarFallback>
+											</Avatar>
+											<span className="text-sm font-medium hover:underline">
+												{assignedLeaderName}
+											</span>
+										</button>
+									</UserCardPopover>
+								) : (
+									<span className="text-sm font-medium">Unassigned</span>
+								)}
+							</div>
+							<Popover open={reassignOpen} onOpenChange={setReassignOpen}>
+								<PopoverTrigger asChild>
+									<Button
+										variant="outline"
+										size="sm"
+										className="w-full justify-between font-normal"
+										disabled={isReassigning}
+									>
+										<span className="flex items-center gap-2">
+											<RefreshCw className={cn("size-3.5", isReassigning && "animate-spin")} />
+											{isReassigning ? "Assigning..." : assignedLeaderId ? "Reassign" : "Assign"}
+										</span>
+										<ChevronsUpDown className="size-3.5 opacity-50" />
+									</Button>
+								</PopoverTrigger>
+								<PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+									<Command>
+										<CommandInput placeholder="Search leaders..." />
+										<CommandList>
+											<CommandEmpty>No leaders found.</CommandEmpty>
+											<CommandGroup>
+												{leaders
+													.filter((l) => l.id !== assignedLeaderId)
+													.map((l) => (
+														<CommandItem
+															key={l.id}
+															value={l.displayName}
+															onSelect={() => {
+																setReassignOpen(false);
+																setPendingReassign(l);
+															}}
+														>
+															{l.displayName}
+															<span className="ml-auto text-xs text-muted-foreground capitalize">
+																{l.role}
+															</span>
+														</CommandItem>
+													))}
+											</CommandGroup>
+										</CommandList>
+									</Command>
+								</PopoverContent>
+							</Popover>
+						</div>
 					</CardContent>
 				</Card>
 			)}

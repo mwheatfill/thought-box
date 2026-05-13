@@ -15,7 +15,7 @@ import {
 } from "#/server/functions/email";
 import { audit } from "#/server/lib/audit";
 import { anonymizeActorName, shouldShowLeader } from "#/server/lib/leader-visibility";
-import { businessDaysRemaining, calculateSlaDueDate } from "#/server/lib/sla";
+import { businessDaysRemaining, calculateSlaDueDate, calculateSlaStatus } from "#/server/lib/sla";
 import { nextSubmissionId } from "#/server/lib/submission-id";
 import { trackEvent } from "#/server/lib/telemetry";
 import { authMiddleware, leaderMiddleware } from "#/server/middleware/auth";
@@ -249,16 +249,10 @@ export const getIdeaDetail = createServerFn()
 			leaderNotes: idea.leaderNotes,
 			actionTaken: idea.actionTaken,
 			submittedAt: idea.submittedAt.toISOString(),
+			closedAt: idea.closedAt?.toISOString() ?? null,
 			slaDueDate: idea.slaDueDate?.toISOString() ?? null,
 			slaDaysRemaining: daysRemaining,
-			slaStatus:
-				daysRemaining === null
-					? ("none" as const)
-					: daysRemaining <= 0
-						? ("overdue" as const)
-						: daysRemaining <= 3
-							? ("approaching" as const)
-							: ("on_track" as const),
+			slaStatus: calculateSlaStatus(idea.status, daysRemaining),
 			closureSlaDueDate: idea.closureSlaDueDate?.toISOString() ?? null,
 			closureSlaDaysRemaining: businessDaysRemaining(idea.closureSlaDueDate),
 			submitter: idea.submitter,
@@ -325,6 +319,12 @@ export const updateIdea = createServerFn({ method: "POST" })
 		// Leaders can only update their own assigned ideas (admins can update any)
 		if (context.user.role === "leader" && idea.assignedLeaderId !== context.user.id) {
 			throw new Error("Forbidden");
+		}
+
+		// Closed ideas are locked. UI hides the edit form, but enforce server-side
+		// too so direct API calls can't bypass the lock.
+		if ((CLOSED_STATUSES as readonly string[]).includes(idea.status)) {
+			throw new Error("This idea is closed and locked. No further edits are allowed.");
 		}
 
 		const updates: Record<string, unknown> = { updatedAt: new Date() };
@@ -459,6 +459,7 @@ export const reassignIdea = createServerFn({ method: "POST" })
 				id: true,
 				submissionId: true,
 				title: true,
+				status: true,
 				assignedLeaderId: true,
 				submitterId: true,
 			},
@@ -473,6 +474,12 @@ export const reassignIdea = createServerFn({ method: "POST" })
 		// Leaders can only reassign their own ideas (admins can reassign any)
 		if (context.user.role === "leader" && idea.assignedLeaderId !== context.user.id) {
 			throw new Error("Forbidden");
+		}
+
+		// Closed ideas are locked. Reassignment would reset SLA timers and fire
+		// notification emails — meaningless on an already-finalized decision.
+		if ((CLOSED_STATUSES as readonly string[]).includes(idea.status)) {
+			throw new Error("This idea is closed and locked. Reassignment is not allowed.");
 		}
 
 		// Look up old and new leaders
