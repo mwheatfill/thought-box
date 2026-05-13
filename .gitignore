@@ -39,3 +39,7 @@ coverage/
 # Misc
 *.log
 *.tsbuildinfo
+
+# InMoment historical import (PII: employee names + suggestion text)
+InMoment_Thought Box Suggestions_*.xlsx
+*.import-snapshot.*.json
