@@ -30,6 +30,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import {
 	type ChartConfig,
 	ChartContainer,
+	ChartLegend,
+	ChartLegendContent,
 	ChartTooltip,
 	ChartTooltipContent,
 } from "#/components/ui/chart";
@@ -291,16 +293,28 @@ export function AdminDashboard({
 					</CardHeader>
 					<CardContent>
 						{byCategory.length > 0 ? (
-							<ChartContainer config={categoryChartConfig} className="h-[250px] w-full">
-								<BarChart data={byCategory} layout="vertical" margin={{ left: 0, right: 16 }}>
+							<ChartContainer
+								config={categoryChartConfig}
+								className="w-full"
+								style={{ height: `${Math.max(byCategory.length * 32, 200)}px` }}
+							>
+								<BarChart
+									data={byCategory}
+									layout="vertical"
+									margin={{ left: 0, right: 16, top: 4, bottom: 4 }}
+								>
 									<CartesianGrid horizontal={false} />
 									<YAxis
 										dataKey="categoryName"
 										type="category"
-										width={120}
+										width={180}
 										tickLine={false}
 										axisLine={false}
 										fontSize={12}
+										interval={0}
+										tickFormatter={(value: string) =>
+											value.length > 26 ? `${value.slice(0, 24)}…` : value
+										}
 									/>
 									<XAxis type="number" hide />
 									<ChartTooltip content={<ChartTooltipContent />} />
@@ -348,9 +362,9 @@ export function AdminDashboard({
 										dataKey="count"
 										nameKey="status"
 										cx="50%"
-										cy="50%"
+										cy="45%"
 										innerRadius={50}
-										outerRadius={90}
+										outerRadius={85}
 										paddingAngle={2}
 									>
 										{outcomes.map((entry) => (
@@ -367,6 +381,10 @@ export function AdminDashboard({
 											/>
 										))}
 									</Pie>
+									<ChartLegend
+										verticalAlign="bottom"
+										content={<ChartLegendContent nameKey="status" />}
+									/>
 								</PieChart>
 							</ChartContainer>
 						) : (

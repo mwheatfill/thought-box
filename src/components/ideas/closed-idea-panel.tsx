@@ -1,5 +1,6 @@
-import { CheckCircle2, Lock, MoveRight, XCircle } from "lucide-react";
+import { Lock } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
+import { Badge } from "#/components/ui/badge";
 import { Card, CardContent } from "#/components/ui/card";
 import { UserCardPopover } from "#/components/ui/user-card";
 import { cn } from "#/lib/utils";
@@ -21,31 +22,23 @@ const OUTCOME_CONFIG: Record<
 	{
 		label: string;
 		blurb: string;
-		icon: typeof CheckCircle2;
-		ringClass: string;
-		iconClass: string;
+		badgeClass: string;
 	}
 > = {
 	accepted: {
 		label: "Accepted",
 		blurb: "This idea is moving forward.",
-		icon: CheckCircle2,
-		ringClass: "bg-emerald-50 ring-emerald-100 dark:bg-emerald-500/10 dark:ring-emerald-500/20",
-		iconClass: "text-emerald-600 dark:text-emerald-400",
+		badgeClass: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",
 	},
 	declined: {
 		label: "Declined",
 		blurb: "This idea won't be pursued.",
-		icon: XCircle,
-		ringClass: "bg-rose-50 ring-rose-100 dark:bg-rose-500/10 dark:ring-rose-500/20",
-		iconClass: "text-rose-600 dark:text-rose-400",
+		badgeClass: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400",
 	},
 	redirected: {
 		label: "Redirected",
 		blurb: "This idea was sent to another team.",
-		icon: MoveRight,
-		ringClass: "bg-amber-50 ring-amber-100 dark:bg-amber-500/10 dark:ring-amber-500/20",
-		iconClass: "text-amber-600 dark:text-amber-400",
+		badgeClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
 	},
 };
 
@@ -81,28 +74,21 @@ export function ClosedIdeaPanel({
 	className,
 }: ClosedIdeaPanelProps) {
 	const config = OUTCOME_CONFIG[status];
-	const Icon = config.icon;
 
 	const resolutionDays =
 		closedAt !== null ? businessDaysBetween(new Date(submittedAt), new Date(closedAt)) : null;
 
 	return (
 		<Card className={className}>
-			<CardContent className="space-y-5 p-5">
-				<div className="flex items-center gap-4">
-					<div
-						className={cn(
-							"flex size-12 shrink-0 items-center justify-center rounded-full ring-4",
-							config.ringClass,
-						)}
-					>
-						<Icon className={cn("size-6", config.iconClass)} />
+			<CardContent className="space-y-4 p-5">
+				<div className="space-y-1.5">
+					<div className="flex items-center justify-between gap-3">
+						<span className="text-xs uppercase tracking-wide text-muted-foreground">Outcome</span>
+						<Badge variant="outline" className={cn("border-0", config.badgeClass)}>
+							{config.label}
+						</Badge>
 					</div>
-					<div className="min-w-0">
-						<p className="text-xs uppercase tracking-wide text-muted-foreground">Outcome</p>
-						<p className="text-lg font-semibold leading-tight">{config.label}</p>
-						<p className="text-xs text-muted-foreground">{config.blurb}</p>
-					</div>
+					<p className="text-xs text-muted-foreground">{config.blurb}</p>
 				</div>
 
 				<dl className="space-y-3 border-t pt-4">
