@@ -2,7 +2,7 @@ import { Await, Link, createFileRoute, defer, redirect } from "@tanstack/react-r
 import { ArrowRight } from "lucide-react";
 import { Suspense } from "react";
 import { AdminDashboard } from "#/components/dashboard/admin-dashboard";
-import { LeaderDashboard } from "#/components/dashboard/leader-dashboard";
+import { OwnerDashboard } from "#/components/dashboard/owner-dashboard";
 import { PageTransition } from "#/components/ui/animated";
 import { Card, CardContent, CardHeader } from "#/components/ui/card";
 import { RouteError } from "#/components/ui/route-error";
@@ -10,8 +10,8 @@ import { Skeleton } from "#/components/ui/skeleton";
 import {
 	getAssignedIdeas,
 	getDashboardStats,
-	getLeaderStats,
 	getOutcomeDistribution,
+	getOwnerStats,
 	getRecentProgramActivity,
 	getSubmissionsByCategory,
 	getSubmissionsByMonth,
@@ -44,9 +44,9 @@ export const Route = createFileRoute("/dashboard")({
 			};
 		}
 
-		// Leader
-		const [ideas, stats] = await Promise.all([getAssignedIdeas(), getLeaderStats()]);
-		return { role: "leader" as const, ideas, stats };
+		// Owner
+		const [ideas, stats] = await Promise.all([getAssignedIdeas(), getOwnerStats()]);
+		return { role: "owner" as const, ideas, stats };
 	},
 	component: DashboardPage,
 });
@@ -106,9 +106,9 @@ function DashboardPage() {
 					</div>
 				)}
 
-				{data.role === "leader" && (
+				{data.role === "owner" && (
 					<div className="space-y-6">
-						<LeaderDashboard ideas={data.ideas} stats={data.stats} />
+						<OwnerDashboard ideas={data.ideas} stats={data.stats} />
 						<LinkCard
 							to="/queue"
 							title="Full Queue"

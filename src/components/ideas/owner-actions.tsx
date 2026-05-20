@@ -45,7 +45,7 @@ import { UserCardPopover } from "#/components/ui/user-card";
 import { IMPACT_AREAS, REASSIGNMENT_REASONS, type ReassignmentReason } from "#/lib/constants";
 import { cn } from "#/lib/utils";
 
-interface Leader {
+interface Owner {
 	id: string;
 	displayName: string;
 	role: string;
@@ -54,7 +54,7 @@ interface Leader {
 	photoUrl: string | null;
 }
 
-interface LeaderActionsProps {
+interface OwnerActionsProps {
 	ideaId: string;
 	submissionId: string;
 	ideaTitle: string;
@@ -63,7 +63,7 @@ interface LeaderActionsProps {
 	userRole: string;
 	currentStatus: string;
 	currentRejectionReason: string | null;
-	currentLeaderNotes: string | null;
+	currentOwnerNotes: string | null;
 	currentActionTaken: string | null;
 	slaStatus: "on_track" | "approaching" | "overdue" | "none";
 	slaDaysRemaining: number | null;
@@ -72,18 +72,18 @@ interface LeaderActionsProps {
 	closureSlaDaysRemaining: number | null;
 	submittedAt: string;
 	closedAt: string | null;
-	assignedLeaderName: string | null;
-	assignedLeaderId: string | null;
-	assignedLeaderPhotoUrl: string | null;
-	leaders: Leader[];
+	assignedOwnerName: string | null;
+	assignedOwnerId: string | null;
+	assignedOwnerPhotoUrl: string | null;
+	owners: Owner[];
 	onSave: (updates: {
 		status?: string;
 		rejectionReason?: string | null;
-		leaderNotes?: string | null;
+		ownerNotes?: string | null;
 		actionTaken?: string | null;
 	}) => Promise<void>;
 	onReassign: (input: {
-		newLeaderId: string;
+		newOwnerId: string;
 		reason?: ReassignmentReason;
 		note?: string;
 	}) => Promise<void>;
@@ -94,7 +94,7 @@ interface LeaderActionsProps {
 	isCommunicating: boolean;
 }
 
-export function LeaderActions({
+export function OwnerActions({
 	submissionId,
 	ideaTitle,
 	categoryName,
@@ -102,7 +102,7 @@ export function LeaderActions({
 	userRole,
 	currentStatus,
 	currentRejectionReason,
-	currentLeaderNotes,
+	currentOwnerNotes,
 	currentActionTaken,
 	slaDaysRemaining,
 	slaDueDate,
@@ -110,10 +110,10 @@ export function LeaderActions({
 	closureSlaDaysRemaining,
 	submittedAt,
 	closedAt,
-	assignedLeaderName,
-	assignedLeaderId,
-	assignedLeaderPhotoUrl,
-	leaders,
+	assignedOwnerName,
+	assignedOwnerId,
+	assignedOwnerPhotoUrl,
+	owners,
 	onSave,
 	onReassign,
 	onReassignComplete,
@@ -121,16 +121,16 @@ export function LeaderActions({
 	isSaving,
 	isReassigning,
 	isCommunicating,
-}: LeaderActionsProps) {
+}: OwnerActionsProps) {
 	const closedStatuses = ["accepted", "declined", "redirected"];
 	const isClosed = closedStatuses.includes(currentStatus);
 
 	const [status, setStatus] = useState(currentStatus);
 	const [rejectionReason, setRejectionReason] = useState(currentRejectionReason ?? "");
-	const [leaderNotes, setLeaderNotes] = useState(currentLeaderNotes ?? "");
+	const [ownerNotes, setOwnerNotes] = useState(currentOwnerNotes ?? "");
 	const [actionTaken, setActionTaken] = useState(currentActionTaken ?? "");
 	const [reassignOpen, setReassignOpen] = useState(false);
-	const [pendingReassign, setPendingReassign] = useState<Leader | null>(null);
+	const [pendingReassign, setPendingReassign] = useState<Owner | null>(null);
 	const [reassignReason, setReassignReason] = useState<ReassignmentReason | "">("");
 	const [reassignNote, setReassignNote] = useState("");
 	const [communicateOpen, setCommunicateOpen] = useState(false);
@@ -138,7 +138,7 @@ export function LeaderActions({
 
 	const hasChanges =
 		status !== currentStatus ||
-		leaderNotes !== (currentLeaderNotes ?? "") ||
+		ownerNotes !== (currentOwnerNotes ?? "") ||
 		actionTaken !== (currentActionTaken ?? "") ||
 		(status === "declined" && rejectionReason !== (currentRejectionReason ?? ""));
 
@@ -146,7 +146,7 @@ export function LeaderActions({
 		const updates: Record<string, unknown> = {};
 
 		if (status !== currentStatus) updates.status = status;
-		if (leaderNotes !== (currentLeaderNotes ?? "")) updates.leaderNotes = leaderNotes || null;
+		if (ownerNotes !== (currentOwnerNotes ?? "")) updates.ownerNotes = ownerNotes || null;
 		if (actionTaken !== (currentActionTaken ?? "")) updates.actionTaken = actionTaken || null;
 		if (status === "declined") {
 			updates.rejectionReason = rejectionReason || null;
@@ -164,12 +164,12 @@ export function LeaderActions({
 					rejectionReason={currentRejectionReason}
 					closedAt={closedAt}
 					submittedAt={submittedAt}
-					assignedLeader={
-						assignedLeaderId && assignedLeaderName
+					assignedOwner={
+						assignedOwnerId && assignedOwnerName
 							? {
-									id: assignedLeaderId,
-									displayName: assignedLeaderName,
-									photoUrl: assignedLeaderPhotoUrl,
+									id: assignedOwnerId,
+									displayName: assignedOwnerName,
+									photoUrl: assignedOwnerPhotoUrl,
 								}
 							: null
 					}
@@ -190,22 +190,19 @@ export function LeaderActions({
 							closureSlaDueDate={closureSlaDueDate}
 						/>
 
-						{/* Assigned leader with reassign */}
+						{/* Assigned owner with reassign */}
 						<div className="space-y-3">
 							<div className="flex items-center justify-between">
 								<span className="text-sm text-muted-foreground">Assigned to</span>
-								{assignedLeaderId ? (
-									<UserCardPopover userId={assignedLeaderId}>
+								{assignedOwnerId ? (
+									<UserCardPopover userId={assignedOwnerId}>
 										<button type="button" className="flex items-center gap-2 hover:text-primary">
 											<Avatar className="size-6">
-												{assignedLeaderPhotoUrl && (
-													<AvatarImage
-														src={assignedLeaderPhotoUrl}
-														alt={assignedLeaderName ?? ""}
-													/>
+												{assignedOwnerPhotoUrl && (
+													<AvatarImage src={assignedOwnerPhotoUrl} alt={assignedOwnerName ?? ""} />
 												)}
 												<AvatarFallback className="text-[10px]">
-													{(assignedLeaderName ?? "")
+													{(assignedOwnerName ?? "")
 														.split(" ")
 														.map((n) => n[0])
 														.join("")
@@ -213,7 +210,7 @@ export function LeaderActions({
 												</AvatarFallback>
 											</Avatar>
 											<span className="text-sm font-medium hover:underline">
-												{assignedLeaderName}
+												{assignedOwnerName}
 											</span>
 										</button>
 									</UserCardPopover>
@@ -231,19 +228,19 @@ export function LeaderActions({
 									>
 										<span className="flex items-center gap-2">
 											<RefreshCw className={cn("size-3.5", isReassigning && "animate-spin")} />
-											{isReassigning ? "Assigning..." : assignedLeaderId ? "Reassign" : "Assign"}
+											{isReassigning ? "Assigning..." : assignedOwnerId ? "Reassign" : "Assign"}
 										</span>
 										<ChevronsUpDown className="size-3.5 opacity-50" />
 									</Button>
 								</PopoverTrigger>
 								<PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
 									<Command>
-										<CommandInput placeholder="Search leaders..." />
+										<CommandInput placeholder="Search owners..." />
 										<CommandList>
-											<CommandEmpty>No leaders found.</CommandEmpty>
+											<CommandEmpty>No owners found.</CommandEmpty>
 											<CommandGroup>
-												{leaders
-													.filter((l) => l.id !== assignedLeaderId)
+												{owners
+													.filter((l) => l.id !== assignedOwnerId)
 													.map((l) => (
 														<CommandItem
 															key={l.id}
@@ -322,13 +319,13 @@ export function LeaderActions({
 							</div>
 						)}
 
-						{/* Leader notes */}
+						{/* Owner notes */}
 						<div className="space-y-1.5">
-							<Label htmlFor="leader-notes">Leader Notes</Label>
+							<Label htmlFor="owner-notes">Owner Notes</Label>
 							<Textarea
-								id="leader-notes"
-								value={leaderNotes}
-								onChange={(e) => setLeaderNotes(e.target.value)}
+								id="owner-notes"
+								value={ownerNotes}
+								onChange={(e) => setOwnerNotes(e.target.value)}
 								placeholder="Research, decisions, context..."
 								className="min-h-[80px] resize-none"
 							/>
@@ -365,8 +362,8 @@ export function LeaderActions({
 								: currentStatus === "under_review"
 									? "under review"
 									: currentStatus;
-					const template = currentLeaderNotes
-						? `Your idea is currently ${statusLabel}.\n\n${currentLeaderNotes}`
+					const template = currentOwnerNotes
+						? `Your idea is currently ${statusLabel}.\n\n${currentOwnerNotes}`
 						: `Your idea is currently ${statusLabel}. We'll keep you posted on any updates.`;
 					setCommunicateMessage(template);
 					setCommunicateOpen(true);
@@ -421,7 +418,7 @@ export function LeaderActions({
 				<AlertDialogContent className="max-w-md">
 					<AlertDialogHeader>
 						<AlertDialogTitle>
-							{assignedLeaderId ? "Reassign this idea?" : "Assign this idea?"}
+							{assignedOwnerId ? "Reassign this idea?" : "Assign this idea?"}
 						</AlertDialogTitle>
 					</AlertDialogHeader>
 
@@ -469,7 +466,7 @@ export function LeaderActions({
 					)}
 
 					{/* Reason + note (reassignment only) */}
-					{assignedLeaderId && (
+					{assignedOwnerId && (
 						<div className="space-y-3">
 							<div className="space-y-1.5">
 								<Label htmlFor="reassign-reason">
@@ -508,7 +505,7 @@ export function LeaderActions({
 					)}
 
 					<AlertDialogDescription>
-						{assignedLeaderId
+						{assignedOwnerId
 							? userRole === "admin"
 								? "This will send a notification email and reset SLA timers."
 								: "This will send a notification email, reset SLA timers, and you will lose access to this idea."
@@ -518,13 +515,13 @@ export function LeaderActions({
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction
-							disabled={!!assignedLeaderId && !reassignReason}
+							disabled={!!assignedOwnerId && !reassignReason}
 							onClick={async () => {
 								if (!pendingReassign) return;
 								await onReassign({
-									newLeaderId: pendingReassign.id,
-									reason: assignedLeaderId ? reassignReason || undefined : undefined,
-									note: assignedLeaderId && reassignNote.trim() ? reassignNote.trim() : undefined,
+									newOwnerId: pendingReassign.id,
+									reason: assignedOwnerId ? reassignReason || undefined : undefined,
+									note: assignedOwnerId && reassignNote.trim() ? reassignNote.trim() : undefined,
 								});
 								setPendingReassign(null);
 								if (userRole !== "admin") {
@@ -532,7 +529,7 @@ export function LeaderActions({
 								}
 							}}
 						>
-							{assignedLeaderId ? "Reassign" : "Assign"}
+							{assignedOwnerId ? "Reassign" : "Assign"}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

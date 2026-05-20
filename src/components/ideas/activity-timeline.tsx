@@ -109,7 +109,7 @@ function formatEventText(event: TimelineEvent): string {
 			return `changed status to ${newLabel}`;
 		}
 		case "reassigned": {
-			const target = event.newValue ?? "another leader";
+			const target = event.newValue ?? "another owner";
 			if (event.reason) {
 				const reasonLabel =
 					REASSIGNMENT_REASONS[event.reason as keyof typeof REASSIGNMENT_REASONS] ?? event.reason;

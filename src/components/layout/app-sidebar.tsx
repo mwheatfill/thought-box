@@ -46,7 +46,7 @@ function getMainNav(role: string): NavItem[] {
 		items.push({ label: "All Ideas", href: "/admin/ideas", icon: FileText });
 		items.push({ label: "My Queue", href: "/queue", icon: Inbox });
 		items.push({ label: "My Ideas", href: "/my-ideas", icon: Lightbulb });
-	} else if (role === "leader") {
+	} else if (role === "owner") {
 		items.push({ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard });
 		items.push({ label: "My Queue", href: "/queue", icon: Inbox });
 	} else {

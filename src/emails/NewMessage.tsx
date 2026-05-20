@@ -13,7 +13,7 @@ interface NewMessageProps {
 	submissionId: string;
 	ideaTitle: string;
 	messagePreview: string;
-	isFromLeader: boolean;
+	isFromOwner: boolean;
 	viewUrl: string;
 }
 
@@ -23,10 +23,10 @@ export default function NewMessage({
 	submissionId = "TB-0001",
 	ideaTitle = "Add dark mode toggle to mobile app",
 	messagePreview = "Could you tell me more about which screens would benefit most from dark mode?",
-	isFromLeader = true,
+	isFromOwner = true,
 	viewUrl = "https://thoughtbox.desertfinancial.com/ideas/TB-0001",
 }: NewMessageProps) {
-	const headline = isFromLeader
+	const headline = isFromOwner
 		? `${senderName} has a question about your idea`
 		: `${senderName} responded on ${submissionId}`;
 

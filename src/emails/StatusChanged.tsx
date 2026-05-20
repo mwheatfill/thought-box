@@ -14,8 +14,8 @@ interface StatusChangedProps {
 	submissionId: string;
 	ideaTitle: string;
 	newStatus: "under_review" | "accepted" | "declined";
-	leaderFirstName: string;
-	leaderNotes: string | null;
+	ownerFirstName: string;
+	ownerNotes: string | null;
 	rejectionReason: string | null;
 	viewUrl: string;
 }
@@ -27,7 +27,7 @@ const STATUS_CONFIG = {
 		iconColor: "#3b82f6",
 		icon: "◎",
 		headline: "Your idea is being reviewed",
-		body: "A leader is looking into your idea. You'll hear back once a decision has been made.",
+		body: "An owner is looking into your idea. You'll hear back once a decision has been made.",
 		preview: (title: string) => `Your idea is being reviewed: ${title}`,
 	},
 	accepted: {
@@ -62,8 +62,8 @@ export default function StatusChanged({
 	submissionId = "TB-0001",
 	ideaTitle = "Add dark mode toggle to mobile app",
 	newStatus = "accepted",
-	leaderFirstName = "Michelle",
-	leaderNotes = "This is a great idea! We'll be adding this to the Q3 roadmap.",
+	ownerFirstName = "Michelle",
+	ownerNotes = "This is a great idea! We'll be adding this to the Q3 roadmap.",
 	rejectionReason = null,
 	viewUrl = "https://thoughtbox.desertfinancial.com/ideas/TB-0001",
 }: StatusChangedProps) {
@@ -99,7 +99,7 @@ export default function StatusChanged({
 				</div>
 			)}
 
-			{leaderNotes && <QuoteBlock label={`Note from ${leaderFirstName}`}>{leaderNotes}</QuoteBlock>}
+			{ownerNotes && <QuoteBlock label={`Note from ${ownerFirstName}`}>{ownerNotes}</QuoteBlock>}
 
 			{newStatus === "accepted" && (
 				<>

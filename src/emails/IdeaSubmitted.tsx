@@ -48,7 +48,7 @@ export default function IdeaSubmitted({
 				iconBg="#dbeafe"
 				iconColor="#3b82f6"
 				title="Assigned for review"
-				description="A category leader will review your idea"
+				description="A category owner will review your idea"
 			/>
 			<StepCard
 				icon="✉"

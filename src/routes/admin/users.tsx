@@ -81,7 +81,7 @@ function UsersPage() {
 	const toggleFn = useServerFn(toggleUserActive);
 
 	const roleMutation = useMutation({
-		mutationFn: (params: { userId: string; role: "submitter" | "leader" | "admin" }) =>
+		mutationFn: (params: { userId: string; role: "submitter" | "owner" | "admin" }) =>
 			roleFn({ data: params }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["admin-users"] });
@@ -101,7 +101,7 @@ function UsersPage() {
 
 	const [pendingPromotion, setPendingPromotion] = useState<{
 		userId: string;
-		role: "leader" | "admin";
+		role: "owner" | "admin";
 		displayName: string;
 	} | null>(null);
 	const [pendingInvite, setPendingInvite] = useState<{
@@ -169,17 +169,17 @@ function UsersPage() {
 						value={u.role}
 						onValueChange={(newRole) => {
 							const isPromotion =
-								(newRole === "leader" || newRole === "admin") && u.role === "submitter";
+								(newRole === "owner" || newRole === "admin") && u.role === "submitter";
 							if (isPromotion) {
 								setPendingPromotion({
 									userId: u.id,
-									role: newRole as "leader" | "admin",
+									role: newRole as "owner" | "admin",
 									displayName: u.displayName,
 								});
 							} else {
 								roleMutation.mutate({
 									userId: u.id,
-									role: newRole as "submitter" | "leader" | "admin",
+									role: newRole as "submitter" | "owner" | "admin",
 								});
 							}
 						}}
@@ -189,7 +189,7 @@ function UsersPage() {
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value="submitter">Submitter</SelectItem>
-							<SelectItem value="leader">Leader</SelectItem>
+							<SelectItem value="owner">Owner</SelectItem>
 							<SelectItem value="admin">Admin</SelectItem>
 						</SelectContent>
 					</Select>
@@ -222,7 +222,7 @@ function UsersPage() {
 			id: "actions",
 			cell: ({ row }) => (
 				<div className="flex gap-1">
-					{(row.original.role === "leader" || row.original.role === "admin") && (
+					{(row.original.role === "owner" || row.original.role === "admin") && (
 						<Button
 							variant="ghost"
 							size="icon"
@@ -283,7 +283,7 @@ function UsersPage() {
 								label: "Role",
 								options: [
 									{ value: "admin", label: "Admin" },
-									{ value: "leader", label: "Leader" },
+									{ value: "owner", label: "Owner" },
 									{ value: "submitter", label: "Submitter" },
 								],
 							},
@@ -352,7 +352,7 @@ function UsersPage() {
 				<DialogContent className="max-w-sm">
 					<DialogHeader>
 						<DialogTitle>
-							Promote to {pendingPromotion?.role === "admin" ? "Admin" : "Leader"}
+							Promote to {pendingPromotion?.role === "admin" ? "Admin" : "Owner"}
 						</DialogTitle>
 						<DialogDescription>
 							{pendingPromotion?.displayName} will be promoted to{" "}
@@ -439,7 +439,7 @@ function AddUserDialog({
 	const [results, setResults] = useState<DirectoryResult[]>([]);
 	const [searching, setSearching] = useState(false);
 	const [selectedUser, setSelectedUser] = useState<DirectoryResult | null>(null);
-	const [role, setRole] = useState<"submitter" | "leader" | "admin">("leader");
+	const [role, setRole] = useState<"submitter" | "owner" | "admin">("owner");
 	const [sendInvite, setSendInvite] = useState(true);
 
 	const searchFn = useServerFn(searchDirectory);
@@ -484,7 +484,7 @@ function AddUserDialog({
 			setQuery("");
 			setResults([]);
 			setSelectedUser(null);
-			setRole("leader");
+			setRole("owner");
 			setSendInvite(true);
 			toast.success(result?.created ? "User added from directory" : "User updated");
 		},
@@ -507,7 +507,7 @@ function AddUserDialog({
 					setQuery("");
 					setResults([]);
 					setSelectedUser(null);
-					setRole("leader");
+					setRole("owner");
 					setSendInvite(true);
 				}
 			}}
@@ -609,7 +609,7 @@ function AddUserDialog({
 									</SelectTrigger>
 									<SelectContent>
 										<SelectItem value="submitter">Submitter</SelectItem>
-										<SelectItem value="leader">Leader</SelectItem>
+										<SelectItem value="owner">Owner</SelectItem>
 										<SelectItem value="admin">Admin</SelectItem>
 									</SelectContent>
 								</Select>

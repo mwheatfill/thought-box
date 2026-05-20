@@ -55,7 +55,7 @@ async function ensureNotLastAdmin(userId: string, action: string) {
 
 export const updateUserRole = createServerFn({ method: "POST" })
 	.middleware([adminMiddleware])
-	.inputValidator(z.object({ userId: z.string(), role: z.enum(["submitter", "leader", "admin"]) }))
+	.inputValidator(z.object({ userId: z.string(), role: z.enum(["submitter", "owner", "admin"]) }))
 	.handler(async ({ data, context }) => {
 		if (data.userId === context.user.id && data.role !== "admin") {
 			throw new Error("You cannot change your own role.");
@@ -131,8 +131,8 @@ export const sendInvite = createServerFn({ method: "POST" })
 			columns: { email: true, displayName: true, role: true },
 		});
 		if (!user) throw new Error("User not found");
-		if (user.role !== "leader" && user.role !== "admin") {
-			throw new Error("Invites are only for leaders and admins");
+		if (user.role !== "owner" && user.role !== "admin") {
+			throw new Error("Invites are only for owners and admins");
 		}
 
 		await sendUserInviteEmail({
@@ -172,7 +172,7 @@ export const upsertUser = createServerFn({ method: "POST" })
 			jobTitle: z.string().nullable().optional(),
 			department: z.string().nullable().optional(),
 			officeLocation: z.string().nullable().optional(),
-			role: z.enum(["submitter", "leader", "admin"]).optional(),
+			role: z.enum(["submitter", "owner", "admin"]).optional(),
 			sendInvite: z.boolean().optional(),
 		}),
 	)
@@ -240,9 +240,9 @@ export const upsertUser = createServerFn({ method: "POST" })
 			details: { name: data.displayName, email: data.email, role: data.role ?? "submitter" },
 		});
 
-		// Fire-and-forget: send invite email for leaders/admins
+		// Fire-and-forget: send invite email for owners/admins
 		const role = data.role ?? "submitter";
-		if (data.sendInvite && (role === "leader" || role === "admin")) {
+		if (data.sendInvite && (role === "owner" || role === "admin")) {
 			sendUserInviteEmail({
 				recipientEmail: data.email,
 				recipientFirstName: data.displayName.split(" ")[0],

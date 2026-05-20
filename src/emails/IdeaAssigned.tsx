@@ -2,7 +2,7 @@ import { Text } from "@react-email/components";
 import { EmailLayout, HeroIcon, IdeaCard, PrimaryButton } from "./components/EmailLayout";
 
 interface IdeaAssignedProps {
-	leaderFirstName: string;
+	ownerFirstName: string;
 	submissionId: string;
 	ideaTitle: string;
 	categoryName: string;
@@ -12,7 +12,7 @@ interface IdeaAssignedProps {
 }
 
 export default function IdeaAssigned({
-	leaderFirstName = "Michelle",
+	ownerFirstName = "Michelle",
 	submissionId = "TB-0001",
 	ideaTitle = "Add dark mode toggle to mobile app",
 	categoryName = "Member Experience",
@@ -27,7 +27,7 @@ export default function IdeaAssigned({
 			</HeroIcon>
 
 			<Text className="m-0 text-center text-xl font-bold text-gray-900">
-				New idea for you, {leaderFirstName}
+				New idea for you, {ownerFirstName}
 			</Text>
 
 			<Text className="m-0 mt-2 text-center text-sm text-gray-500">

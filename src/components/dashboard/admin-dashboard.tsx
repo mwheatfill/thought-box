@@ -63,8 +63,8 @@ export interface AdminIdea {
 	submitterId: string;
 	submitterName: string;
 	submitterPhotoUrl: string | null;
-	assignedLeaderId: string | null;
-	assignedLeaderName: string | null;
+	assignedOwnerId: string | null;
+	assignedOwnerName: string | null;
 	submittedAt: string;
 	slaDueDate: string | null;
 	slaDaysRemaining: number | null;
@@ -175,13 +175,13 @@ export const adminIdeaColumns: ColumnDef<AdminIdea, unknown>[] = [
 		),
 	},
 	{
-		accessorKey: "assignedLeaderName",
+		accessorKey: "assignedOwnerName",
 		header: ({ column }) => <SortableHeader column={column}>Assigned To</SortableHeader>,
 		cell: ({ row }) =>
-			row.original.assignedLeaderId ? (
-				<UserCardPopover userId={row.original.assignedLeaderId}>
+			row.original.assignedOwnerId ? (
+				<UserCardPopover userId={row.original.assignedOwnerId}>
 					<button type="button" className="text-muted-foreground hover:text-primary">
-						{row.original.assignedLeaderName}
+						{row.original.assignedOwnerName}
 					</button>
 				</UserCardPopover>
 			) : (
@@ -499,7 +499,7 @@ export function exportIdeasCsv(ideas: AdminIdea[]) {
 		i.submissionId,
 		`"${i.title.replace(/"/g, '""')}"`,
 		i.submitterName,
-		i.assignedLeaderName ?? "",
+		i.assignedOwnerName ?? "",
 		i.categoryName,
 		STATUS_LABELS[i.status as keyof typeof STATUS_LABELS] ?? i.status,
 		i.slaStatus,

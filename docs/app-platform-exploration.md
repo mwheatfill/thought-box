@@ -27,7 +27,7 @@ The platform should be repeatable (template-based), cost-effective (Azure-native
 
 ### First app
 
-ThoughtBox (Desert Financial's employee suggestion system). Re-platform from InMoment (sunset May 1, 2026). 10 heavy users, 25-30 submissions/month, org-wide submission access. Existing M365 solution design exists but has tradeoffs at Phase 2+ (leader dashboard, reporting, conversational intake all require additional tools).
+ThoughtBox (Desert Financial's employee suggestion system). Re-platform from InMoment (sunset May 1, 2026). 10 heavy users, 25-30 submissions/month, org-wide submission access. Existing M365 solution design exists but has tradeoffs at Phase 2+ (owner dashboard, reporting, conversational intake all require additional tools).
 
 ---
 
@@ -245,7 +245,7 @@ When an AI agent builds a new app from the template, the design language is inhe
 | `entraId` | Entra ID object ID (primary key for identity matching) |
 | `email` | From Graph or Easy Auth |
 | `displayName` | From Graph or Easy Auth |
-| `role` | App-specific (e.g., `submitter`, `leader`, `admin`) |
+| `role` | App-specific (e.g., `submitter`, `owner`, `admin`) |
 | `source` | `graph` (admin-added) or `login` (self-created on first visit) |
 | `firstSeen` | First login timestamp (null if admin-added, not yet logged in) |
 
@@ -254,7 +254,7 @@ When an AI agent builds a new app from the template, the design language is inhe
 - Admin "Add user" dialog: search field that queries Graph, shows matching employees, assigns a role.
 - Role check middleware: server function reads user identity from Easy Auth headers, looks up role in database, authorizes.
 
-**When Entra ID groups DO make sense:** For organizational roles that already exist as groups (e.g., "all branch managers," "all SwitchThink employees"). Reference via group claims in the token. But for app-specific roles (ThoughtBox leader for Digital Banking), that's app data.
+**When Entra ID groups DO make sense:** For organizational roles that already exist as groups (e.g., "all branch managers," "all SwitchThink employees"). Reference via group claims in the token. But for app-specific roles (ThoughtBox owner for Digital Banking), that's app data.
 
 **MSAL:** Add `@azure/msal-node` only when an app needs to call downstream APIs with delegated user permissions beyond the Graph directory search (e.g., sending email as the user, reading calendars).
 
@@ -335,14 +335,14 @@ The M365 declarative-agent path is structurally cheap to the platform — Micros
 **Template pattern:**
 ```
 src/emails/
-  IdeaAssignedEmail.tsx      # Leader gets notified of new assignment
+  IdeaAssignedEmail.tsx      # Owner gets notified of new assignment
   IdeaClosed Email.tsx        # Submitter gets notified of outcome
   WelcomeEmail.tsx            # First-time user welcome (optional)
   components/
     EmailLayout.tsx           # Shared header, footer, brand wrapper
 ```
 
-Each template accepts typed props (idea title, submitter name, leader name, status) and renders branded HTML. The sending service calls `render(<IdeaAssignedEmail {...data} />)` and passes the result to Graph.
+Each template accepts typed props (idea title, submitter name, owner name, status) and renders branded HTML. The sending service calls `render(<IdeaAssignedEmail {...data} />)` and passes the result to Graph.
 
 **Graph permissions (per app registration):**
 - `Mail.Send` (application, admin-consented) for sending from shared mailbox.

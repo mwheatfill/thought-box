@@ -1,18 +1,18 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { LeaderDashboard } from "#/components/dashboard/leader-dashboard";
-import { getAssignedIdeas, getLeaderStats } from "#/server/functions/dashboard";
+import { OwnerDashboard } from "#/components/dashboard/owner-dashboard";
+import { getAssignedIdeas, getOwnerStats } from "#/server/functions/dashboard";
 import { bulkUpdateStatus } from "#/server/functions/ideas";
 
 export const Route = createFileRoute("/queue")({
 	beforeLoad: ({ context }) => {
-		if (context.user.role !== "leader" && context.user.role !== "admin") {
+		if (context.user.role !== "owner" && context.user.role !== "admin") {
 			throw new Error("Forbidden");
 		}
 	},
 	loader: async () => {
-		const [ideas, stats] = await Promise.all([getAssignedIdeas(), getLeaderStats()]);
+		const [ideas, stats] = await Promise.all([getAssignedIdeas(), getOwnerStats()]);
 		return { ideas, stats };
 	},
 	component: QueuePage,
@@ -34,7 +34,7 @@ function QueuePage() {
 	return (
 		<main className="min-w-0 p-6">
 			<h1 className="mb-6 text-2xl font-bold">My Queue</h1>
-			<LeaderDashboard
+			<OwnerDashboard
 				ideas={ideas}
 				stats={stats}
 				onBulkUpdate={async (ideaIds, status) => {

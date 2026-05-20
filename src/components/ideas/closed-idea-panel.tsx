@@ -13,7 +13,7 @@ interface ClosedIdeaPanelProps {
 	rejectionReason: string | null;
 	closedAt: string | null;
 	submittedAt: string;
-	assignedLeader: { id: string; displayName: string; photoUrl: string | null } | null;
+	assignedOwner: { id: string; displayName: string; photoUrl: string | null } | null;
 	className?: string;
 }
 
@@ -60,7 +60,7 @@ export function ClosedIdeaPanel({
 	rejectionReason,
 	closedAt,
 	submittedAt,
-	assignedLeader,
+	assignedOwner,
 	className,
 }: ClosedIdeaPanelProps) {
 	const config = OUTCOME_CONFIG[status];
@@ -89,28 +89,25 @@ export function ClosedIdeaPanel({
 						</div>
 					)}
 
-					{assignedLeader && (
+					{assignedOwner && (
 						<div className="flex items-center justify-between gap-3">
 							<dt className="text-xs text-muted-foreground">Reviewer</dt>
 							<dd>
-								<UserCardPopover userId={assignedLeader.id}>
+								<UserCardPopover userId={assignedOwner.id}>
 									<button
 										type="button"
 										className="flex items-center gap-2 rounded-md transition-colors hover:text-primary"
 									>
 										<Avatar className="size-6">
-											{assignedLeader.photoUrl && (
-												<AvatarImage
-													src={assignedLeader.photoUrl}
-													alt={assignedLeader.displayName}
-												/>
+											{assignedOwner.photoUrl && (
+												<AvatarImage src={assignedOwner.photoUrl} alt={assignedOwner.displayName} />
 											)}
 											<AvatarFallback className="text-[10px]">
-												{initials(assignedLeader.displayName)}
+												{initials(assignedOwner.displayName)}
 											</AvatarFallback>
 										</Avatar>
 										<span className="text-sm font-medium hover:underline">
-											{assignedLeader.displayName}
+											{assignedOwner.displayName}
 										</span>
 									</button>
 								</UserCardPopover>

@@ -8,7 +8,7 @@ interface WatcherAlertProps {
 	categoryName: string;
 	submitterName: string;
 	submitterDepartment: string | null;
-	assignedLeaderName: string | null;
+	assignedOwnerName: string | null;
 	viewUrl: string;
 }
 
@@ -19,7 +19,7 @@ export default function WatcherAlert({
 	categoryName = "Member Experience",
 	submitterName = "Sean St Onge",
 	submitterDepartment = "Digital Banking",
-	assignedLeaderName = "Michelle Murray",
+	assignedOwnerName = "Michelle Murray",
 	viewUrl = "https://thoughtbox.desertfinancial.com/ideas/TB-0001",
 }: WatcherAlertProps) {
 	const truncatedDescription =
@@ -71,15 +71,13 @@ export default function WatcherAlert({
 								</Text>
 							</td>
 						</tr>
-						{assignedLeaderName && (
+						{assignedOwnerName && (
 							<tr>
 								<td style={{ width: 80, paddingTop: 4 }}>
 									<Text className="m-0 text-[11px] font-semibold text-gray-400">Assigned to</Text>
 								</td>
 								<td style={{ paddingTop: 4 }}>
-									<Text className="m-0 text-xs font-medium text-gray-700">
-										{assignedLeaderName}
-									</Text>
+									<Text className="m-0 text-xs font-medium text-gray-700">{assignedOwnerName}</Text>
 								</td>
 							</tr>
 						)}

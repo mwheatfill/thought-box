@@ -20,7 +20,7 @@ ThoughtBox is Desert Financial's employee idea and suggestion platform. Today it
 
 The new ThoughtBox is AI-first. Instead of navigating dropdowns, selecting categories, and filling in form fields, employees open ThoughtBox and start typing their idea. An AI agent understands the idea, classifies it, asks smart follow-up questions when needed, and routes it to the right person. For ideas that belong in a different intake system (Keystone revisions, Desertforce changes), the agent recognizes this and presents the employee with a direct link to the right place, saving them the dead-end experience of the current form.
 
-For leaders who review and act on ideas, ThoughtBox provides a clean dashboard with their assigned queue, SLA visibility, and one-click actions. For program administrators (PDI team), it provides operational reporting, routing configuration, and full visibility across all ideas.
+For owners who review and act on ideas, ThoughtBox provides a clean dashboard with their assigned queue, SLA visibility, and one-click actions. For program administrators (PDI team), it provides operational reporting, routing configuration, and full visibility across all ideas.
 
 The tagline: **"Share an idea to make things better for our team and our members."**
 
@@ -38,13 +38,13 @@ This isn't about gamification for its own sake. It's about removing friction, cr
 
 Any Desert Financial or SwitchThink employee. ~1,600 potential users. Typical volume: 25-30 submissions per month across the organization. Submitters interact with ThoughtBox through the AI chat interface to describe their idea, then can check back to see the status of their submissions.
 
-### Leader (idea reviewer)
+### Owner (idea reviewer)
 
-~7-8 active leaders who receive and manage idea assignments. Leaders review ideas, update status, add notes, reassign to other leaders, and communicate outcomes. Michelle Murray handles the largest volume (~36 cases visible in recent data). Leaders are assigned by category through a configurable routing table.
+~7-8 active owners who receive and manage idea assignments. Owners review ideas, update status, add notes, reassign to other owners, and communicate outcomes. Michelle Murray handles the largest volume (~36 cases visible in recent data). Owners are assigned by category through a configurable routing table.
 
 ### Admin (PDI program owners)
 
-Nubia Ruiz, Eric Konefal, Greg Scott, Jaime Carranza. Own the ThoughtBox program. Configure routing rules, manage the category taxonomy, view all ideas across all leaders, run reports, and handle escalations. Admins see everything and can act on any idea.
+Nubia Ruiz, Eric Konefal, Greg Scott, Jaime Carranza. Own the ThoughtBox program. Configure routing rules, manage the category taxonomy, view all ideas across all owners, run reports, and handle escalations. Admins see everything and can act on any idea.
 
 ### Watcher
 
@@ -54,7 +54,7 @@ Members of the Process Design and Improvement distribution list. Receive notific
 
 ### The interaction model
 
-The employee opens ThoughtBox and sees a welcoming chat interface. No dropdowns, no category selection, no "are you a leader?" question. Just a prompt: something like "What's your idea?" or "Tell me about your idea to make things better."
+The employee opens ThoughtBox and sees a welcoming chat interface. No dropdowns, no category selection, no "are you an owner?" question. Just a prompt: something like "What's your idea?" or "Tell me about your idea to make things better."
 
 The employee types naturally. The AI agent:
 
@@ -96,7 +96,7 @@ The agent needs a system prompt and a set of tools. Here is the behavioral speci
 
 **What the agent should NOT do:**
 - Ask for the employee's name, email, or department (pulled from Entra ID automatically)
-- Ask if the employee is a leader
+- Ask if the employee is an owner
 - Ask the employee to select from a list of categories
 - Provide lengthy explanations of the ThoughtBox process
 - Make promises about timelines or outcomes
@@ -113,7 +113,7 @@ The category taxonomy is a configurable table in the database, not hardcoded. Ad
 | `routingType` | enum | `thoughtbox` (create submission) or `redirect` (external link) |
 | `redirectUrl` | string (nullable) | URL of external intake form (only when routingType = redirect) |
 | `redirectLabel` | string (nullable) | Display text for the redirect link (e.g., "Operations Programs & Operations Support intake form") |
-| `defaultLeaderId` | string (nullable) | FK to user table. The leader who receives ideas in this category by default. Null = goes to unassigned queue. |
+| `defaultOwnerId` | string (nullable) | FK to user table. The owner who receives ideas in this category by default. Null = goes to unassigned queue. |
 | `keystoneFields` | boolean | Whether to collect Keystone-specific additional fields (category, current time, frequency, pain point, estimated time savings). Default false. |
 | `sortOrder` | integer | Display order in admin UI |
 | `active` | boolean | Whether this category is currently in use |
@@ -150,13 +150,13 @@ Categories that redirect (routingType = `redirect`):
 | Status | Meaning | Who sets it |
 |---|---|---|
 | `new` | Just submitted, not yet reviewed | System (on creation) |
-| `under_review` | Leader has acknowledged and is investigating | Leader |
-| `accepted` | Idea will be or has been implemented | Leader |
-| `rejected` | Idea will not be implemented | Leader |
+| `under_review` | Owner has acknowledged and is investigating | Owner |
+| `accepted` | Idea will be or has been implemented | Owner |
+| `rejected` | Idea will not be implemented | Owner |
 
 ### Rejection reasons
 
-When a leader rejects an idea, they select a reason:
+When an owner rejects an idea, they select a reason:
 - Already in progress
 - Not feasible or priority at this time
 - Not aligned to strategy
@@ -166,18 +166,18 @@ When a leader rejects an idea, they select a reason:
 
 | Metric | Target | Escalation |
 |---|---|---|
-| Initial review (move from `new` to any other status) | 15 business days | 1 day past due: notify leader. Then notify leader's manager. |
-| Closure (move to `accepted` or `rejected`) | 30 business days from submission | 31 days: notify leader and leader's manager. Past 30 days: escalate to HR/AVP/VP. |
+| Initial review (move from `new` to any other status) | 15 business days | 1 day past due: notify owner. Then notify owner's manager. |
+| Closure (move to `accepted` or `rejected`) | 30 business days from submission | 31 days: notify owner and owner's manager. Past 30 days: escalate to HR/AVP/VP. |
 
-SLA timers reset when an idea is reassigned to a new leader.
+SLA timers reset when an idea is reassigned to a new owner.
 
-**MVP scope for SLA:** Calculate and display SLA due dates. Show overdue indicators in the leader dashboard. Automated reminder emails are Phase 2 (the scheduled job infrastructure needs to be designed). For MVP, the visual indicators in the dashboard are the accountability mechanism.
+**MVP scope for SLA:** Calculate and display SLA due dates. Show overdue indicators in the owner dashboard. Automated reminder emails are Phase 2 (the scheduled job infrastructure needs to be designed). For MVP, the visual indicators in the dashboard are the accountability mechanism.
 
-## Leader experience
+## Owner experience
 
-### Idea queue (leader dashboard)
+### Idea queue (owner dashboard)
 
-Leaders see a filtered view of ideas assigned to them. The default view is "My Ideas" showing all non-closed items sorted by SLA urgency (most overdue first).
+Owners see a filtered view of ideas assigned to them. The default view is "My Ideas" showing all non-closed items sorted by SLA urgency (most overdue first).
 
 **Queue columns:**
 - Submission ID (e.g., TB-0042)
@@ -194,13 +194,13 @@ Leaders see a filtered view of ideas assigned to them. The default view is "My I
 
 ### Idea detail view
 
-When a leader opens an idea, they see:
+When an owner opens an idea, they see:
 
 **Header section:**
 - Submission ID and title
 - Status badge (with dropdown to change)
 - SLA timer (elapsed time vs. goal, visual like the InMoment counters but modern)
-- Assigned leader (with reassign button)
+- Assigned owner (with reassign button)
 
 **Idea section:**
 - Full description (as submitted through the AI conversation)
@@ -210,10 +210,10 @@ When a leader opens an idea, they see:
 - Attachments/screenshots (if any)
 - Submitter info card (people card style): avatar photo, display name, job title, department, office location, manager name. Styled as a compact card similar to the Teams/Outlook people card. Clicking the submitter name could open their email in a new tab (mailto link).
 
-**Leader actions section:**
+**Owner actions section:**
 - Status dropdown (New, Under Review, Accepted, Rejected)
 - Rejection reason dropdown (visible when status = Rejected)
-- Leader notes (rich text, for recording research, decisions, context)
+- Owner notes (rich text, for recording research, decisions, context)
 - Action taken dropdown (values TBD, carries forward from InMoment)
 - Jira ticket number (optional text field, for linking to implementation work)
 
@@ -223,15 +223,15 @@ When a leader opens an idea, they see:
 - This replaces InMoment's "Case History" tab
 
 **Communication section:**
-- "Communicate to employee" button that opens a pre-filled message (status, leader notes, outcome) for the leader to review and send
-- Automated emails send on status changes, but leaders can also send ad-hoc messages
+- "Communicate to employee" button that opens a pre-filled message (status, owner notes, outcome) for the owner to review and send
+- Automated emails send on status changes, but owners can also send ad-hoc messages
 
 ### Reassignment
 
-Leaders can reassign an idea to another leader by searching the employee directory (same Graph-powered search as the admin user provisioning). Reassignment:
-- Changes the assigned leader
+Owners can reassign an idea to another owner by searching the employee directory (same Graph-powered search as the admin user provisioning). Reassignment:
+- Changes the assigned owner
 - Resets the SLA timer
-- Sends notification to the new leader
+- Sends notification to the new owner
 - Logs the reassignment in the activity timeline
 - Sends a watcher notification
 
@@ -239,7 +239,7 @@ Leaders can reassign an idea to another leader by searching the employee directo
 
 ### Admin dashboard
 
-The admin dashboard provides program-level visibility. Admins see everything across all leaders and categories.
+The admin dashboard provides program-level visibility. Admins see everything across all owners and categories.
 
 **KPI cards (top of dashboard):**
 - Total submissions (this month / this year)
@@ -257,7 +257,7 @@ The admin dashboard provides program-level visibility. Admins see everything acr
 
 **Idea table (below charts):**
 - Full list of all ideas with sorting, filtering, and search
-- Filterable by: status, category, leader, date range, SLA status
+- Filterable by: status, category, owner, date range, SLA status
 - Exportable to CSV
 
 ### Category management
@@ -266,13 +266,13 @@ Admin UI for managing the category taxonomy. CRUD operations on the categories t
 
 ### Routing configuration
 
-Admin UI for managing the category-to-leader mapping. Each category can have a default leader assigned. Categories without a default leader route to an unassigned queue visible to all admins.
+Admin UI for managing the category-to-owner mapping. Each category can have a default owner assigned. Categories without a default owner route to an unassigned queue visible to all admins.
 
 ### User management
 
 Admin UI for managing app roles. Admins can:
 - Search the Entra ID directory and add users before they log in
-- Assign roles: submitter (default), leader, admin
+- Assign roles: submitter (default), owner, admin
 - View all users and their roles
 - Deactivate users (soft delete, preserves history)
 
@@ -284,22 +284,22 @@ All emails send from a shared mailbox (thoughtbox@desertfinancial.com) via Micro
 
 | Event | Recipient | Content |
 |---|---|---|
-| New idea submitted | Assigned leader | Idea title, category, submitter name, link to idea detail |
-| New idea submitted | Submitter | Confirmation with submission ID, note that a leader will review |
+| New idea submitted | Assigned owner | Idea title, category, submitter name, link to idea detail |
+| New idea submitted | Submitter | Confirmation with submission ID, note that an owner will review |
 | New idea submitted | Watcher list (PDI DL) | Idea title, category, submitter name, suggestion text, reassignment instructions |
-| Status changed to Under Review | Submitter | "Your idea is being reviewed by [Leader Name]" |
-| Status changed to Accepted | Submitter | Acceptance message with leader notes and impact area |
-| Status changed to Rejected | Submitter | Rejection message with rejection reason and leader notes |
-| Idea reassigned | New leader | Idea title, category, submitter name, link to idea detail |
-| Idea reassigned | Watcher list | Reassignment notification with old/new leader |
-| Leader posts a message | Submitter | "A leader has a question about your idea: [Title]" with message preview and link |
-| Submitter replies to message | Assigned leader | "The submitter responded on: [Title]" with message preview and link |
+| Status changed to Under Review | Submitter | "Your idea is being reviewed by [Owner Name]" |
+| Status changed to Accepted | Submitter | Acceptance message with owner notes and impact area |
+| Status changed to Rejected | Submitter | Rejection message with rejection reason and owner notes |
+| Idea reassigned | New owner | Idea title, category, submitter name, link to idea detail |
+| Idea reassigned | Watcher list | Reassignment notification with old/new owner |
+| Owner posts a message | Submitter | "An owner has a question about your idea: [Title]" with message preview and link |
+| Submitter replies to message | Assigned owner | "The submitter responded on: [Title]" with message preview and link |
 
 ### Email design
 
 Branded, clean, mobile-friendly. Desert Financial logo header. Clear call-to-action buttons ("View Idea" links to the app). Minimal text. The watcher alert email should be compact (the current InMoment watcher alert is a reasonable model for information density, just with modern styling).
 
-**Tone:** Emails should feel personal and human, not system-generated. Use the leader's first name ("Michelle is reviewing your idea"), reference the idea title, and keep copy conversational. The acceptance email is the most important one to get right: it should feel like good news ("Great news: your idea is moving forward!"), not a status notification. This is the email that drives repeat submissions.
+**Tone:** Emails should feel personal and human, not system-generated. Use the owner's first name ("Michelle is reviewing your idea"), reference the idea title, and keep copy conversational. The acceptance email is the most important one to get right: it should feel like good news ("Great news: your idea is moving forward!"), not a status notification. This is the email that drives repeat submissions.
 
 **Submitter confirmation email:** Include the employee's personal submission count: "That's your 3rd idea this year. Thanks for making Desert Financial better." Reinforces contribution even in transactional emails.
 
@@ -322,7 +322,7 @@ tables:
     managerDisplayName: string, nullable -- cached for display without join
     photoUrl: string, nullable -- relative path to cached profile photo (e.g., /api/users/{id}/photo)
     photoLastFetched: timestamp, nullable -- cache invalidation marker
-    role: enum(submitter, leader, admin), default submitter
+    role: enum(submitter, owner, admin), default submitter
     source: enum(graph, login) -- how the user record was created
     firstSeen: timestamp, nullable -- null if admin-added, not yet logged in
     active: boolean, default true
@@ -337,7 +337,7 @@ tables:
     routingType: enum(thoughtbox, redirect), not null
     redirectUrl: string, nullable
     redirectLabel: string, nullable
-    defaultLeaderId: string, nullable, FK -> users.id
+    defaultOwnerId: string, nullable, FK -> users.id
     keystoneFields: boolean, default false
     sortOrder: integer, default 0
     active: boolean, default true
@@ -355,8 +355,8 @@ tables:
     status: enum(new, under_review, accepted, rejected), default new
     rejectionReason: enum(already_in_progress, not_feasible, not_aligned, not_thoughtbox), nullable
     submitterId: string, not null, FK -> users.id
-    assignedLeaderId: string, nullable, FK -> users.id
-    leaderNotes: text, nullable -- rich text
+    assignedOwnerId: string, nullable, FK -> users.id
+    ownerNotes: text, nullable -- rich text
     actionTaken: string, nullable -- dropdown value (TBD)
     jiraTicketNumber: string, nullable
     slaDueDate: timestamp, nullable -- calculated: submittedAt + 15 business days
@@ -370,13 +370,13 @@ tables:
     ideaId: string, not null, FK -> ideas.id
     eventType: enum(created, status_changed, reassigned, note_added, message, communicated)
     actorId: string, not null, FK -> users.id
-    oldValue: string, nullable -- e.g., previous status or previous leader
-    newValue: string, nullable -- e.g., new status or new leader
+    oldValue: string, nullable -- e.g., previous status or previous owner
+    newValue: string, nullable -- e.g., new status or new owner
     note: text, nullable -- message content (for message type) or context (for other types)
     createdAt: timestamp
 
-    -- The "message" event type enables the leader-to-submitter comment thread.
-    -- Leaders post questions (eventType = message, actorId = leader).
+    -- The "message" event type enables the owner-to-submitter comment thread.
+    -- Owners post questions (eventType = message, actorId = owner).
     -- Submitters reply (eventType = message, actorId = submitter).
     -- The activity timeline on the idea detail page renders messages differently
     -- from system events (chat bubble style vs. log entry style).
@@ -423,10 +423,10 @@ Server function reads `nextval('thoughtbox_submission_id_seq')` and formats as `
 ```
 /                       → Landing page (gamified hero + AI chat interface)
 /dashboard              → Role-aware dashboard (renders different view per role)
-/ideas/:id              → Idea detail (read-only for submitters, editable for assigned leader/admin)
+/ideas/:id              → Idea detail (read-only for submitters, editable for assigned owner/admin)
 
 /admin/categories       → Category management (admin only)
-/admin/routing          → Leader routing configuration (admin only)
+/admin/routing          → Owner routing configuration (admin only)
 /admin/users            → User management (admin only)
 
 /settings               → App settings (future)
@@ -439,8 +439,8 @@ Server function reads `nextval('thoughtbox_submission_id_seq')` and formats as `
 | Role | Dashboard view |
 |---|---|
 | **Submitter** | Personal stat card at top ("You've shared 3 ideas this year" with a lightbulb icon that grows/fills as count increases). Below: "My Ideas" list with status badges, submitted dates, last activity. Accepted ideas get a subtle glow or accent to celebrate wins. Empty state is warm and encouraging: "You haven't shared an idea yet. It only takes a minute." with a prominent button to the submit page. |
-| **Leader** | KPI row (my open ideas, my overdue, my avg response time) + filterable data table of assigned ideas sorted by SLA urgency. Quick actions: click to open detail, bulk status update. |
-| **Admin** | Full dashboard: KPI row (program-wide stats), 2x2 chart grid, then all-ideas data table with faceted filters. Toggle to switch between "All Ideas" and "My Assignments" if the admin is also a leader. Export to CSV. |
+| **Owner** | KPI row (my open ideas, my overdue, my avg response time) + filterable data table of assigned ideas sorted by SLA urgency. Quick actions: click to open detail, bulk status update. |
+| **Admin** | Full dashboard: KPI row (program-wide stats), 2x2 chart grid, then all-ideas data table with faceted filters. Toggle to switch between "All Ideas" and "My Assignments" if the admin is also an owner. Export to CSV. |
 
 This means every user sees "Dashboard" in the nav. Nobody has to wonder where their stuff is. The URL is stable for bookmarking.
 
@@ -464,12 +464,12 @@ All data access goes through TanStack Start server functions. No direct database
 // Ideas
 createIdea(data) → idea -- called after AI conversation confirms submission
 getMyIdeas() → idea[] -- filtered by submitterId = current user
-getAssignedIdeas() → idea[] -- filtered by assignedLeaderId = current user (leaders)
+getAssignedIdeas() → idea[] -- filtered by assignedOwnerId = current user (owners)
 getAllIdeas(filters) → { ideas, total, page } -- paginated, filterable (admins)
 getIdea(id) → idea + events + conversation -- full detail
-updateIdeaStatus(id, status, rejectionReason?, leaderNotes?) → idea
-reassignIdea(id, newLeaderId) → idea
-updateIdeaNotes(id, leaderNotes) → idea
+updateIdeaStatus(id, status, rejectionReason?, ownerNotes?) → idea
+reassignIdea(id, newOwnerId) → idea
+updateIdeaNotes(id, ownerNotes) → idea
 
 // Categories
 getCategories() → category[] -- active categories for AI and admin
@@ -570,9 +570,9 @@ Start with the default shadcn/ui theme (zinc/neutral monochromatic palette). Do 
 ### Design principles
 
 1. **AI conversation is the hero.** The home page is the chat interface. Full viewport height, centered, inviting. No sidebar clutter for submitters.
-2. **The queue is the dashboard.** Leaders don't navigate to a "reports page" to understand their workload. The idea table IS the dashboard, with summary stats contextually above it. Charts are secondary.
+2. **The queue is the dashboard.** Owners don't navigate to a "reports page" to understand their workload. The idea table IS the dashboard, with summary stats contextually above it. Charts are secondary.
 3. **Minimal clicks.** Status changes, notes, and reassignment happen from the idea detail page without navigating away. Inline editing where possible.
-4. **Mobile-first for submission.** The chat interface must work well on phones (employees submit from branches, break rooms). Leader and admin views are desktop-primary.
+4. **Mobile-first for submission.** The chat interface must work well on phones (employees submit from branches, break rooms). Owner and admin views are desktop-primary.
 
 ### Layout system
 
@@ -584,9 +584,9 @@ Reference: shadcn sidebar component (`sidebar-07` or `sidebar-10` variant). Rail
 
 | Page | Layout |
 |---|---|
-| Submit (/) | Full-bleed, no sidebar for submitters. Gamified hero + centered chat container, max-width ~640px. assistant-ui chat components. Leaders/admins still see the sidebar but the chat area is centered in the content zone. |
+| Submit (/) | Full-bleed, no sidebar for submitters. Gamified hero + centered chat container, max-width ~640px. assistant-ui chat components. Owners/admins still see the sidebar but the chat area is centered in the content zone. |
 | Dashboard (/dashboard) - Submitter | Sidebar + content. Gamified stat card at top ("You've shared 3 ideas this year"), then simple data table of own submissions with status badges. |
-| Dashboard (/dashboard) - Leader | Sidebar + content. KPI row at top (my open, my overdue, avg response time), then filterable data table of assigned ideas. |
+| Dashboard (/dashboard) - Owner | Sidebar + content. KPI row at top (my open, my overdue, avg response time), then filterable data table of assigned ideas. |
 | Dashboard (/dashboard) - Admin | Sidebar + content. KPI row (program-wide), chart grid (2x2), then full data table with faceted filters and CSV export. |
 | Idea Detail (/ideas/:id) | Sidebar + content. Two-column layout on desktop: left column (idea content, activity timeline), right column (status panel, actions, metadata). Single column on mobile. |
 | Admin pages (/admin/*) | Sidebar + content. Data tables with toolbar (search, filters, add button). |
@@ -605,7 +605,7 @@ Map every UI element to a specific shadcn/ui component so Claude Code builds wit
 └─────────────────┘ └─────────────────┘ └─────────────────┘ └─────────────────┘
 ```
 
-**Data tables:** TanStack Table with the shadcn data table pattern. Column header sorting, faceted filters (dropdowns for status, category, leader), search input, column visibility toggle, pagination. Row actions via a dropdown menu (three-dot icon) or inline buttons for primary actions.
+**Data tables:** TanStack Table with the shadcn data table pattern. Column header sorting, faceted filters (dropdowns for status, category, owner), search input, column visibility toggle, pagination. Row actions via a dropdown menu (three-dot icon) or inline buttons for primary actions.
 
 **Status badges:** shadcn `Badge` component with semantic colors:
 - `new` → blue/default
@@ -646,7 +646,7 @@ Charts use the shadcn chart color tokens (CSS variables) so they match the theme
 │                                      │                      │
 │ SUBMITTER                            │ ACTIONS              │
 │ [📷] Sean St Onge                    │ Rejection reason [▾] │
-│      Digital Banking Specialist      │ Leader notes [    ]  │
+│      Digital Banking Specialist      │ Owner notes [    ]  │
 │      Member Engagement · Peoria      │ Action taken [▾]     │
 │      Reports to: Maria Torres        │ Jira ticket [    ]   │
 │      Submitted: Apr 1, 2026         │                      │
@@ -660,7 +660,7 @@ Charts use the shadcn chart color tokens (CSS variables) so they match the theme
 └──────────────────────────────────────┴──────────────────────┘
 ```
 
-Left column: read-only idea content (shadcn Card sections) + activity timeline (shadcn timeline or custom with relative timestamps). Right column: sticky action panel (shadcn Card with form elements: Select for status, Combobox for reassignment, Textarea for notes, Button for save). The right column is the leader's workspace.
+Left column: read-only idea content (shadcn Card sections) + activity timeline (shadcn timeline or custom with relative timestamps). Right column: sticky action panel (shadcn Card with form elements: Select for status, Combobox for reassignment, Textarea for notes, Button for save). The right column is the owner's workspace.
 
 **Landing page (submit page):** Two zones, vertically stacked.
 
@@ -671,7 +671,7 @@ Left column: read-only idea content (shadcn Card sections) + activity timeline (
 **Bottom zone: AI chat.** assistant-ui components with shadcn theming. Full width up to max-width 640px, centered. Message bubbles with subtle backgrounds. Typing indicator during AI response. The confirmation summary renders as a structured Card within the chat (not a modal). The redirect card also renders inline with a prominent link button styled as a shadcn Card with an external link icon.
 
 **Empty states:** Every list and dashboard view has a designed empty state. Not "No data." Use a ThoughtBox-themed illustration or icon, a short encouraging message, and a call to action. These are adoption moments. Examples:
-- Leader dashboard, no assigned ideas: "All caught up!" with a relaxed illustration. Celebrate the clear queue.
+- Owner dashboard, no assigned ideas: "All caught up!" with a relaxed illustration. Celebrate the clear queue.
 - My Ideas, no submissions: "You haven't shared an idea yet. It only takes a minute, and every idea helps." with a prominent "Share an idea" button linking to the submit page. First-time visitors see this; make it inviting.
 - My Ideas, all ideas accepted: "Every idea you've shared has been accepted. You're on a streak." (Micro-delight for engaged submitters.)
 - Admin dashboard, first launch: "ThoughtBox is live. Ideas will appear here once employees start sharing. Time to spread the word."
@@ -747,21 +747,21 @@ After the employee confirms their submission, the experience should feel rewardi
 
 The biggest adoption killer in InMoment was silence. Employees submitted ideas and heard nothing. ThoughtBox addresses this structurally (email notifications on every status change, comment threads), but the tone of those emails matters too.
 
-**Email personality:** Notification emails should feel personal, not system-generated. "Michelle is reviewing your idea" is better than "Your submission status has been updated to Under Review." Use the leader's first name. Reference the idea title. Keep it short.
+**Email personality:** Notification emails should feel personal, not system-generated. "Michelle is reviewing your idea" is better than "Your submission status has been updated to Under Review." Use the owner's first name. Reference the idea title. Keep it short.
 
-**Acceptance celebration email:** When an idea is accepted, the email should feel like good news, not a status update. "Great news: your idea is moving forward!" with the leader's notes on what happens next. This is the email that makes someone submit their next idea.
+**Acceptance celebration email:** When an idea is accepted, the email should feel like good news, not a status update. "Great news: your idea is moving forward!" with the owner's notes on what happens next. This is the email that makes someone submit their next idea.
 
 **Monthly digest (Phase 2 candidate, but design for it):** A monthly email to all employees: "This month, Desert Financial employees shared 32 ideas. 8 were accepted. Here are a few highlights..." This creates ambient awareness that the program is active and ideas lead to change. Not MVP, but the data model supports it.
 
-### Leader experience: make triage satisfying
+### Owner experience: make triage satisfying
 
-Leaders need to feel like managing ideas is fast, not burdensome. With only 7-8 active leaders, each one's experience matters.
+Owners need to feel like managing ideas is fast, not burdensome. With only 7-8 active owners, each one's experience matters.
 
-**One-click status updates:** From the queue, leaders should be able to change status without opening the detail page. A dropdown or button set right in the table row for the most common action (acknowledge/start review).
+**One-click status updates:** From the queue, owners should be able to change status without opening the detail page. A dropdown or button set right in the table row for the most common action (acknowledge/start review).
 
-**SLA gamification for leaders:** The leader dashboard KPI card for "avg response time" should have subtle positive reinforcement. If their response time is under the SLA target, show it in green with a checkmark. If they clear their queue entirely, show a brief "All caught up" state with a clean/empty illustration. These micro-moments make triage feel like progress, not a chore.
+**SLA gamification for owners:** The owner dashboard KPI card for "avg response time" should have subtle positive reinforcement. If their response time is under the SLA target, show it in green with a checkmark. If they clear their queue entirely, show a brief "All caught up" state with a clean/empty illustration. These micro-moments make triage feel like progress, not a chore.
 
-**Quick-reply templates:** For common responses (acknowledgment, need more info, already in progress), provide 2-3 pre-written reply templates that the leader can send with one click and optionally personalize. Configurable by admins. Reduces the friction of writing individual responses for routine actions.
+**Quick-reply templates:** For common responses (acknowledgment, need more info, already in progress), provide 2-3 pre-written reply templates that the owner can send with one click and optionally personalize. Configurable by admins. Reduces the friction of writing individual responses for routine actions.
 
 ### Admin experience: make the program feel alive
 
@@ -779,19 +779,19 @@ Admins (PDI team) need to see momentum. The dashboard charts already handle this
 - Warm AI greeting with employee's first name, suggested prompt pills below chat input
 - Submission celebration moment (confetti animation, personal idea count, milestone callout)
 - Idea creation and storage
-- Role-aware dashboard (submitter, leader, admin views)
+- Role-aware dashboard (submitter, owner, admin views)
 - Submitter dashboard with personal stat card (idea count with growing lightbulb icon) and accepted-idea highlighting
 - Idea detail view with status management, notes, reassignment
-- Leader-to-submitter comment thread on idea detail (extends the activity timeline with message type events; leader posts a question, submitter sees it on their idea detail view and can reply)
+- Owner-to-submitter comment thread on idea detail (extends the activity timeline with message type events; owner posts a question, submitter sees it on their idea detail view and can reply)
 - Keystone-specific conditional fields (additional fields shown on idea detail when the category has `keystoneFields = true`)
-- Quick-reply templates for leaders (configurable by admin, 2-3 defaults for common responses)
-- One-click status update from the leader queue (inline dropdown, no detail page navigation required)
+- Quick-reply templates for owners (configurable by admin, 2-3 defaults for common responses)
+- One-click status update from the owner queue (inline dropdown, no detail page navigation required)
 - Admin category and routing management
 - Admin user management
 - User profile enrichment via Graph API (avatar photo, department, job title, office location, manager name)
 - People card style submitter info on idea detail (avatar, name, title, department, location, manager)
 - Initials avatar fallback when no profile photo exists
-- Avatar thumbnails in leader queue, activity timeline, and reassignment combobox
+- Avatar thumbnails in owner queue, activity timeline, and reassignment combobox
 - Email notifications (all triggers listed above) with personal, human tone and submitter idea counts
 - Admin dashboard with KPI cards, program health indicator, 2x2 chart grid, and full data table
 - Admin activity feed (recent program events, sidebar or section)
@@ -802,10 +802,10 @@ Admins (PDI team) need to see momentum. The dashboard charts already handle this
 
 ### Phase 2 (after MVP feedback)
 
-- SLA reminder engine (scheduled job that checks overdue ideas daily and sends tiered escalation emails to leader, leader's manager, then HR/AVP/VP)
+- SLA reminder engine (scheduled job that checks overdue ideas daily and sends tiered escalation emails to owner, owner's manager, then HR/AVP/VP)
 - Monthly digest email to all employees (program highlights, acceptance count, featured ideas with submitter permission)
 - "Share ThoughtBox" prompt after second submission (copy-link for organic growth)
-- Leaderboard: top contributing departments (anonymized, department-level only, opt-in via admin setting)
+- Ownerboard: top contributing departments (anonymized, department-level only, opt-in via admin setting)
 - Efficiency tracking module (hours saved, team bonus metrics, separate data model and workflow)
 - Conversation analytics (classification accuracy, redirect patterns, common themes across submissions)
 
@@ -833,7 +833,7 @@ Every request passes through Easy Auth before reaching application code. The mid
 
 ### User profile enrichment (people card data)
 
-Easy Auth provides basic identity claims (object ID, name, email) via the `X-MS-CLIENT-PRINCIPAL` header. To surface the rich people card experience that leaders and admins need (avatar photo, department, job title, manager name, office location), the app makes supplementary Microsoft Graph calls to enrich user profiles.
+Easy Auth provides basic identity claims (object ID, name, email) via the `X-MS-CLIENT-PRINCIPAL` header. To surface the rich people card experience that owners and admins need (avatar photo, department, job title, manager name, office location), the app makes supplementary Microsoft Graph calls to enrich user profiles.
 
 **Graph API permissions required (application-level):**
 - `User.Read.All` — read any user's profile, photo, and manager chain. The app registration already needs this for the directory search feature. One permission covers both use cases.
@@ -865,7 +865,7 @@ Easy Auth provides basic identity claims (object ID, name, email) via the `X-MS-
 | Location | Data shown |
 |---|---|
 | Idea detail (submitter info section) | Avatar photo, display name, job title, department, office location, manager name |
-| Leader queue (submitter column) | Avatar thumbnail + name |
+| Owner queue (submitter column) | Avatar thumbnail + name |
 | Admin user management | Avatar, name, department, job title, role badge |
 | Idea assignment/reassignment | Avatar + name in the combobox results |
 | Activity timeline | Small avatar next to each event actor |
@@ -878,13 +878,13 @@ Easy Auth provides basic identity claims (object ID, name, email) via the `X-MS-
 
 ### Role model
 
-Admin is a superset of leader. A user with `role: admin` has all leader capabilities plus admin-only features. The role hierarchy:
+Admin is a superset of owner. A user with `role: admin` has all owner capabilities plus admin-only features. The role hierarchy:
 
 - `submitter` → can submit ideas, view own ideas, post messages on own ideas
-- `leader` → everything submitter can do, plus: view and manage assigned ideas, reassign, update status, see leader dashboard
-- `admin` → everything leader can do, plus: view all ideas across all leaders, manage categories/routing/users, see admin dashboard with charts, act on any idea
+- `owner` → everything submitter can do, plus: view and manage assigned ideas, reassign, update status, see owner dashboard
+- `admin` → everything owner can do, plus: view all ideas across all owners, manage categories/routing/users, see admin dashboard with charts, act on any idea
 
-A single enum is sufficient. The admin dashboard's "My Assignments" toggle filters `assignedLeaderId = currentUser` within the admin view. No dual-role model needed.
+A single enum is sufficient. The admin dashboard's "My Assignments" toggle filters `assignedOwnerId = currentUser` within the admin view. No dual-role model needed.
 
 ### Idea detail permissions
 
@@ -892,15 +892,15 @@ A single enum is sufficient. The admin dashboard's "My Assignments" toggle filte
 |---|---|---|---|
 | Submitter (own idea) | Yes | No (read-only) | Can post messages in the comment thread |
 | Submitter (someone else's idea) | No | No | 404 |
-| Leader (assigned to this idea) | Yes | Yes | Full edit: status, notes, reassign, communicate |
-| Leader (NOT assigned) | No | No | Leaders only see their own assignments. If they need to take over, an admin reassigns to them. |
-| Admin | Yes (any idea) | Yes (any idea) | Full edit on everything. Can reassign any idea to any leader. |
+| Owner (assigned to this idea) | Yes | Yes | Full edit: status, notes, reassign, communicate |
+| Owner (NOT assigned) | No | No | Owners only see their own assignments. If they need to take over, an admin reassigns to them. |
+| Admin | Yes (any idea) | Yes (any idea) | Full edit on everything. Can reassign any idea to any owner. |
 
 ### Reassignment
 
-Reassignment searches only users in the ThoughtBox `users` table with `role: leader` or `role: admin`. Not the full Entra ID directory. If an admin wants to assign to someone who isn't a leader yet, they first add the user through the admin user management page (which does search the full directory), assign the leader role, then reassign the idea.
+Reassignment searches only users in the ThoughtBox `users` table with `role: owner` or `role: admin`. Not the full Entra ID directory. If an admin wants to assign to someone who isn't an owner yet, they first add the user through the admin user management page (which does search the full directory), assign the owner role, then reassign the idea.
 
-This prevents accidental assignment to random employees and keeps the leader roster intentional.
+This prevents accidental assignment to random employees and keeps the owner roster intentional.
 
 ### File uploads
 
@@ -959,7 +959,7 @@ Each visit to the submit page starts a fresh conversation. No conversation histo
 When a submission is confirmed:
 1. The AI calls the `submit_idea` tool
 2. The server function creates the idea record, generates the submission ID, sends notifications
-3. The tool result returns the submission ID and assigned leader name
+3. The tool result returns the submission ID and assigned owner name
 4. The AI renders a confirmation message with the ID and a "View your idea" link
 5. Below the confirmation, show a "Submit another idea" button that resets the chat
 
@@ -1055,7 +1055,7 @@ On first deployment, seed:
 ## Open questions for PDI (not blocking build)
 
 1. **Redirect URLs.** Which categories redirect and to where? Keystone is confirmed. Need URLs for Dee, Desertforce, Genesys, OnBase, and "other system."
-2. **Action taken values.** What are the dropdown options for "Action taken" on the leader side? Carry forward from InMoment or revise?
+2. **Action taken values.** What are the dropdown options for "Action taken" on the owner side? Carry forward from InMoment or revise?
 3. **Efficiency tracking.** Is this part of ThoughtBox or a separate system? If part of ThoughtBox, it needs its own data model and UI. Deferred to Phase 2.
 4. **Watcher list.** Is the Process Design and Improvement distribution list the correct recipient for watcher notifications? Or should watchers be configurable per-category?
 5. **Category consolidation.** The current 18+ categories may be more than needed. Should PDI consolidate before launch, or launch with the current taxonomy and refine based on AI classification data?

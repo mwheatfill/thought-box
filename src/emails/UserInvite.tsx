@@ -3,13 +3,13 @@ import { EmailLayout, HeroIcon, PrimaryButton, StepCard } from "./components/Ema
 
 interface UserInviteProps {
 	recipientFirstName: string;
-	role: "leader" | "admin";
+	role: "owner" | "admin";
 	invitedByName: string;
 	dashboardUrl: string;
 }
 
 const ROLE_CONFIG = {
-	leader: {
+	owner: {
 		label: "Idea Reviewer",
 		description:
 			"You'll receive and review employee ideas assigned to your area. Update statuses, leave notes, and communicate with submitters to help bring great ideas to life.",
@@ -23,7 +23,7 @@ const ROLE_CONFIG = {
 
 export default function UserInvite({
 	recipientFirstName = "Sarah",
-	role = "leader",
+	role = "owner",
 	invitedByName = "Nubia Ruiz",
 	dashboardUrl = "https://thoughtbox.desertfinancial.com/dashboard",
 }: UserInviteProps) {

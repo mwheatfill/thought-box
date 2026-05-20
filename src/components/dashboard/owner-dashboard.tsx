@@ -22,7 +22,7 @@ import { cn } from "#/lib/utils";
 import { SlaIndicator } from "./sla-indicator";
 import { StatusBadge } from "./status-badge";
 
-interface LeaderIdea {
+interface OwnerIdea {
 	id: string;
 	submissionId: string;
 	title: string;
@@ -37,7 +37,7 @@ interface LeaderIdea {
 	slaStatus: "on_track" | "approaching" | "overdue" | "none";
 }
 
-interface LeaderStats {
+interface OwnerStats {
 	openCount: number;
 	overdueCount: number;
 	totalAssigned: number;
@@ -45,9 +45,9 @@ interface LeaderStats {
 
 type QueueFilter = "open" | "overdue" | "closed" | null;
 
-interface LeaderDashboardProps {
-	ideas: LeaderIdea[];
-	stats: LeaderStats;
+interface OwnerDashboardProps {
+	ideas: OwnerIdea[];
+	stats: OwnerStats;
 	onBulkUpdate?: (ideaIds: string[], status: string) => Promise<void>;
 	isBulkUpdating?: boolean;
 	enableKpiFilter?: boolean;
@@ -55,7 +55,7 @@ interface LeaderDashboardProps {
 
 // ── Column definitions ────────────────────────────────────────────────────
 
-const leaderColumns: ColumnDef<LeaderIdea, unknown>[] = [
+const ownerColumns: ColumnDef<OwnerIdea, unknown>[] = [
 	{
 		accessorKey: "submissionId",
 		header: ({ column }) => <SortableHeader column={column}>ID</SortableHeader>,
@@ -137,13 +137,13 @@ const leaderColumns: ColumnDef<LeaderIdea, unknown>[] = [
 
 // ── Component ─────────────────────────────────────────────────────────────
 
-export function LeaderDashboard({
+export function OwnerDashboard({
 	ideas,
 	stats,
 	onBulkUpdate,
 	isBulkUpdating,
 	enableKpiFilter,
-}: LeaderDashboardProps) {
+}: OwnerDashboardProps) {
 	const navigate = useNavigate();
 	const openIdeas = useMemo(() => ideas.filter((i) => OPEN_STATUSES.includes(i.status)), [ideas]);
 	const closedIdeas = useMemo(
@@ -248,7 +248,7 @@ export function LeaderDashboard({
 					</CardHeader>
 					<CardContent>
 						<DataTable
-							columns={leaderColumns}
+							columns={ownerColumns}
 							data={displayIdeas}
 							searchPlaceholder="Search ideas..."
 							enableSelection={kpiFilter === "open" || kpiFilter === "overdue"}

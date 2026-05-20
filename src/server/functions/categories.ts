@@ -13,7 +13,7 @@ export const getCategories = createServerFn()
 			where: isNull(categories.deletedAt),
 			orderBy: (c, { asc }) => [asc(c.sortOrder)],
 			with: {
-				defaultLeader: { columns: { id: true, displayName: true } },
+				defaultOwner: { columns: { id: true, displayName: true } },
 			},
 		});
 
@@ -24,8 +24,8 @@ export const getCategories = createServerFn()
 			routingType: c.routingType,
 			redirectUrl: c.redirectUrl,
 			redirectLabel: c.redirectLabel,
-			defaultLeaderId: c.defaultLeaderId,
-			defaultLeaderName: c.defaultLeader?.displayName ?? null,
+			defaultOwnerId: c.defaultOwnerId,
+			defaultOwnerName: c.defaultOwner?.displayName ?? null,
 			keystoneFields: c.keystoneFields,
 			sortOrder: c.sortOrder,
 			active: c.active,
@@ -54,7 +54,7 @@ const CategorySchema = z.object({
 	routingType: z.enum(["thoughtbox", "redirect"]),
 	redirectUrl: z.string().nullable().optional(),
 	redirectLabel: z.string().nullable().optional(),
-	defaultLeaderId: z.string().nullable().optional(),
+	defaultOwnerId: z.string().nullable().optional(),
 	keystoneFields: z.boolean().optional(),
 	sortOrder: z.number().optional(),
 });
@@ -71,7 +71,7 @@ export const createCategory = createServerFn({ method: "POST" })
 				routingType: data.routingType,
 				redirectUrl: data.redirectUrl ?? null,
 				redirectLabel: data.redirectLabel ?? null,
-				defaultLeaderId: data.defaultLeaderId ?? null,
+				defaultOwnerId: data.defaultOwnerId ?? null,
 				keystoneFields: data.keystoneFields ?? false,
 				sortOrder: data.sortOrder ?? 0,
 			})
@@ -95,7 +95,7 @@ const UpdateCategorySchema = z.object({
 	routingType: z.enum(["thoughtbox", "redirect"]).optional(),
 	redirectUrl: z.string().nullable().optional(),
 	redirectLabel: z.string().nullable().optional(),
-	defaultLeaderId: z.string().nullable().optional(),
+	defaultOwnerId: z.string().nullable().optional(),
 	keystoneFields: z.boolean().optional(),
 	sortOrder: z.number().optional(),
 	active: z.boolean().optional(),
@@ -172,12 +172,12 @@ export const restoreCategory = createServerFn({ method: "POST" })
 		return { success: true };
 	});
 
-/** Get leaders for the default leader dropdown */
-export const getLeaders = createServerFn()
+/** Get owners for the default owner dropdown */
+export const getOwners = createServerFn()
 	.middleware([adminMiddleware])
 	.handler(async () => {
 		const result = await db.query.users.findMany({
-			where: (u, { or, eq }) => or(eq(u.role, "leader"), eq(u.role, "admin")),
+			where: (u, { or, eq }) => or(eq(u.role, "owner"), eq(u.role, "admin")),
 			columns: { id: true, displayName: true, role: true },
 			orderBy: (u, { asc }) => [asc(u.displayName)],
 		});

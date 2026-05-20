@@ -44,10 +44,10 @@ export async function sendIdeaSubmittedEmail(params: {
 	});
 }
 
-/** Notify the assigned leader about a new idea. */
+/** Notify the assigned owner about a new idea. */
 export async function sendIdeaAssignedEmail(params: {
-	leaderEmail: string;
-	leaderFirstName: string;
+	ownerEmail: string;
+	ownerFirstName: string;
 	submissionId: string;
 	ideaTitle: string;
 	categoryName: string;
@@ -55,11 +55,11 @@ export async function sendIdeaAssignedEmail(params: {
 	submitterDepartment: string | null;
 }) {
 	await sendEmail({
-		to: params.leaderEmail,
+		to: params.ownerEmail,
 		subject: `New idea assigned to you: ${params.submissionId}`,
 		templateName: "IdeaAssigned",
 		template: createElement(IdeaAssigned, {
-			leaderFirstName: params.leaderFirstName,
+			ownerFirstName: params.ownerFirstName,
 			submissionId: params.submissionId,
 			ideaTitle: params.ideaTitle,
 			categoryName: params.categoryName,
@@ -77,8 +77,8 @@ export async function sendStatusChangedEmail(params: {
 	submissionId: string;
 	ideaTitle: string;
 	newStatus: "under_review" | "accepted" | "declined";
-	leaderFirstName: string;
-	leaderNotes: string | null;
+	ownerFirstName: string;
+	ownerNotes: string | null;
 	rejectionReason: string | null;
 }) {
 	const subjectMap = {
@@ -96,8 +96,8 @@ export async function sendStatusChangedEmail(params: {
 			submissionId: params.submissionId,
 			ideaTitle: params.ideaTitle,
 			newStatus: params.newStatus,
-			leaderFirstName: params.leaderFirstName,
-			leaderNotes: params.leaderNotes,
+			ownerFirstName: params.ownerFirstName,
+			ownerNotes: params.ownerNotes,
 			rejectionReason: params.rejectionReason,
 			viewUrl: ideaUrl(params.submissionId),
 		}),
@@ -112,10 +112,10 @@ export async function sendNewMessageEmail(params: {
 	submissionId: string;
 	ideaTitle: string;
 	messagePreview: string;
-	isFromLeader: boolean;
+	isFromOwner: boolean;
 }) {
-	const subject = params.isFromLeader
-		? `A leader has a question about your idea: ${params.ideaTitle}`
+	const subject = params.isFromOwner
+		? `An owner has a question about your idea: ${params.ideaTitle}`
 		: `The submitter responded on: ${params.ideaTitle}`;
 
 	await sendEmail({
@@ -128,16 +128,16 @@ export async function sendNewMessageEmail(params: {
 			submissionId: params.submissionId,
 			ideaTitle: params.ideaTitle,
 			messagePreview: params.messagePreview,
-			isFromLeader: params.isFromLeader,
+			isFromOwner: params.isFromOwner,
 			viewUrl: ideaUrl(params.submissionId),
 		}),
 	});
 }
 
-/** Notify a leader when an idea is reassigned to them. */
+/** Notify an owner when an idea is reassigned to them. */
 export async function sendIdeaReassignedEmail(params: {
-	leaderEmail: string;
-	leaderFirstName: string;
+	ownerEmail: string;
+	ownerFirstName: string;
 	submissionId: string;
 	ideaTitle: string;
 	categoryName: string;
@@ -147,11 +147,11 @@ export async function sendIdeaReassignedEmail(params: {
 	note?: string | null;
 }) {
 	await sendEmail({
-		to: params.leaderEmail,
+		to: params.ownerEmail,
 		subject: `Idea reassigned to you: ${params.submissionId}`,
 		templateName: "IdeaReassigned",
 		template: createElement(IdeaReassigned, {
-			leaderFirstName: params.leaderFirstName,
+			ownerFirstName: params.ownerFirstName,
 			submissionId: params.submissionId,
 			ideaTitle: params.ideaTitle,
 			categoryName: params.categoryName,
@@ -164,7 +164,7 @@ export async function sendIdeaReassignedEmail(params: {
 	});
 }
 
-/** Notify the submitter that their idea has been reassigned (no leader name revealed). */
+/** Notify the submitter that their idea has been reassigned (no owner name revealed). */
 export async function sendIdeaReassignedSubmitterEmail(params: {
 	submitterEmail: string;
 	submitterFirstName: string;
@@ -197,7 +197,7 @@ export async function sendWatcherAlert(params: {
 	categoryName: string;
 	submitterName: string;
 	submitterDepartment: string | null;
-	assignedLeaderName: string | null;
+	assignedOwnerName: string | null;
 }) {
 	if (!params.watcherEmail) return;
 
@@ -212,7 +212,7 @@ export async function sendWatcherAlert(params: {
 			categoryName: params.categoryName,
 			submitterName: params.submitterName,
 			submitterDepartment: params.submitterDepartment,
-			assignedLeaderName: params.assignedLeaderName,
+			assignedOwnerName: params.assignedOwnerName,
 			viewUrl: ideaUrl(params.submissionId),
 		}),
 	});
@@ -221,8 +221,8 @@ export async function sendWatcherAlert(params: {
 // ── SLA reminder ─────────────────────────────────────────────────────────
 
 export async function sendSlaReminderEmail(params: {
-	leaderEmail: string;
-	leaderFirstName: string;
+	ownerEmail: string;
+	ownerFirstName: string;
 	submissionId: string;
 	ideaTitle: string;
 	submitterName: string;
@@ -232,11 +232,11 @@ export async function sendSlaReminderEmail(params: {
 }) {
 	const dayLabel = params.businessDaysSinceStart === 1 ? "business day" : "business days";
 	await sendEmail({
-		to: params.leaderEmail,
+		to: params.ownerEmail,
 		subject: `Reminder: ${params.submissionId} needs your review (${params.businessDaysSinceStart} ${dayLabel})`,
 		templateName: "SlaReminder",
 		template: createElement(SlaReminder, {
-			leaderFirstName: params.leaderFirstName,
+			ownerFirstName: params.ownerFirstName,
 			submissionId: params.submissionId,
 			ideaTitle: params.ideaTitle,
 			submitterName: params.submitterName,
@@ -253,7 +253,7 @@ export async function sendSlaReminderEmail(params: {
 export async function sendUserInviteEmail(params: {
 	recipientEmail: string;
 	recipientFirstName: string;
-	role: "leader" | "admin";
+	role: "owner" | "admin";
 	invitedByName: string;
 }) {
 	await sendEmail({
@@ -279,11 +279,11 @@ const TEST_TEMPLATES = [
 	"status_declined",
 	"idea_reassigned",
 	"idea_reassigned_submitter",
-	"message_from_leader",
+	"message_from_owner",
 	"message_from_submitter",
 	"watcher_alert",
 	"sla_reminder",
-	"user_invite_leader",
+	"user_invite_owner",
 	"user_invite_admin",
 	"access_requested",
 ] as const;
@@ -320,7 +320,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 				idea_assigned: {
 					subject: `[TEST] New idea assigned to you: ${sample.submissionId}`,
 					template: createElement(IdeaAssigned, {
-						leaderFirstName: firstName,
+						ownerFirstName: firstName,
 						submissionId: sample.submissionId,
 						ideaTitle: sample.ideaTitle,
 						categoryName: sample.categoryName,
@@ -336,8 +336,8 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						submissionId: sample.submissionId,
 						ideaTitle: sample.ideaTitle,
 						newStatus: "under_review",
-						leaderFirstName: "Michelle",
-						leaderNotes: null,
+						ownerFirstName: "Michelle",
+						ownerNotes: null,
 						rejectionReason: null,
 						viewUrl,
 					}),
@@ -349,8 +349,8 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						submissionId: sample.submissionId,
 						ideaTitle: sample.ideaTitle,
 						newStatus: "accepted",
-						leaderFirstName: "Michelle",
-						leaderNotes:
+						ownerFirstName: "Michelle",
+						ownerNotes:
 							"This is a great idea. We're going to pilot it at the Scottsdale branch next quarter.",
 						rejectionReason: null,
 						viewUrl,
@@ -363,8 +363,8 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						submissionId: sample.submissionId,
 						ideaTitle: sample.ideaTitle,
 						newStatus: "declined",
-						leaderFirstName: "Michelle",
-						leaderNotes: "We appreciate the suggestion but this is already in progress.",
+						ownerFirstName: "Michelle",
+						ownerNotes: "We appreciate the suggestion but this is already in progress.",
 						rejectionReason: "already_in_progress",
 						viewUrl,
 					}),
@@ -372,7 +372,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 				idea_reassigned: {
 					subject: `[TEST] Idea reassigned to you: ${sample.submissionId}`,
 					template: createElement(IdeaReassigned, {
-						leaderFirstName: firstName,
+						ownerFirstName: firstName,
 						submissionId: sample.submissionId,
 						ideaTitle: sample.ideaTitle,
 						categoryName: sample.categoryName,
@@ -391,8 +391,8 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						viewUrl,
 					}),
 				},
-				message_from_leader: {
-					subject: `[TEST] A leader has a question about your idea: ${sample.ideaTitle}`,
+				message_from_owner: {
+					subject: `[TEST] An owner has a question about your idea: ${sample.ideaTitle}`,
 					template: createElement(NewMessage, {
 						recipientFirstName: firstName,
 						senderName: "Michelle Murray",
@@ -400,7 +400,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						ideaTitle: sample.ideaTitle,
 						messagePreview:
 							"Can you share more details about the current process? Specifically, which steps take the longest?",
-						isFromLeader: true,
+						isFromOwner: true,
 						viewUrl,
 					}),
 				},
@@ -413,7 +413,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						ideaTitle: sample.ideaTitle,
 						messagePreview:
 							"The ID verification step takes about 15 minutes per account. If we could automate the address validation that would cut it in half.",
-						isFromLeader: false,
+						isFromOwner: false,
 						viewUrl,
 					}),
 				},
@@ -427,14 +427,14 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						categoryName: sample.categoryName,
 						submitterName: "Sarah Chen",
 						submitterDepartment: "Retail Banking",
-						assignedLeaderName: "Michelle Murray",
+						assignedOwnerName: "Michelle Murray",
 						viewUrl,
 					}),
 				},
 				sla_reminder: {
 					subject: `[TEST] Reminder: ${sample.submissionId} needs your review (5 business days)`,
 					template: createElement(SlaReminder, {
-						leaderFirstName: firstName,
+						ownerFirstName: firstName,
 						submissionId: sample.submissionId,
 						ideaTitle: sample.ideaTitle,
 						submitterName: "Sarah Chen",
@@ -444,11 +444,11 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						viewUrl,
 					}),
 				},
-				user_invite_leader: {
+				user_invite_owner: {
 					subject: "[TEST] You've been invited to ThoughtBox",
 					template: createElement(UserInvite, {
 						recipientFirstName: firstName,
-						role: "leader",
+						role: "owner",
 						invitedByName: "Nubia Ruiz",
 						dashboardUrl: `${APP_URL}/dashboard`,
 					}),

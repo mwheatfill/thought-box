@@ -19,7 +19,7 @@ export interface AuthUser {
 	officeLocation: string | null;
 	photoUrl: string | null;
 	managerDisplayName: string | null;
-	role: "submitter" | "leader" | "admin";
+	role: "submitter" | "owner" | "admin";
 	active: boolean;
 }
 
@@ -156,13 +156,13 @@ export const authMiddleware = createMiddleware().server(async ({ next, request }
 });
 
 /**
- * Leader middleware: chains on auth, ensures user is a leader or admin.
+ * Owner middleware: chains on auth, ensures user is an owner or admin.
  */
-export const leaderMiddleware = createMiddleware()
+export const ownerMiddleware = createMiddleware()
 	.middleware([authMiddleware])
 	.server(async ({ next, context }) => {
-		if (context.user.role !== "leader" && context.user.role !== "admin") {
-			throw new Error("Forbidden: leader access required");
+		if (context.user.role !== "owner" && context.user.role !== "admin") {
+			throw new Error("Forbidden: owner access required");
 		}
 		return next({ context });
 	});

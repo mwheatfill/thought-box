@@ -2,7 +2,7 @@ import { Text } from "@react-email/components";
 import { EmailLayout, HeroIcon, PrimaryButton } from "./components/EmailLayout";
 
 interface SlaReminderProps {
-	leaderFirstName: string;
+	ownerFirstName: string;
 	submissionId: string;
 	ideaTitle: string;
 	submitterName: string;
@@ -13,7 +13,7 @@ interface SlaReminderProps {
 }
 
 export default function SlaReminder({
-	leaderFirstName = "Michelle",
+	ownerFirstName = "Michelle",
 	submissionId = "TB-0001",
 	ideaTitle = "Simplify the new account opening process",
 	submitterName = "Sarah Chen",
@@ -31,7 +31,7 @@ export default function SlaReminder({
 			<Text className="m-0 text-center text-xl font-bold text-gray-900">Idea needs attention</Text>
 
 			<Text className="m-0 mt-2 text-center text-sm text-gray-500">
-				Hi {leaderFirstName}, this idea has been in{" "}
+				Hi {ownerFirstName}, this idea has been in{" "}
 				<strong className="text-gray-700">{currentStatus}</strong> status for{" "}
 				<strong className="text-gray-700">
 					{businessDaysSinceStart} business {businessDaysSinceStart === 1 ? "day" : "days"}

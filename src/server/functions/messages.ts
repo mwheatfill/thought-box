@@ -8,7 +8,7 @@ import { authMiddleware } from "#/server/middleware/auth";
 
 /**
  * Add a message to an idea's activity thread.
- * Both submitters (own ideas) and leaders/admins (assigned ideas) can post.
+ * Both submitters (own ideas) and owners/admins (assigned ideas) can post.
  */
 export const addMessage = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
@@ -21,7 +21,7 @@ export const addMessage = createServerFn({ method: "POST" })
 				submissionId: true,
 				title: true,
 				submitterId: true,
-				assignedLeaderId: true,
+				assignedOwnerId: true,
 			},
 		});
 
@@ -29,7 +29,7 @@ export const addMessage = createServerFn({ method: "POST" })
 
 		// Access check
 		const isSubmitter = idea.submitterId === context.user.id;
-		const isAssigned = idea.assignedLeaderId === context.user.id;
+		const isAssigned = idea.assignedOwnerId === context.user.id;
 		const isAdmin = context.user.role === "admin";
 
 		if (!isSubmitter && !isAssigned && !isAdmin) {
@@ -47,8 +47,8 @@ export const addMessage = createServerFn({ method: "POST" })
 			.returning({ id: ideaEvents.id });
 
 		// Fire-and-forget: notify the other party
-		const isFromLeader = !isSubmitter;
-		const recipientId = isFromLeader ? idea.submitterId : idea.assignedLeaderId;
+		const isFromOwner = !isSubmitter;
+		const recipientId = isFromOwner ? idea.submitterId : idea.assignedOwnerId;
 		if (recipientId) {
 			const recipient = await db.query.users.findFirst({
 				where: eq(users.id, recipientId),
@@ -63,7 +63,7 @@ export const addMessage = createServerFn({ method: "POST" })
 					ideaTitle: idea.title,
 					messagePreview:
 						data.content.length > 200 ? `${data.content.slice(0, 200)}...` : data.content,
-					isFromLeader,
+					isFromOwner,
 				});
 			}
 		}
@@ -80,14 +80,14 @@ export const getIdeaMessages = createServerFn()
 	.handler(async ({ context, data }) => {
 		const idea = await db.query.ideas.findFirst({
 			where: eq(ideas.id, data.ideaId),
-			columns: { id: true, submitterId: true, assignedLeaderId: true },
+			columns: { id: true, submitterId: true, assignedOwnerId: true },
 		});
 
 		if (!idea) throw new Error("Idea not found");
 
 		// Access check
 		const isSubmitter = idea.submitterId === context.user.id;
-		const isAssigned = idea.assignedLeaderId === context.user.id;
+		const isAssigned = idea.assignedOwnerId === context.user.id;
 		const isAdmin = context.user.role === "admin";
 
 		if (!isSubmitter && !isAssigned && !isAdmin) {

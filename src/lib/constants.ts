@@ -10,7 +10,7 @@ export type IdeaStatus = keyof typeof STATUS_LABELS;
 
 export const ROLE_LABELS = {
 	submitter: "Submitter",
-	leader: "Leader",
+	owner: "Owner",
 	admin: "Admin",
 } as const;
 
@@ -34,7 +34,7 @@ export const REASSIGNMENT_REASONS = {
 export type ReassignmentReason = keyof typeof REASSIGNMENT_REASONS;
 
 export const OPEN_STATUSES = ["new", "under_review"] as const;
-/** Statuses where the leader's identity is visible to submitters */
+/** Statuses where the owner's identity is visible to submitters */
 export const REVIEWED_STATUSES = ["under_review", "accepted"] as const;
 /** Statuses that close an idea */
 export const CLOSED_STATUSES = ["accepted", "declined"] as const;

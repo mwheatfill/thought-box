@@ -77,7 +77,7 @@ function SettingsPage() {
 					<CardHeader>
 						<CardTitle>SLA Reminders</CardTitle>
 						<CardDescription>
-							Automated email reminders sent to assigned leaders. All thresholds are in business
+							Automated email reminders sent to assigned owners. All thresholds are in business
 							days, counted from submission (or from the most recent reassignment).
 						</CardDescription>
 					</CardHeader>
@@ -384,17 +384,17 @@ function TextSetting({
 
 const EMAIL_TEMPLATE_OPTIONS: { value: TestEmailTemplate; label: string }[] = [
 	{ value: "idea_submitted", label: "Idea Submitted (to submitter)" },
-	{ value: "idea_assigned", label: "Idea Assigned (to leader)" },
+	{ value: "idea_assigned", label: "Idea Assigned (to owner)" },
 	{ value: "status_under_review", label: "Status: Under Review" },
 	{ value: "status_accepted", label: "Status: Accepted" },
 	{ value: "status_declined", label: "Status: Declined" },
-	{ value: "idea_reassigned", label: "Idea Reassigned (to leader)" },
+	{ value: "idea_reassigned", label: "Idea Reassigned (to owner)" },
 	{ value: "idea_reassigned_submitter", label: "Idea Reassigned (to submitter)" },
-	{ value: "message_from_leader", label: "Message from Leader" },
+	{ value: "message_from_owner", label: "Message from Owner" },
 	{ value: "message_from_submitter", label: "Message from Submitter" },
 	{ value: "sla_reminder", label: "SLA Reminder" },
 	{ value: "watcher_alert", label: "System Notification (new submission)" },
-	{ value: "user_invite_leader", label: "Invite (Leader)" },
+	{ value: "user_invite_owner", label: "Invite (Owner)" },
 	{ value: "user_invite_admin", label: "Invite (Admin)" },
 	{ value: "access_requested", label: "Access Requested" },
 ];

@@ -22,7 +22,7 @@ describe("ROLE_LABELS", () => {
 	it("has all three roles", () => {
 		expect(Object.keys(ROLE_LABELS)).toHaveLength(3);
 		expect(ROLE_LABELS.submitter).toBe("Submitter");
-		expect(ROLE_LABELS.leader).toBe("Leader");
+		expect(ROLE_LABELS.owner).toBe("Owner");
 		expect(ROLE_LABELS.admin).toBe("Admin");
 	});
 });

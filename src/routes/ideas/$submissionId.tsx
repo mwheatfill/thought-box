@@ -7,8 +7,8 @@ import { DualSlaProgress } from "#/components/dashboard/sla-progress";
 import { StatusBadge } from "#/components/dashboard/status-badge";
 import { ActivityTimeline } from "#/components/ideas/activity-timeline";
 import { ClosedIdeaPanel } from "#/components/ideas/closed-idea-panel";
-import { LeaderActions } from "#/components/ideas/leader-actions";
 import { MessageThread } from "#/components/ideas/message-thread";
+import { OwnerActions } from "#/components/ideas/owner-actions";
 import { PageTransition } from "#/components/ui/animated";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Badge } from "#/components/ui/badge";
@@ -23,7 +23,7 @@ import type { IdeaStatus } from "#/lib/constants";
 import { getIdeaAttachments } from "#/server/functions/attachments";
 import {
 	getIdeaDetail,
-	getLeadersForReassign,
+	getOwnersForReassign,
 	reassignIdea,
 	updateIdea,
 } from "#/server/functions/ideas";
@@ -32,15 +32,15 @@ import { addMessage, getIdeaMessages } from "#/server/functions/messages";
 export const Route = createFileRoute("/ideas/$submissionId")({
 	errorComponent: ({ error }) => <RouteError error={error} variant="not-found" />,
 	loader: async ({ params }) => {
-		const leaders = getLeadersForReassign().catch(() => []);
+		const owners = getOwnersForReassign().catch(() => []);
 		try {
 			const idea = await getIdeaDetail({ data: { submissionId: params.submissionId } });
-			return { idea, leaders: await leaders };
+			return { idea, owners: await owners };
 		} catch {
 			// Retry once — DB write may still be committing after chat submission
 			await new Promise((r) => setTimeout(r, 500));
 			const idea = await getIdeaDetail({ data: { submissionId: params.submissionId } });
-			return { idea, leaders: await leaders };
+			return { idea, owners: await owners };
 		}
 	},
 	component: IdeaDetailPage,
@@ -48,7 +48,7 @@ export const Route = createFileRoute("/ideas/$submissionId")({
 
 function IdeaDetailPage() {
 	const { submissionId } = Route.useParams();
-	const { idea: initialIdea, leaders } = Route.useLoaderData();
+	const { idea: initialIdea, owners } = Route.useLoaderData();
 	const { user } = Route.useRouteContext();
 	const queryClient = useQueryClient();
 
@@ -222,13 +222,13 @@ function IdeaDetailPage() {
 									)}
 								</div>
 
-								{/* Leader notes (read-only for submitters) */}
-								{idea.leaderNotes && !idea.canEdit && (
+								{/* Owner notes (read-only for submitters) */}
+								{idea.ownerNotes && !idea.canEdit && (
 									<>
 										<Separator />
 										<div>
-											<p className="mb-1 text-xs font-medium text-muted-foreground">Leader Notes</p>
-											<p className="text-sm">{idea.leaderNotes}</p>
+											<p className="mb-1 text-xs font-medium text-muted-foreground">Owner Notes</p>
+											<p className="text-sm">{idea.ownerNotes}</p>
 										</div>
 									</>
 								)}
@@ -305,7 +305,7 @@ function IdeaDetailPage() {
 					{/* Right column */}
 					{idea.canEdit && (
 						<div className="space-y-6">
-							<LeaderActions
+							<OwnerActions
 								ideaId={idea.id}
 								submissionId={idea.submissionId}
 								ideaTitle={idea.title}
@@ -314,7 +314,7 @@ function IdeaDetailPage() {
 								userRole={user.role}
 								currentStatus={idea.status}
 								currentRejectionReason={idea.rejectionReason}
-								currentLeaderNotes={idea.leaderNotes}
+								currentOwnerNotes={idea.ownerNotes}
 								currentActionTaken={idea.actionTaken}
 								slaStatus={idea.slaStatus}
 								slaDaysRemaining={idea.slaDaysRemaining}
@@ -323,17 +323,17 @@ function IdeaDetailPage() {
 								closureSlaDaysRemaining={idea.closureSlaDaysRemaining}
 								submittedAt={idea.submittedAt}
 								closedAt={idea.closedAt}
-								assignedLeaderName={idea.assignedLeader?.displayName ?? null}
-								assignedLeaderId={idea.assignedLeader?.id ?? null}
-								assignedLeaderPhotoUrl={idea.assignedLeader?.photoUrl ?? null}
-								leaders={leaders}
+								assignedOwnerName={idea.assignedOwner?.displayName ?? null}
+								assignedOwnerId={idea.assignedOwner?.id ?? null}
+								assignedOwnerPhotoUrl={idea.assignedOwner?.photoUrl ?? null}
+								owners={owners}
 								onSave={async (updates) => {
 									await updateMutation.mutateAsync(updates);
 								}}
-								onReassign={async ({ newLeaderId, reason, note }) => {
+								onReassign={async ({ newOwnerId, reason, note }) => {
 									await reassignMutation.mutateAsync({
 										ideaId: idea.id,
-										newLeaderId,
+										newOwnerId,
 										reason,
 										note,
 									});
@@ -370,12 +370,12 @@ function IdeaDetailPage() {
 									rejectionReason={idea.rejectionReason}
 									closedAt={idea.closedAt}
 									submittedAt={idea.submittedAt}
-									assignedLeader={
-										idea.assignedLeader
+									assignedOwner={
+										idea.assignedOwner
 											? {
-													id: idea.assignedLeader.id,
-													displayName: idea.assignedLeader.displayName,
-													photoUrl: idea.assignedLeader.photoUrl ?? null,
+													id: idea.assignedOwner.id,
+													displayName: idea.assignedOwner.displayName,
+													photoUrl: idea.assignedOwner.photoUrl ?? null,
 												}
 											: null
 									}
@@ -392,15 +392,15 @@ function IdeaDetailPage() {
 											closureSlaDaysRemaining={idea.closureSlaDaysRemaining}
 											closureSlaDueDate={idea.closureSlaDueDate}
 										/>
-										{idea.assignedLeader && (
+										{idea.assignedOwner && (
 											<div className="flex items-center justify-between">
 												<span className="text-sm text-muted-foreground">Reviewer</span>
-												<UserCardPopover userId={idea.assignedLeader.id}>
+												<UserCardPopover userId={idea.assignedOwner.id}>
 													<button
 														type="button"
 														className="text-sm font-medium hover:text-primary hover:underline"
 													>
-														{idea.assignedLeader.displayName}
+														{idea.assignedOwner.displayName}
 													</button>
 												</UserCardPopover>
 											</div>

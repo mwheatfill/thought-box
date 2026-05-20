@@ -202,7 +202,7 @@ ${categoryTaxonomy}${userContext}`;
 							impactArea: impactArea ?? null,
 							status: "new",
 							submitterId: userId,
-							assignedLeaderId: category.defaultLeaderId,
+							assignedOwnerId: category.defaultOwnerId,
 							slaDueDate,
 							closureSlaDueDate,
 							slaStartedAt: now,
@@ -241,25 +241,25 @@ ${categoryTaxonomy}${userContext}`;
 						});
 					}
 
-					// Look up submitter and assigned leader for emails
+					// Look up submitter and assigned owner for emails
 					const submitter = await db.query.users.findFirst({
 						where: eq(users.id, userId),
 						columns: { email: true, displayName: true, department: true },
 					});
 
-					let assignedLeaderName: string | null = null;
-					if (category.defaultLeaderId) {
-						const leader = await db.query.users.findFirst({
-							where: eq(users.id, category.defaultLeaderId),
+					let assignedOwnerName: string | null = null;
+					if (category.defaultOwnerId) {
+						const owner = await db.query.users.findFirst({
+							where: eq(users.id, category.defaultOwnerId),
 							columns: { displayName: true, email: true },
 						});
-						assignedLeaderName = leader?.displayName ?? null;
+						assignedOwnerName = owner?.displayName ?? null;
 
-						// Fire-and-forget: notify the leader
-						if (leader) {
+						// Fire-and-forget: notify the owner
+						if (owner) {
 							sendIdeaAssignedEmail({
-								leaderEmail: leader.email,
-								leaderFirstName: leader.displayName.split(" ")[0],
+								ownerEmail: owner.email,
+								ownerFirstName: owner.displayName.split(" ")[0],
 								submissionId: idea.submissionId,
 								ideaTitle: idea.title,
 								categoryName: category.name,
@@ -295,7 +295,7 @@ ${categoryTaxonomy}${userContext}`;
 							submissionId: idea.submissionId,
 							title: idea.title,
 							categoryName: category.name,
-							assignedLeaderName: null, // New ideas always hide leader from submitters
+							assignedOwnerName: null, // New ideas always hide owner from submitters
 						},
 					};
 				},

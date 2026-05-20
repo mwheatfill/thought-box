@@ -97,7 +97,7 @@ interface SourceRow {
 	categoryName: string;
 	suggestion: string;
 	originalOwnerName: string;
-	leaderName: string;
+	ownerName: string;
 	actionTaken: string;
 	communicated: string;
 	ticketNumber: string;
@@ -204,7 +204,7 @@ function parseXlsx(path: string): SourceRow[] {
 			categoryName: String(r[4] ?? "").trim(),
 			suggestion: String(r[5] ?? "").trim(),
 			originalOwnerName: String(r[6] ?? "").trim(),
-			leaderName: String(r[7] ?? "").trim(),
+			ownerName: String(r[7] ?? "").trim(),
 			actionTaken: String(r[8] ?? "").trim(),
 			communicated: String(r[9] ?? "").trim(),
 			ticketNumber: String(r[10] ?? "").trim(),
@@ -247,7 +247,7 @@ interface UserMatch {
 	displayName: string;
 	source: "db" | "graph" | "legacy";
 	willCreate: boolean;
-	role: "submitter" | "leader" | "admin";
+	role: "submitter" | "owner" | "admin";
 	entraId?: string; // present when source === "graph"
 	resolvedVia?: "displayName" | "override-email" | "override-legacy";
 }
@@ -265,7 +265,7 @@ type DbUser = {
 	id: string;
 	displayName: string;
 	email: string;
-	role: "submitter" | "leader" | "admin";
+	role: "submitter" | "owner" | "admin";
 };
 
 interface UserIndexes {
@@ -395,10 +395,10 @@ interface Plan {
 	source: SourceRow[];
 	categoryByRow: Map<number, string>; // rowNum → categoryId
 	submitterByRow: Map<number, UserMatch>; // rowNum → resolved
-	leaderByRow: Map<number, UserMatch>;
+	ownerByRow: Map<number, UserMatch>;
 	usersToCreate: Map<string, GraphHit>; // by lowercased name
 	unmatchedSubmitters: string[];
-	unmatchedLeaders: string[];
+	unmatchedOwners: string[];
 	missingCategories: string[];
 }
 
@@ -432,30 +432,30 @@ async function buildPlan(rows: SourceRow[]): Promise<Plan> {
 		console.log(`  ${OVERRIDES.size} name overrides loaded from ${OVERRIDES_PATH}`);
 
 	const submitterNames = new Set(rows.map((r) => r.submitterName).filter(Boolean));
-	const leaderNames = new Set(rows.map((r) => r.leaderName).filter(Boolean));
+	const ownerNames = new Set(rows.map((r) => r.ownerName).filter(Boolean));
 
-	console.log(`\n→ Resolving ${submitterNames.size} submitters + ${leaderNames.size} leaders…`);
+	console.log(`\n→ Resolving ${submitterNames.size} submitters + ${ownerNames.size} owners…`);
 
 	const graphByName = new Map<string, GraphHit | null>();
 	const graphByEmail = new Map<string, GraphHit | null>();
 	const resolved = new Map<string, UserMatch | null>();
-	for (const name of [...submitterNames, ...leaderNames]) {
+	for (const name of [...submitterNames, ...ownerNames]) {
 		if (resolved.has(name.toLowerCase())) continue;
 		const match = await resolveOne(name, indexes, graphByName, graphByEmail);
 		resolved.set(name.toLowerCase(), match);
 	}
 
 	const submitterByRow = new Map<number, UserMatch>();
-	const leaderByRow = new Map<number, UserMatch>();
+	const ownerByRow = new Map<number, UserMatch>();
 	const unmatchedSubmitters = new Set<string>();
-	const unmatchedLeaders = new Set<string>();
+	const unmatchedOwners = new Set<string>();
 	for (const row of rows) {
 		const sub = resolved.get(row.submitterName.toLowerCase());
-		const lead = resolved.get(row.leaderName.toLowerCase());
+		const lead = resolved.get(row.ownerName.toLowerCase());
 		if (sub) submitterByRow.set(row.rowNum, sub);
 		else unmatchedSubmitters.add(row.submitterName);
-		if (lead) leaderByRow.set(row.rowNum, lead);
-		else unmatchedLeaders.add(row.leaderName);
+		if (lead) ownerByRow.set(row.rowNum, lead);
+		else unmatchedOwners.add(row.ownerName);
 	}
 
 	const usersToCreate = new Map<string, GraphHit>();
@@ -466,18 +466,18 @@ async function buildPlan(rows: SourceRow[]): Promise<Plan> {
 		source: rows,
 		categoryByRow,
 		submitterByRow,
-		leaderByRow,
+		ownerByRow,
 		usersToCreate,
 		unmatchedSubmitters: [...unmatchedSubmitters].sort(),
-		unmatchedLeaders: [...unmatchedLeaders].sort(),
+		unmatchedOwners: [...unmatchedOwners].sort(),
 		missingCategories,
 	};
 }
 
-function leaderEntraSet(plan: Plan): Set<string> {
+function ownerEntraSet(plan: Plan): Set<string> {
 	const set = new Set<string>();
 	for (const row of plan.source) {
-		const lead = plan.leaderByRow.get(row.rowNum);
+		const lead = plan.ownerByRow.get(row.rowNum);
 		if (lead?.source === "graph" && lead.entraId) set.add(lead.entraId);
 	}
 	return set;
@@ -507,24 +507,24 @@ function printReport(plan: Plan): void {
 		console.log(`\n!! Unmatched submitters (${plan.unmatchedSubmitters.length}):`);
 		for (const n of plan.unmatchedSubmitters) console.log(`     • ${n}`);
 	}
-	if (plan.unmatchedLeaders.length) {
-		console.log(`\n!! Unmatched leaders (${plan.unmatchedLeaders.length}):`);
-		for (const n of plan.unmatchedLeaders) console.log(`     • ${n}`);
+	if (plan.unmatchedOwners.length) {
+		console.log(`\n!! Unmatched owners (${plan.unmatchedOwners.length}):`);
+		for (const n of plan.unmatchedOwners) console.log(`     • ${n}`);
 	}
 
 	const newGraphUsers = [...plan.usersToCreate.values()];
 	if (newGraphUsers.length) {
-		const leaderEntras = leaderEntraSet(plan);
-		const newLeaders = newGraphUsers.filter((u) => leaderEntras.has(u.entraId));
-		const newSubmitters = newGraphUsers.filter((u) => !leaderEntras.has(u.entraId));
+		const ownerEntras = ownerEntraSet(plan);
+		const newOwners = newGraphUsers.filter((u) => ownerEntras.has(u.entraId));
+		const newSubmitters = newGraphUsers.filter((u) => !ownerEntras.has(u.entraId));
 		console.log(
 			`\n→ Graph-resolved users that will be created on --apply (${newGraphUsers.length} total):`,
 		);
-		if (newLeaders.length) {
+		if (newOwners.length) {
 			console.log(
-				`   Leaders (${newLeaders.length}) — will need an invite via /admin/users after import:`,
+				`   Owners (${newOwners.length}) — will need an invite via /admin/users after import:`,
 			);
-			for (const u of newLeaders) console.log(`     • ${u.displayName}  <${u.email}>`);
+			for (const u of newOwners) console.log(`     • ${u.displayName}  <${u.email}>`);
 		}
 		if (newSubmitters.length) {
 			console.log(
@@ -589,10 +589,10 @@ async function applyPlan(plan: Plan): Promise<void> {
 	const importedAt = new Date();
 	const systemActorId = await ensureSystemActor();
 
-	// Materialize Graph-resolved users. Anyone who appears as a leader in column
-	// H gets role=leader; everyone else is a submitter. Roles can be promoted
+	// Materialize Graph-resolved users. Anyone who appears as a owner in column
+	// H gets role=owner; everyone else is a submitter. Roles can be promoted
 	// later via the admin UI if needed.
-	const leaderEntras = leaderEntraSet(plan);
+	const ownerEntras = ownerEntraSet(plan);
 	const graphUserIds = new Map<string, string>(); // entraId → user.id
 	for (const gu of plan.usersToCreate.values()) {
 		const existing = await db.select().from(users).where(eq(users.entraId, gu.entraId)).limit(1);
@@ -600,7 +600,7 @@ async function applyPlan(plan: Plan): Promise<void> {
 			graphUserIds.set(gu.entraId, existing[0].id);
 			continue;
 		}
-		const role: "submitter" | "leader" = leaderEntras.has(gu.entraId) ? "leader" : "submitter";
+		const role: "submitter" | "owner" = ownerEntras.has(gu.entraId) ? "owner" : "submitter";
 		const [created] = await db
 			.insert(users)
 			.values({
@@ -652,7 +652,7 @@ async function applyPlan(plan: Plan): Promise<void> {
 		if (!categoryId) throw new Error(`Row ${row.rowNum}: no resolved category`);
 
 		const submitterMatch = plan.submitterByRow.get(row.rowNum);
-		const leaderMatch = plan.leaderByRow.get(row.rowNum);
+		const ownerMatch = plan.ownerByRow.get(row.rowNum);
 
 		let submitterId: string;
 		if (submitterMatch && submitterMatch.source !== "legacy") {
@@ -665,15 +665,15 @@ async function applyPlan(plan: Plan): Promise<void> {
 
 		const usingLegacy = submitterId === legacyUserId;
 
-		const leaderId = leaderMatch ? resolveActor(leaderMatch, "") : null;
-		if (!leaderId) throw new Error(`Row ${row.rowNum}: leader unresolved (${row.leaderName})`);
+		const ownerId = ownerMatch ? resolveActor(ownerMatch, "") : null;
+		if (!ownerId) throw new Error(`Row ${row.rowNum}: owner unresolved (${row.ownerName})`);
 
 		const isClosed = row.status === "accepted" || row.status === "declined";
 		const slaStartedAt = isClosed ? row.submittedAt : importedAt;
 		const slaDueDate = addBusinessDays(slaStartedAt, SLA_BUSINESS_DAYS_DEFAULT);
 
 		const title = autoTitle(row.suggestion);
-		const leaderNotes =
+		const ownerNotes =
 			[
 				row.researchNotes,
 				row.ticketNumber ? `Ticket: ${row.ticketNumber}` : "",
@@ -693,8 +693,8 @@ async function applyPlan(plan: Plan): Promise<void> {
 				status: row.status,
 				rejectionReason: row.rejectionReason,
 				submitterId,
-				assignedLeaderId: leaderId,
-				leaderNotes,
+				assignedOwnerId: ownerId,
+				ownerNotes,
 				actionTaken: row.actionTaken || null,
 				slaDueDate,
 				slaStartedAt,
@@ -717,11 +717,11 @@ async function applyPlan(plan: Plan): Promise<void> {
 		});
 
 		if (isClosed) {
-			// status_changed event — at close date, actor = assigned leader
+			// status_changed event — at close date, actor = assigned owner
 			await db.insert(ideaEvents).values({
 				ideaId: idea.id,
 				eventType: "status_changed",
-				actorId: leaderId,
+				actorId: ownerId,
 				oldValue: "new",
 				newValue: row.status,
 				note: row.rejectionReason ? `Reason: ${row.rejectionReason}` : null,
@@ -734,7 +734,7 @@ async function applyPlan(plan: Plan): Promise<void> {
 			await db.insert(ideaEvents).values({
 				ideaId: idea.id,
 				eventType: "status_changed",
-				actorId: leaderId,
+				actorId: ownerId,
 				oldValue: "new",
 				newValue: "under_review",
 				note: "Reclassified during InMoment import.",
@@ -746,7 +746,7 @@ async function applyPlan(plan: Plan): Promise<void> {
 			await db.insert(ideaEvents).values({
 				ideaId: idea.id,
 				eventType: "note_added",
-				actorId: leaderId,
+				actorId: ownerId,
 				note: row.researchNotes,
 				createdAt: row.closedAt ?? row.submittedAt,
 			});
@@ -805,9 +805,9 @@ async function main() {
 			`${plan.unmatchedSubmitters.length} unmatched submitters (use --legacy-user to fall back)`,
 		);
 	}
-	if (plan.unmatchedLeaders.length) {
+	if (plan.unmatchedOwners.length) {
 		blockers.push(
-			`${plan.unmatchedLeaders.length} unmatched leaders (must be resolved — no fallback)`,
+			`${plan.unmatchedOwners.length} unmatched owners (must be resolved — no fallback)`,
 		);
 	}
 

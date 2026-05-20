@@ -19,7 +19,7 @@ const NEXT_STEPS = [
 		icon: UserCheck,
 		color: "bg-primary/10 text-primary",
 		title: "Assigned for review",
-		description: "A category leader will review your idea",
+		description: "A category owner will review your idea",
 	},
 	{
 		icon: MessageCircle,

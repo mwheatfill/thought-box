@@ -58,7 +58,7 @@ import {
 	deleteCategory,
 	getCategories,
 	getDeletedCategories,
-	getLeaders,
+	getOwners,
 	restoreCategory,
 	updateCategory,
 } from "#/server/functions/categories";
@@ -71,8 +71,8 @@ export const Route = createFileRoute("/admin/categories")({
 		}
 	},
 	loader: async () => {
-		const [cats, leaders] = await Promise.all([getCategories(), getLeaders()]);
-		return { categories: cats, leaders };
+		const [cats, owners] = await Promise.all([getCategories(), getOwners()]);
+		return { categories: cats, owners };
 	},
 	component: CategoriesPage,
 });
@@ -83,7 +83,7 @@ interface CategoryForm {
 	routingType: "thoughtbox" | "redirect";
 	redirectUrl: string;
 	redirectLabel: string;
-	defaultLeaderId: string;
+	defaultOwnerId: string;
 	sortOrder: number;
 }
 
@@ -93,18 +93,18 @@ const emptyForm: CategoryForm = {
 	routingType: "thoughtbox",
 	redirectUrl: "",
 	redirectLabel: "",
-	defaultLeaderId: "",
+	defaultOwnerId: "",
 	sortOrder: 0,
 };
 
 function CategoriesPage() {
-	const { categories: initialCategories, leaders } = Route.useLoaderData();
+	const { categories: initialCategories, owners } = Route.useLoaderData();
 	const queryClient = useQueryClient();
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [showDeleted, setShowDeleted] = useState(false);
 	const [form, setForm] = useState<CategoryForm>(emptyForm);
-	const [leaderPopoverOpen, setLeaderPopoverOpen] = useState(false);
+	const [ownerPopoverOpen, setOwnerPopoverOpen] = useState(false);
 	const [search, setSearch] = useState("");
 
 	const { data: cats = initialCategories } = useQuery({
@@ -127,7 +127,7 @@ function CategoriesPage() {
 						routingType: form.routingType,
 						redirectUrl: form.routingType === "redirect" ? form.redirectUrl : null,
 						redirectLabel: form.routingType === "redirect" ? form.redirectLabel : null,
-						defaultLeaderId: form.defaultLeaderId || null,
+						defaultOwnerId: form.defaultOwnerId || null,
 						sortOrder: form.sortOrder,
 					},
 				});
@@ -139,7 +139,7 @@ function CategoriesPage() {
 						routingType: form.routingType,
 						redirectUrl: form.routingType === "redirect" ? form.redirectUrl : null,
 						redirectLabel: form.routingType === "redirect" ? form.redirectLabel : null,
-						defaultLeaderId: form.defaultLeaderId || null,
+						defaultOwnerId: form.defaultOwnerId || null,
 						sortOrder: form.sortOrder,
 					},
 				});
@@ -213,13 +213,13 @@ function CategoriesPage() {
 			routingType: cat.routingType,
 			redirectUrl: cat.redirectUrl ?? "",
 			redirectLabel: cat.redirectLabel ?? "",
-			defaultLeaderId: cat.defaultLeaderId ?? "",
+			defaultOwnerId: cat.defaultOwnerId ?? "",
 			sortOrder: cat.sortOrder,
 		});
 		setDialogOpen(true);
 	}
 
-	const selectedLeader = leaders.find((l) => l.id === form.defaultLeaderId);
+	const selectedOwner = owners.find((l) => l.id === form.defaultOwnerId);
 
 	return (
 		<main className="flex-1 bg-background p-6">
@@ -253,7 +253,7 @@ function CategoriesPage() {
 								<TableHead className="w-[70px]">Order</TableHead>
 								<TableHead>Name</TableHead>
 								<TableHead>Type</TableHead>
-								<TableHead>Default Leader</TableHead>
+								<TableHead>Default Owner</TableHead>
 								<TableHead className="w-[80px]" />
 							</TableRow>
 						</TableHeader>
@@ -266,7 +266,7 @@ function CategoriesPage() {
 										cat.name.toLowerCase().includes(s) ||
 										cat.description.toLowerCase().includes(s) ||
 										cat.routingType.toLowerCase().includes(s) ||
-										(cat.defaultLeaderName ?? "").toLowerCase().includes(s)
+										(cat.defaultOwnerName ?? "").toLowerCase().includes(s)
 									);
 								})
 								.map((cat, idx) => (
@@ -320,7 +320,7 @@ function CategoriesPage() {
 											)}
 										</TableCell>
 										<TableCell className="text-muted-foreground">
-											{cat.defaultLeaderName ?? "—"}
+											{cat.defaultOwnerName ?? "—"}
 										</TableCell>
 										<TableCell>
 											<Button
@@ -457,11 +457,11 @@ function CategoriesPage() {
 
 						{form.routingType === "thoughtbox" && (
 							<div className="space-y-1.5">
-								<Label>Default Leader</Label>
-								<Popover open={leaderPopoverOpen} onOpenChange={setLeaderPopoverOpen}>
+								<Label>Default Owner</Label>
+								<Popover open={ownerPopoverOpen} onOpenChange={setOwnerPopoverOpen}>
 									<PopoverTrigger asChild>
 										<Button variant="outline" className="w-full justify-between font-normal">
-											{selectedLeader?.displayName ?? "Search for a leader..."}
+											{selectedOwner?.displayName ?? "Search for an owner..."}
 											<ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
 										</Button>
 									</PopoverTrigger>
@@ -469,21 +469,21 @@ function CategoriesPage() {
 										<Command>
 											<CommandInput placeholder="Type a name..." />
 											<CommandList>
-												<CommandEmpty>No leaders found.</CommandEmpty>
+												<CommandEmpty>No owners found.</CommandEmpty>
 												<CommandGroup>
-													{leaders.map((l) => (
+													{owners.map((l) => (
 														<CommandItem
 															key={l.id}
 															value={l.displayName}
 															onSelect={() => {
-																setForm({ ...form, defaultLeaderId: l.id });
-																setLeaderPopoverOpen(false);
+																setForm({ ...form, defaultOwnerId: l.id });
+																setOwnerPopoverOpen(false);
 															}}
 														>
 															<Check
 																className={cn(
 																	"mr-2 size-4",
-																	form.defaultLeaderId === l.id ? "opacity-100" : "opacity-0",
+																	form.defaultOwnerId === l.id ? "opacity-100" : "opacity-0",
 																)}
 															/>
 															{l.displayName}

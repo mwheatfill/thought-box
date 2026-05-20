@@ -13,7 +13,7 @@ import { createId } from "./utils";
 
 // ── Enums ──────────────────────────────────────────────────────────────────
 
-export const userRoleEnum = pgEnum("user_role", ["submitter", "leader", "admin"]);
+export const userRoleEnum = pgEnum("user_role", ["submitter", "owner", "admin"]);
 
 export const userSourceEnum = pgEnum("user_source", ["graph", "login"]);
 
@@ -91,7 +91,7 @@ export const categories = pgTable("categories", {
 	routingType: routingTypeEnum("routing_type").notNull(),
 	redirectUrl: varchar("redirect_url", { length: 500 }),
 	redirectLabel: varchar("redirect_label", { length: 255 }),
-	defaultLeaderId: varchar("default_leader_id", { length: 128 }),
+	defaultOwnerId: varchar("default_owner_id", { length: 128 }),
 	keystoneFields: boolean("keystone_fields").notNull().default(false),
 	sortOrder: integer("sort_order").notNull().default(0),
 	active: boolean("active").notNull().default(true),
@@ -112,8 +112,8 @@ export const ideas = pgTable("ideas", {
 	status: ideaStatusEnum("status").notNull().default("new"),
 	rejectionReason: rejectionReasonEnum("rejection_reason"),
 	submitterId: varchar("submitter_id", { length: 128 }).notNull(),
-	assignedLeaderId: varchar("assigned_leader_id", { length: 128 }),
-	leaderNotes: text("leader_notes"),
+	assignedOwnerId: varchar("assigned_owner_id", { length: 128 }),
+	ownerNotes: text("owner_notes"),
 	actionTaken: varchar("action_taken", { length: 255 }),
 	slaDueDate: timestamp("sla_due_date", { withTimezone: true }),
 	closureSlaDueDate: timestamp("closure_sla_due_date", { withTimezone: true }),
@@ -209,14 +209,14 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 		relationName: "managerRelation",
 	}),
 	submittedIdeas: many(ideas, { relationName: "submitterRelation" }),
-	assignedIdeas: many(ideas, { relationName: "leaderRelation" }),
+	assignedIdeas: many(ideas, { relationName: "ownerRelation" }),
 	events: many(ideaEvents),
 	conversations: many(conversations),
 }));
 
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
-	defaultLeader: one(users, {
-		fields: [categories.defaultLeaderId],
+	defaultOwner: one(users, {
+		fields: [categories.defaultOwnerId],
 		references: [users.id],
 	}),
 	ideas: many(ideas),
@@ -232,10 +232,10 @@ export const ideasRelations = relations(ideas, ({ one, many }) => ({
 		references: [users.id],
 		relationName: "submitterRelation",
 	}),
-	assignedLeader: one(users, {
-		fields: [ideas.assignedLeaderId],
+	assignedOwner: one(users, {
+		fields: [ideas.assignedOwnerId],
 		references: [users.id],
-		relationName: "leaderRelation",
+		relationName: "ownerRelation",
 	}),
 	events: many(ideaEvents),
 	conversations: many(conversations),

@@ -57,7 +57,7 @@ thoughtbox/
 │   ├── server/                     # Server-side code
 │   │   ├── functions/              # TanStack Start server functions
 │   │   │   ├── ideas.ts            # CRUD, status changes, reassignment
-│   │   │   ├── messages.ts         # Leader-submitter comment thread (addMessage, getIdeaMessages)
+│   │   │   ├── messages.ts         # Owner-submitter comment thread (addMessage, getIdeaMessages)
 │   │   │   ├── categories.ts       # CRUD for category taxonomy
 │   │   │   ├── users.ts            # Directory search, role management, profile enrichment
 │   │   │   ├── dashboard.ts        # KPI stats, chart data, activity feed
@@ -179,7 +179,7 @@ Connection string: `postgresql://postgres:local@localhost:5432/thoughtbox`
 
 **Message prefixes:** `feat(chat):`, `feat(dashboard):`, `feat(admin):`, `fix(auth):`, `chore(deps):`, `chore(config):`, `refactor(ideas):`, `test(sla):`, `docs:`.
 
-**Branch strategy:** Work on `main` for initial scaffolding. Create feature branches (`feat/ai-chat-intake`, `feat/leader-dashboard`) once the foundation is stable.
+**Branch strategy:** Work on `main` for initial scaffolding. Create feature branches (`feat/ai-chat-intake`, `feat/owner-dashboard`) once the foundation is stable.
 
 **Never commit:** `.env` files, `node_modules/`, secrets, API keys.
 
@@ -305,7 +305,7 @@ pnpm email:preview    # Open React Email preview server
 ### Test patterns
 
 - Use `describe` blocks organized by feature, not by file.
-- Test the behavior, not the implementation. "When a leader changes status to accepted, the submitter receives an email" not "updateIdeaStatus calls sendNotification."
+- Test the behavior, not the implementation. "When an owner changes status to accepted, the submitter receives an email" not "updateIdeaStatus calls sendNotification."
 - Mock external services (Graph API, AI provider) at the boundary. Do not mock internal modules.
 - Use factory functions for test data (createTestUser, createTestIdea) to avoid repetitive setup.
 
@@ -318,7 +318,7 @@ pnpm email:preview    # Open React Email preview server
 | Functions | camelCase | `getAssignedIdeas`, `calculateSlaDueDate` |
 | Server functions | camelCase, verb-first | `createIdea`, `updateIdeaStatus`, `getMyIdeas` |
 | Database tables | snake_case (plural) | `ideas`, `idea_events`, `categories` |
-| Database columns | camelCase (Drizzle maps to snake_case) | `assignedLeaderId`, `slaDueDate` |
+| Database columns | camelCase (Drizzle maps to snake_case) | `assignedOwnerId`, `slaDueDate` |
 | CSS variables | shadcn convention | `--primary`, `--muted-foreground` |
 | Environment variables | SCREAMING_SNAKE_CASE | `DATABASE_URL`, `AI_PROVIDER` |
 | Branches | kebab-case with prefix | `feat/ai-chat-intake`, `fix/sla-calculation` |
@@ -438,10 +438,10 @@ export const authMiddleware = createMiddleware().server(
 )
 
 // Role-checking middleware (chains on auth)
-export const leaderMiddleware = createMiddleware()
+export const ownerMiddleware = createMiddleware()
   .middleware([authMiddleware])
   .server(async ({ next, context }) => {
-    if (context.user.role !== 'leader' && context.user.role !== 'admin') {
+    if (context.user.role !== 'owner' && context.user.role !== 'admin') {
       throw new Error('Forbidden')
     }
     return next({ context })
@@ -449,11 +449,11 @@ export const leaderMiddleware = createMiddleware()
 
 // Use middleware on server functions
 export const getAssignedIdeas = createServerFn()
-  .middleware([leaderMiddleware])
+  .middleware([ownerMiddleware])
   .handler(async ({ context }) => {
     // context.user is available and typed
     return db.select().from(ideasTable)
-      .where(eq(ideasTable.assignedLeaderId, context.user.id))
+      .where(eq(ideasTable.assignedOwnerId, context.user.id))
   })
 ```
 
@@ -587,7 +587,7 @@ function IdeaDetail({ ideaId }: { ideaId: string }) {
 
 6. **Business days calculation.** The `addBusinessDays` utility skips Saturday and Sunday. No holiday calendar for MVP. SLA due date is calculated on idea creation and recalculated on reassignment.
 
-7. **Role hierarchy.** Admin is a superset of leader. A single `role` enum is sufficient. Check `role === 'admin' || role === 'leader'` for leader-level actions. Check `role === 'admin'` for admin-only actions.
+7. **Role hierarchy.** Admin is a superset of owner. A single `role` enum is sufficient. Check `role === 'admin' || role === 'owner'` for owner-level actions. Check `role === 'admin'` for admin-only actions.
 
 8. **Conversation session handling.** Each page load starts a fresh conversation. Save abandoned conversations (at least one user message, 30 seconds of inactivity or page unmount) with `routingOutcome: 'abandoned'`.
 
@@ -614,6 +614,20 @@ Everything else in this file (TanStack Start patterns, coding standards, React p
 
 **Do not modify Azure-specific files** (Bicep templates, Azure GitHub Actions workflow, Easy Auth middleware). The Azure path stays intact. Create new Cloudflare-specific files alongside existing ones.
 
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub at `mwheatfill/thought-box`. Skills use the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout — one `CONTEXT.md` and one `docs/adr/` at the repo root (created lazily by `/grill-with-docs`). See `docs/agents/domain.md`.
+
 ## Current implementation status (as of April 2026)
 
 ### Production environment
@@ -637,9 +651,9 @@ Everything else in this file (TanStack Start patterns, coding standards, React p
 - Suggested prompt pills from settings
 
 **Dashboard & Navigation:**
-- Summary-only dashboard: admin sees KPIs + charts + activity + link cards, leader sees KPIs + queue preview + link, submitter redirects to /my-ideas
-- Dedicated routes: `/my-ideas` (submitter), `/queue` (leader), `/admin/ideas` (admin full table)
-- Role-aware sidebar: admin (Submit, Dashboard, All Ideas, My Queue, My Ideas + admin section), leader (Submit, Dashboard, My Queue), submitter (Submit, My Ideas)
+- Summary-only dashboard: admin sees KPIs + charts + activity + link cards, owner sees KPIs + queue preview + link, submitter redirects to /my-ideas
+- Dedicated routes: `/my-ideas` (submitter), `/queue` (owner), `/admin/ideas` (admin full table)
+- Role-aware sidebar: admin (Submit, Dashboard, All Ideas, My Queue, My Ideas + admin section), owner (Submit, Dashboard, My Queue), submitter (Submit, My Ideas)
 - Clickable KPI cards as filters across all pages — click to filter table, ring highlight on active, click again to clear
 - KPI colors: amber (new/ideas), blue (open/in progress), red (overdue), emerald (implemented/closed/total year), purple (total assigned)
 - Shared KpiCard component (`src/components/ui/kpi-card.tsx`) with color, variant, onClick, isActive props
@@ -650,7 +664,7 @@ Everything else in this file (TanStack Start patterns, coding standards, React p
 - Streaming SSR: KPI cards render instantly, charts stream in with skeleton loading
 - DataTable component (TanStack Table + shadcn) with global search across all columns, sort, faceted filters, pagination, initialColumnFilters prop for URL-driven filtering
 - Full-row click navigation to idea detail
-- Leader queue: checkbox row selection, bulk status update, clickable KPIs (My Open default, Overdue, Closed, Total Assigned)
+- Owner queue: checkbox row selection, bulk status update, clickable KPIs (My Open default, Overdue, Closed, Total Assigned)
 - My Ideas: clickable stat cards (Ideas This Year, In Progress, Implemented) as filters, status pipeline visualization
 - Export CSV on admin table
 
@@ -662,8 +676,8 @@ Everything else in this file (TanStack Start patterns, coding standards, React p
 - Activity timeline in right sidebar with expand/collapse (first 5, then "Show all")
 - Messages + Attachments in tabs — Messages default, Attachments as paperclip icon tab
 - File attachments: read-only mode on locked ideas (files viewable, not editable)
-- Leader actions: status update, notes, rejection reason, reassignment, "Send Update" message
-- UserCardPopover on submitter name, assigned leader, activity actors, message senders
+- Owner actions: status update, notes, rejection reason, reassignment, "Send Update" message
+- UserCardPopover on submitter name, assigned owner, activity actors, message senders
 - Browser history back navigation (not hardcoded /dashboard)
 - Per-route error boundary (not-found variant)
 
@@ -673,22 +687,22 @@ Everything else in this file (TanStack Start patterns, coding standards, React p
 - Teams presence indicator (Graph API `/users/{entraId}/presence`, requires `Presence.Read.All`)
 - Presence dot: plain colored dot for Available/Busy/Away, dot with icon for DND/Offline
 - Action buttons: Outlook (web compose deep link) + Teams Chat (teams.microsoft.com deep link)
-- Profile: photo, name, job title, colored role pill (purple admin, blue leader, green submitter)
+- Profile: photo, name, job title, colored role pill (purple admin, blue owner, green submitter)
 - Details: department, office, manager, email
 - Idea stats grid: total / implemented / open
 - Server function: `getUserCard` with parallel user + ideas queries
 
 **Admin Pages:**
-- Categories: CRUD, sort order, routing type (thoughtbox/redirect), default leader assignment, search across name/description/leader
+- Categories: CRUD, sort order, routing type (thoughtbox/redirect), default owner assignment, search across name/description/owner
 - Users: DataTable with global search (name, email, department, job title), sort/filter, directory search (Entra ID), role management, activate/deactivate
-- Users: invite email on add (checkbox, default checked for leader/admin), resend invite button with confirmation dialog, promotion dialog with invite option
+- Users: invite email on add (checkbox, default checked for owner/admin), resend invite button with confirmation dialog, promotion dialog with invite option
 - Settings: system prompt, suggested prompts, system notifications email, SLA business days, SLA reminder thresholds (New 5/14 days, Under Review 30 days), social proof threshold, test email sender (all 12 templates)
 - Audit Log: searchable/filterable DataTable, actor names with UserCardPopover, resource column links to ideas/users/categories
 - Analytics: KPI cards (unique users, requests, errors, error rate) + daily traffic chart from App Insights API
 
 **Email System:**
 - 9 email templates (React Email + Microsoft Graph): IdeaSubmitted, IdeaAssigned, StatusChanged, IdeaReassigned, NewMessage, WatcherAlert, UserInvite, SlaReminder
-- All triggers wired: submission (submitter + leader + watcher DL), status change, reassignment, messages, user invite, SLA reminders
+- All triggers wired: submission (submitter + owner + watcher DL), status change, reassignment, messages, user invite, SLA reminders
 - Shared mailbox: thoughtbox@desertfinancial.com
 - APP_URL configured for email links
 - Test email sender on admin settings page
@@ -777,7 +791,7 @@ Currently six custom routes: `/api/chat` (chat-handler.js), `/api/users/:id/phot
 
 ### Backlog (Phase 2)
 
-1. **SLA escalation chain** — escalate past leader to manager → HR/AVP/VP. Needs business rules for escalation thresholds and recipients.
+1. **SLA escalation chain** — escalate past owner to manager → HR/AVP/VP. Needs business rules for escalation thresholds and recipients.
 2. **Abandoned conversation saving** — save AI chat conversations on page unmount or 30s inactivity. Captures data currently being lost.
 3. **Watcher subscriptions per-category** — let admins configure different notification DLs per category instead of one global DL.
 4. **Full notification system** — per-idea follow/subscribe, in-app notification bell with unread counts, notification preferences per user.

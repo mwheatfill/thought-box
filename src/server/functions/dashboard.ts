@@ -3,7 +3,7 @@ import { count, eq, gte, sql } from "drizzle-orm";
 import { db } from "#/server/db";
 import { categories, ideaEvents, ideas, users } from "#/server/db/schema";
 import { businessDaysRemaining, calculateSlaStatus } from "#/server/lib/sla";
-import { adminMiddleware, authMiddleware, leaderMiddleware } from "#/server/middleware/auth";
+import { adminMiddleware, authMiddleware, ownerMiddleware } from "#/server/middleware/auth";
 
 // ── Submitter: My Ideas ───────────────────────────────────────────────────
 
@@ -30,13 +30,13 @@ export const getMyIdeas = createServerFn()
 		}));
 	});
 
-// ── Leader: Assigned Ideas ────────────────────────────────────────────────
+// ── Owner: Assigned Ideas ────────────────────────────────────────────────
 
 export const getAssignedIdeas = createServerFn()
-	.middleware([leaderMiddleware])
+	.middleware([ownerMiddleware])
 	.handler(async ({ context }) => {
 		const result = await db.query.ideas.findMany({
-			where: eq(ideas.assignedLeaderId, context.user.id),
+			where: eq(ideas.assignedOwnerId, context.user.id),
 			orderBy: (i, { asc }) => [asc(i.slaDueDate)],
 			with: {
 				category: { columns: { name: true } },
@@ -64,13 +64,13 @@ export const getAssignedIdeas = createServerFn()
 		});
 	});
 
-// ── Leader: KPI stats ─────────────────────────────────────────────────────
+// ── Owner: KPI stats ─────────────────────────────────────────────────────
 
-export const getLeaderStats = createServerFn()
-	.middleware([leaderMiddleware])
+export const getOwnerStats = createServerFn()
+	.middleware([ownerMiddleware])
 	.handler(async ({ context }) => {
 		const myIdeas = await db.query.ideas.findMany({
-			where: eq(ideas.assignedLeaderId, context.user.id),
+			where: eq(ideas.assignedOwnerId, context.user.id),
 			columns: { status: true, slaDueDate: true },
 		});
 
@@ -160,7 +160,7 @@ export const getAllIdeas = createServerFn()
 			with: {
 				category: { columns: { name: true } },
 				submitter: { columns: { id: true, displayName: true, photoUrl: true } },
-				assignedLeader: { columns: { id: true, displayName: true } },
+				assignedOwner: { columns: { id: true, displayName: true } },
 			},
 		});
 
@@ -176,8 +176,8 @@ export const getAllIdeas = createServerFn()
 				submitterId: idea.submitter.id,
 				submitterName: idea.submitter.displayName,
 				submitterPhotoUrl: idea.submitter.photoUrl,
-				assignedLeaderId: idea.assignedLeader?.id ?? null,
-				assignedLeaderName: idea.assignedLeader?.displayName ?? null,
+				assignedOwnerId: idea.assignedOwner?.id ?? null,
+				assignedOwnerName: idea.assignedOwner?.displayName ?? null,
 				impactArea: idea.impactArea,
 				submittedAt: idea.submittedAt.toISOString(),
 				slaDueDate: idea.slaDueDate?.toISOString() ?? null,

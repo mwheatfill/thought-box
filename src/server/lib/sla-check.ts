@@ -9,7 +9,7 @@ import { businessDaysBetween } from "#/server/lib/sla";
  * Idempotent — checks idea_events for existing reminder_sent at each threshold.
  *
  * All thresholds are measured in **business days** (skipping weekends), counted
- * from `slaStartedAt` (which resets to `now` on reassignment, so the new leader
+ * from `slaStartedAt` (which resets to `now` on reassignment, so the new owner
  * gets a fresh cycle).
  *
  * Default thresholds:
@@ -37,7 +37,7 @@ export async function checkSlaReminders(): Promise<{ sent: number; checked: numb
 		where: inArray(ideas.status, ["new", "under_review"]),
 		with: {
 			submitter: { columns: { displayName: true } },
-			assignedLeader: { columns: { id: true, email: true, displayName: true } },
+			assignedOwner: { columns: { id: true, email: true, displayName: true } },
 			category: { columns: { name: true } },
 		},
 	});
@@ -45,7 +45,7 @@ export async function checkSlaReminders(): Promise<{ sent: number; checked: numb
 	let sent = 0;
 
 	for (const idea of openIdeas) {
-		if (!idea.assignedLeader) continue;
+		if (!idea.assignedOwner) continue;
 
 		const referenceDate = idea.slaStartedAt ?? idea.submittedAt;
 		const businessDaysSince = businessDaysBetween(new Date(referenceDate), now);
@@ -68,8 +68,8 @@ export async function checkSlaReminders(): Promise<{ sent: number; checked: numb
 			if (existing) continue;
 
 			await sendSlaReminderEmail({
-				leaderEmail: idea.assignedLeader.email,
-				leaderFirstName: idea.assignedLeader.displayName.split(" ")[0],
+				ownerEmail: idea.assignedOwner.email,
+				ownerFirstName: idea.assignedOwner.displayName.split(" ")[0],
 				submissionId: idea.submissionId,
 				ideaTitle: idea.title,
 				submitterName: idea.submitter.displayName,
@@ -82,7 +82,7 @@ export async function checkSlaReminders(): Promise<{ sent: number; checked: numb
 			await db.insert(ideaEvents).values({
 				ideaId: idea.id,
 				eventType: "reminder_sent",
-				actorId: idea.assignedLeader.id,
+				actorId: idea.assignedOwner.id,
 				newValue: String(threshold),
 				note: `SLA reminder sent at ${threshold}-business-day threshold`,
 			});
