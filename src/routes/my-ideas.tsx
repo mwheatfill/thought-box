@@ -45,7 +45,9 @@ const columns: ColumnDef<MyIdea, unknown>[] = [
 		accessorKey: "title",
 		header: ({ column }) => <SortableHeader column={column}>Title</SortableHeader>,
 		cell: ({ row }) => (
-			<span className="max-w-[400px] font-medium line-clamp-1">{row.original.title}</span>
+			<span className="block max-w-[480px] xl:max-w-[720px] 2xl:max-w-[960px] font-medium line-clamp-1">
+				{row.original.title}
+			</span>
 		),
 	},
 	{

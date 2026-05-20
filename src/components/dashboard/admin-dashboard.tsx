@@ -139,7 +139,7 @@ export const adminIdeaColumns: ColumnDef<AdminIdea, unknown>[] = [
 		accessorKey: "title",
 		header: ({ column }) => <SortableHeader column={column}>Title</SortableHeader>,
 		cell: ({ row }) => (
-			<div className="max-w-[400px]">
+			<div className="max-w-[480px] xl:max-w-[720px] 2xl:max-w-[960px]">
 				<Link
 					to="/ideas/$submissionId"
 					params={{ submissionId: row.original.submissionId }}
