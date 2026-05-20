@@ -91,13 +91,13 @@ function IdeaDetailPage() {
 	// Reassign mutation
 	const reassignFn = useServerFn(reassignIdea);
 	const reassignMutation = useMutation({
-		mutationFn: (newLeaderId: string) => reassignFn({ data: { ideaId: idea.id, newLeaderId } }),
+		mutationFn: (input: Parameters<typeof reassignFn>[0]["data"]) => reassignFn({ data: input }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["idea", submissionId] });
 			toast.success("Idea reassigned");
 		},
-		onError: () => {
-			toast.error("Failed to reassign");
+		onError: (err: Error) => {
+			toast.error(err.message || "Failed to reassign");
 		},
 	});
 
@@ -330,8 +330,13 @@ function IdeaDetailPage() {
 								onSave={async (updates) => {
 									await updateMutation.mutateAsync(updates);
 								}}
-								onReassign={async (newLeaderId) => {
-									await reassignMutation.mutateAsync(newLeaderId);
+								onReassign={async ({ newLeaderId, reason, note }) => {
+									await reassignMutation.mutateAsync({
+										ideaId: idea.id,
+										newLeaderId,
+										reason,
+										note,
+									});
 								}}
 								onReassignComplete={() => {
 									window.history.back();

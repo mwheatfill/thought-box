@@ -26,6 +26,13 @@ export const IMPACT_AREAS = {
 
 export type ImpactArea = keyof typeof IMPACT_AREAS;
 
+export const REASSIGNMENT_REASONS = {
+	internal_department: "Internal department reassignment",
+	improperly_assigned: "Improperly assigned",
+} as const;
+
+export type ReassignmentReason = keyof typeof REASSIGNMENT_REASONS;
+
 export const OPEN_STATUSES = ["new", "under_review"] as const;
 /** Statuses where the leader's identity is visible to submitters */
 export const REVIEWED_STATUSES = ["under_review", "accepted"] as const;

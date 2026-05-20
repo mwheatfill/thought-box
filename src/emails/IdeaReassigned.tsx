@@ -8,6 +8,8 @@ interface IdeaReassignedProps {
 	categoryName: string;
 	submitterName: string;
 	reassignedByName: string;
+	reasonLabel?: string | null;
+	note?: string | null;
 	viewUrl: string;
 }
 
@@ -18,6 +20,8 @@ export default function IdeaReassigned({
 	categoryName = "Member Experience",
 	submitterName = "Sean St Onge",
 	reassignedByName = "Michelle Murray",
+	reasonLabel = "Internal department reassignment",
+	note = "Moving this to your team — you own the mobile roadmap now.",
 	viewUrl = "https://thoughtbox.desertfinancial.com/ideas/TB-0001",
 }: IdeaReassignedProps) {
 	return (
@@ -39,6 +43,28 @@ export default function IdeaReassigned({
 				title={ideaTitle}
 				meta={`${categoryName} · Submitted by ${submitterName}`}
 			/>
+
+			{reasonLabel && (
+				<div
+					style={{
+						border: "1px solid #e5e7eb",
+						borderRadius: 8,
+						padding: "14px 16px",
+						margin: "16px 0",
+						backgroundColor: "#f9fafb",
+					}}
+				>
+					<Text className="m-0 text-xs font-bold uppercase tracking-wide text-gray-500">
+						Why this was reassigned
+					</Text>
+					<Text className="m-0 mt-1 text-sm font-semibold text-gray-900">{reasonLabel}</Text>
+					{note && (
+						<Text className="m-0 mt-2 text-sm text-gray-700" style={{ whiteSpace: "pre-wrap" }}>
+							{note}
+						</Text>
+					)}
+				</div>
+			)}
 
 			<Text className="m-0 text-center text-sm font-medium text-gray-700">
 				Please review and change status within 5 days.

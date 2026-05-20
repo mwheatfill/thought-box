@@ -132,6 +132,7 @@ export const ideaEvents = pgTable("idea_events", {
 	actorId: varchar("actor_id", { length: 128 }).notNull(),
 	oldValue: varchar("old_value", { length: 500 }),
 	newValue: varchar("new_value", { length: 500 }),
+	reason: varchar("reason", { length: 50 }),
 	note: text("note"),
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

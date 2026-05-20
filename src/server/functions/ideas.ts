@@ -1,7 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { CLOSED_STATUSES, REVIEWED_STATUSES } from "#/lib/constants";
+import {
+	CLOSED_STATUSES,
+	REASSIGNMENT_REASONS,
+	REVIEWED_STATUSES,
+	type ReassignmentReason,
+} from "#/lib/constants";
 import { db, sql } from "#/server/db";
 import { categories, conversations, ideaEvents, ideas, settings, users } from "#/server/db/schema";
 import type { ConversationMessage } from "#/server/db/schema";
@@ -257,23 +262,28 @@ export const getIdeaDetail = createServerFn()
 			closureSlaDaysRemaining: businessDaysRemaining(idea.closureSlaDueDate),
 			submitter: idea.submitter,
 			assignedLeader: showLeader ? idea.assignedLeader : null,
-			events: events.map((e) => ({
-				id: e.id,
-				eventType: e.eventType,
-				actorId: e.actorId,
-				actorName: anonymizeActorName(
-					e.actor.displayName,
-					e.actorId,
-					idea.assignedLeaderId,
-					context.user.role,
-					idea.hasBeenReviewed,
-				),
-				actorPhotoUrl: showLeader || e.actorId !== idea.assignedLeaderId ? e.actor.photoUrl : null,
-				oldValue: e.eventType === "reassigned" && !showLeader ? null : e.oldValue,
-				newValue: e.eventType === "reassigned" && !showLeader ? null : e.newValue,
-				note: e.note,
-				createdAt: e.createdAt.toISOString(),
-			})),
+			events: events.map((e) => {
+				const redactReassign = e.eventType === "reassigned" && !showLeader;
+				return {
+					id: e.id,
+					eventType: e.eventType,
+					actorId: e.actorId,
+					actorName: anonymizeActorName(
+						e.actor.displayName,
+						e.actorId,
+						idea.assignedLeaderId,
+						context.user.role,
+						idea.hasBeenReviewed,
+					),
+					actorPhotoUrl:
+						showLeader || e.actorId !== idea.assignedLeaderId ? e.actor.photoUrl : null,
+					oldValue: redactReassign ? null : e.oldValue,
+					newValue: redactReassign ? null : e.newValue,
+					reason: redactReassign ? null : e.reason,
+					note: redactReassign ? null : e.note,
+					createdAt: e.createdAt.toISOString(),
+				};
+			}),
 			canEdit:
 				context.user.role === "admin" ||
 				(context.user.role === "leader" && idea.assignedLeaderId === context.user.id),
@@ -449,9 +459,21 @@ export const bulkUpdateStatus = createServerFn({ method: "POST" })
 
 // ── Reassign Idea ─────────────────────────────────────────────────────────
 
+const REASSIGN_REASON_KEYS = Object.keys(REASSIGNMENT_REASONS) as [
+	ReassignmentReason,
+	...ReassignmentReason[],
+];
+
 export const reassignIdea = createServerFn({ method: "POST" })
 	.middleware([leaderMiddleware])
-	.inputValidator(z.object({ ideaId: z.string(), newLeaderId: z.string() }))
+	.inputValidator(
+		z.object({
+			ideaId: z.string(),
+			newLeaderId: z.string(),
+			reason: z.enum(REASSIGN_REASON_KEYS).optional(),
+			note: z.string().trim().max(500).optional(),
+		}),
+	)
 	.handler(async ({ context, data }) => {
 		const idea = await db.query.ideas.findFirst({
 			where: eq(ideas.id, data.ideaId),
@@ -465,7 +487,7 @@ export const reassignIdea = createServerFn({ method: "POST" })
 			},
 			with: {
 				category: { columns: { name: true } },
-				submitter: { columns: { displayName: true, email: true } },
+				submitter: { columns: { displayName: true, email: true, department: true } },
 			},
 		});
 
@@ -482,20 +504,33 @@ export const reassignIdea = createServerFn({ method: "POST" })
 			throw new Error("This idea is closed and locked. Reassignment is not allowed.");
 		}
 
-		// Look up old and new leaders
-		const oldLeader = idea.assignedLeaderId
-			? await db.query.users.findFirst({
-					where: eq(users.id, idea.assignedLeaderId),
-					columns: { displayName: true },
-				})
-			: null;
-
-		const newLeader = await db.query.users.findFirst({
-			where: eq(users.id, data.newLeaderId),
-			columns: { id: true, displayName: true, email: true },
-		});
+		const [oldLeader, newLeader] = await Promise.all([
+			idea.assignedLeaderId
+				? db.query.users.findFirst({
+						where: eq(users.id, idea.assignedLeaderId),
+						columns: { displayName: true },
+					})
+				: Promise.resolve(null),
+			db.query.users.findFirst({
+				where: eq(users.id, data.newLeaderId),
+				columns: { id: true, displayName: true, email: true },
+			}),
+		]);
 
 		if (!newLeader) throw new Error("Leader not found");
+
+		// First-time assignment skips reason/note — there's no prior owner to
+		// describe a reassignment from.
+		const isReassignment = !!idea.assignedLeaderId;
+		const note = data.note?.trim() || null;
+		let reason: ReassignmentReason | null = null;
+
+		if (isReassignment) {
+			if (!data.reason) {
+				throw new Error("A reassignment reason is required.");
+			}
+			reason = data.reason;
+		}
 
 		// Reset SLA and update assignment
 		const now = new Date();
@@ -513,47 +548,65 @@ export const reassignIdea = createServerFn({ method: "POST" })
 			})
 			.where(eq(ideas.id, data.ideaId));
 
-		// Reset SLA reminder cycle: clear prior reminder_sent events so the new
-		// leader gets fresh reminders based on the new slaStartedAt.
-		await db
-			.delete(ideaEvents)
-			.where(and(eq(ideaEvents.ideaId, data.ideaId), eq(ideaEvents.eventType, "reminder_sent")));
+		// First-time assignment writes no event and has no prior reminders to
+		// clear, matching the auto-assign-at-submission path.
+		if (isReassignment) {
+			await db
+				.delete(ideaEvents)
+				.where(and(eq(ideaEvents.ideaId, data.ideaId), eq(ideaEvents.eventType, "reminder_sent")));
 
-		// Log reassignment event
-		await db.insert(ideaEvents).values({
-			ideaId: data.ideaId,
-			eventType: "reassigned",
-			actorId: context.user.id,
-			oldValue: oldLeader?.displayName ?? null,
-			newValue: newLeader.displayName,
-		});
+			await db.insert(ideaEvents).values({
+				ideaId: data.ideaId,
+				eventType: "reassigned",
+				actorId: context.user.id,
+				oldValue: oldLeader?.displayName ?? null,
+				newValue: newLeader.displayName,
+				reason,
+				note,
+			});
+		}
 
-		// Fire-and-forget: notify new leader
-		sendIdeaReassignedEmail({
-			leaderEmail: newLeader.email,
-			leaderFirstName: newLeader.displayName.split(" ")[0],
-			submissionId: idea.submissionId,
-			ideaTitle: idea.title,
-			categoryName: idea.category.name,
-			submitterName: idea.submitter.displayName,
-			reassignedByName: context.user.displayName,
-		});
-
-		// Fire-and-forget: notify submitter (no leader name revealed)
-		sendIdeaReassignedSubmitterEmail({
-			submitterEmail: idea.submitter.email,
-			submitterFirstName: idea.submitter.displayName.split(" ")[0],
-			submissionId: idea.submissionId,
-			ideaTitle: idea.title,
-			categoryName: idea.category.name,
-		});
+		if (isReassignment) {
+			sendIdeaReassignedEmail({
+				leaderEmail: newLeader.email,
+				leaderFirstName: newLeader.displayName.split(" ")[0],
+				submissionId: idea.submissionId,
+				ideaTitle: idea.title,
+				categoryName: idea.category.name,
+				submitterName: idea.submitter.displayName,
+				reassignedByName: context.user.displayName,
+				reasonLabel: reason ? REASSIGNMENT_REASONS[reason] : null,
+				note,
+			});
+			sendIdeaReassignedSubmitterEmail({
+				submitterEmail: idea.submitter.email,
+				submitterFirstName: idea.submitter.displayName.split(" ")[0],
+				submissionId: idea.submissionId,
+				ideaTitle: idea.title,
+				categoryName: idea.category.name,
+			});
+		} else {
+			// First-time assign mirrors the auto-assign-at-submission flow:
+			// leader-only notification, no submitter ping.
+			sendIdeaAssignedEmail({
+				leaderEmail: newLeader.email,
+				leaderFirstName: newLeader.displayName.split(" ")[0],
+				submissionId: idea.submissionId,
+				ideaTitle: idea.title,
+				categoryName: idea.category.name,
+				submitterName: idea.submitter.displayName,
+				submitterDepartment: idea.submitter.department,
+			});
+		}
 
 		audit({
 			actorId: context.user.id,
-			action: "idea.reassigned",
+			action: isReassignment ? "idea.reassigned" : "idea.assigned",
 			resourceType: "idea",
 			resourceId: idea.submissionId,
-			details: { from: oldLeader?.displayName, to: newLeader.displayName },
+			details: isReassignment
+				? { from: oldLeader?.displayName, to: newLeader.displayName, reason, note }
+				: { to: newLeader.displayName },
 		});
 
 		return { success: true, newLeaderName: newLeader.displayName };

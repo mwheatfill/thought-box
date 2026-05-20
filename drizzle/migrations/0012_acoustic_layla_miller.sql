@@ -1,0 +1,1 @@
+ALTER TABLE "idea_events" ADD COLUMN "reason" varchar(50);

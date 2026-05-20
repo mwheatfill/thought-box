@@ -42,6 +42,7 @@ import {
 } from "#/components/ui/select";
 import { Textarea } from "#/components/ui/textarea";
 import { UserCardPopover } from "#/components/ui/user-card";
+import { IMPACT_AREAS, REASSIGNMENT_REASONS, type ReassignmentReason } from "#/lib/constants";
 import { cn } from "#/lib/utils";
 
 interface Leader {
@@ -81,7 +82,11 @@ interface LeaderActionsProps {
 		leaderNotes?: string | null;
 		actionTaken?: string | null;
 	}) => Promise<void>;
-	onReassign: (newLeaderId: string) => Promise<void>;
+	onReassign: (input: {
+		newLeaderId: string;
+		reason?: ReassignmentReason;
+		note?: string;
+	}) => Promise<void>;
 	onReassignComplete?: () => void;
 	onCommunicate: (message: string) => Promise<void>;
 	isSaving: boolean;
@@ -126,6 +131,8 @@ export function LeaderActions({
 	const [actionTaken, setActionTaken] = useState(currentActionTaken ?? "");
 	const [reassignOpen, setReassignOpen] = useState(false);
 	const [pendingReassign, setPendingReassign] = useState<Leader | null>(null);
+	const [reassignReason, setReassignReason] = useState<ReassignmentReason | "">("");
+	const [reassignNote, setReassignNote] = useState("");
 	const [communicateOpen, setCommunicateOpen] = useState(false);
 	const [communicateMessage, setCommunicateMessage] = useState("");
 
@@ -403,7 +410,13 @@ export function LeaderActions({
 			{/* Reassign confirmation */}
 			<AlertDialog
 				open={!!pendingReassign}
-				onOpenChange={(open) => !open && setPendingReassign(null)}
+				onOpenChange={(open) => {
+					if (!open) {
+						setPendingReassign(null);
+						setReassignReason("");
+						setReassignNote("");
+					}
+				}}
 			>
 				<AlertDialogContent className="max-w-md">
 					<AlertDialogHeader>
@@ -422,7 +435,7 @@ export function LeaderActions({
 							</span>
 							{impactArea && (
 								<span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-									{impactArea}
+									{IMPACT_AREAS[impactArea as keyof typeof IMPACT_AREAS] ?? impactArea}
 								</span>
 							)}
 						</div>
@@ -455,6 +468,45 @@ export function LeaderActions({
 						</div>
 					)}
 
+					{/* Reason + note (reassignment only) */}
+					{assignedLeaderId && (
+						<div className="space-y-3">
+							<div className="space-y-1.5">
+								<Label htmlFor="reassign-reason">
+									Reason <span className="text-red-600">*</span>
+								</Label>
+								<Select
+									value={reassignReason}
+									onValueChange={(v) => setReassignReason(v as ReassignmentReason)}
+								>
+									<SelectTrigger id="reassign-reason">
+										<SelectValue placeholder="Select a reason" />
+									</SelectTrigger>
+									<SelectContent>
+										{Object.entries(REASSIGNMENT_REASONS).map(([key, label]) => (
+											<SelectItem key={key} value={key}>
+												{label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="space-y-1.5">
+								<Label htmlFor="reassign-note">
+									Note <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+								</Label>
+								<Textarea
+									id="reassign-note"
+									placeholder="Short context for the new owner..."
+									value={reassignNote}
+									onChange={(e) => setReassignNote(e.target.value)}
+									rows={3}
+									maxLength={500}
+								/>
+							</div>
+						</div>
+					)}
+
 					<AlertDialogDescription>
 						{assignedLeaderId
 							? userRole === "admin"
@@ -466,9 +518,14 @@ export function LeaderActions({
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction
+							disabled={!!assignedLeaderId && !reassignReason}
 							onClick={async () => {
 								if (!pendingReassign) return;
-								await onReassign(pendingReassign.id);
+								await onReassign({
+									newLeaderId: pendingReassign.id,
+									reason: assignedLeaderId ? reassignReason || undefined : undefined,
+									note: assignedLeaderId && reassignNote.trim() ? reassignNote.trim() : undefined,
+								});
 								setPendingReassign(null);
 								if (userRole !== "admin") {
 									onReassignComplete?.();

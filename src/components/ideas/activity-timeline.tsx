@@ -2,7 +2,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { UserCardPopover } from "#/components/ui/user-card";
-import { STATUS_LABELS } from "#/lib/constants";
+import { REASSIGNMENT_REASONS, STATUS_LABELS } from "#/lib/constants";
 import { cn } from "#/lib/utils";
 
 interface TimelineEvent {
@@ -13,6 +13,7 @@ interface TimelineEvent {
 	actorPhotoUrl: string | null;
 	oldValue: string | null;
 	newValue: string | null;
+	reason: string | null;
 	note: string | null;
 	createdAt: string;
 }
@@ -72,9 +73,12 @@ export function ActivityTimeline({ events, limit = 5 }: ActivityTimelineProps) {
 								</UserCardPopover>{" "}
 								{formatEventText(event)}
 							</p>
-							{event.eventType === "message" && event.note && (
-								<div className="mt-1 rounded-md bg-muted px-3 py-2 text-sm">{event.note}</div>
-							)}
+							{(event.eventType === "message" || event.eventType === "reassigned") &&
+								event.note && (
+									<div className="mt-1 rounded-md bg-muted px-3 py-2 text-sm whitespace-pre-wrap">
+										{event.note}
+									</div>
+								)}
 							<p className="mt-0.5 text-xs text-muted-foreground">
 								{formatDistanceToNow(new Date(event.createdAt), { addSuffix: true })}
 							</p>
@@ -104,8 +108,15 @@ function formatEventText(event: TimelineEvent): string {
 				STATUS_LABELS[event.newValue as keyof typeof STATUS_LABELS] ?? event.newValue;
 			return `changed status to ${newLabel}`;
 		}
-		case "reassigned":
-			return `reassigned to ${event.newValue ?? "another leader"}`;
+		case "reassigned": {
+			const target = event.newValue ?? "another leader";
+			if (event.reason) {
+				const reasonLabel =
+					REASSIGNMENT_REASONS[event.reason as keyof typeof REASSIGNMENT_REASONS] ?? event.reason;
+				return `reassigned to ${target} — ${reasonLabel}`;
+			}
+			return `reassigned to ${target}`;
+		}
 		case "note_added":
 			return "added a note";
 		case "message":

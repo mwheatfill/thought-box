@@ -143,6 +143,8 @@ export async function sendIdeaReassignedEmail(params: {
 	categoryName: string;
 	submitterName: string;
 	reassignedByName: string;
+	reasonLabel?: string | null;
+	note?: string | null;
 }) {
 	await sendEmail({
 		to: params.leaderEmail,
@@ -155,6 +157,8 @@ export async function sendIdeaReassignedEmail(params: {
 			categoryName: params.categoryName,
 			submitterName: params.submitterName,
 			reassignedByName: params.reassignedByName,
+			reasonLabel: params.reasonLabel ?? null,
+			note: params.note ?? null,
 			viewUrl: ideaUrl(params.submissionId),
 		}),
 	});
