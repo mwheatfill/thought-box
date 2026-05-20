@@ -1,4 +1,4 @@
-import { ChevronsUpDown, Mail, RefreshCw } from "lucide-react";
+import { ChevronsUpDown, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { DualSlaProgress } from "#/components/dashboard/sla-progress";
 import { ClosedIdeaPanel } from "#/components/ideas/closed-idea-panel";
@@ -23,14 +23,6 @@ import {
 	CommandItem,
 	CommandList,
 } from "#/components/ui/command";
-import {
-	Dialog,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "#/components/ui/dialog";
-import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
 import {
@@ -62,9 +54,8 @@ interface OwnerActionsProps {
 	impactArea: string | null;
 	userRole: string;
 	currentStatus: string;
-	currentRejectionReason: string | null;
-	currentOwnerNotes: string | null;
-	currentActionTaken: string | null;
+	currentDeclineReason: string | null;
+	currentMessageToSubmitter: string | null;
 	slaStatus: "on_track" | "approaching" | "overdue" | "none";
 	slaDaysRemaining: number | null;
 	slaDueDate: string | null;
@@ -77,10 +68,9 @@ interface OwnerActionsProps {
 	assignedOwnerPhotoUrl: string | null;
 	owners: Owner[];
 	onSave: (updates: {
-		status?: string;
-		rejectionReason?: string | null;
-		ownerNotes?: string | null;
-		actionTaken?: string | null;
+		status?: "under_review" | "accepted" | "declined";
+		declineReason?: string | null;
+		messageToSubmitter?: string | null;
 	}) => Promise<void>;
 	onReassign: (input: {
 		newOwnerId: string;
@@ -88,11 +78,11 @@ interface OwnerActionsProps {
 		note?: string;
 	}) => Promise<void>;
 	onReassignComplete?: () => void;
-	onCommunicate: (message: string) => Promise<void>;
 	isSaving: boolean;
 	isReassigning: boolean;
-	isCommunicating: boolean;
 }
+
+type SelectableStatus = "new" | "under_review" | "accepted" | "declined";
 
 export function OwnerActions({
 	submissionId,
@@ -101,9 +91,8 @@ export function OwnerActions({
 	impactArea,
 	userRole,
 	currentStatus,
-	currentRejectionReason,
-	currentOwnerNotes,
-	currentActionTaken,
+	currentDeclineReason,
+	currentMessageToSubmitter,
 	slaDaysRemaining,
 	slaDueDate,
 	closureSlaDueDate,
@@ -117,42 +106,36 @@ export function OwnerActions({
 	onSave,
 	onReassign,
 	onReassignComplete,
-	onCommunicate,
 	isSaving,
 	isReassigning,
-	isCommunicating,
 }: OwnerActionsProps) {
 	const closedStatuses = ["accepted", "declined", "redirected"];
 	const isClosed = closedStatuses.includes(currentStatus);
 
-	const [status, setStatus] = useState(currentStatus);
-	const [rejectionReason, setRejectionReason] = useState(currentRejectionReason ?? "");
-	const [ownerNotes, setOwnerNotes] = useState(currentOwnerNotes ?? "");
-	const [actionTaken, setActionTaken] = useState(currentActionTaken ?? "");
+	const [status, setStatus] = useState<SelectableStatus>(currentStatus as SelectableStatus);
+	const [declineReason, setDeclineReason] = useState(currentDeclineReason ?? "");
+	const [messageToSubmitter, setMessageToSubmitter] = useState(currentMessageToSubmitter ?? "");
 	const [reassignOpen, setReassignOpen] = useState(false);
 	const [pendingReassign, setPendingReassign] = useState<Owner | null>(null);
 	const [reassignReason, setReassignReason] = useState<ReassignmentReason | "">("");
 	const [reassignNote, setReassignNote] = useState("");
-	const [communicateOpen, setCommunicateOpen] = useState(false);
-	const [communicateMessage, setCommunicateMessage] = useState("");
 
-	const hasChanges =
-		status !== currentStatus ||
-		ownerNotes !== (currentOwnerNotes ?? "") ||
-		actionTaken !== (currentActionTaken ?? "") ||
-		(status === "declined" && rejectionReason !== (currentRejectionReason ?? ""));
+	const statusChanged = status !== currentStatus;
+	const needsMessage = status === "accepted" || status === "declined";
+	const needsReason = status === "declined";
+	const messageReady = !needsMessage || messageToSubmitter.trim().length > 0;
+	const reasonReady = !needsReason || declineReason.length > 0;
+	const canSave = statusChanged && messageReady && reasonReady;
+
+	const saveLabel = needsMessage ? "Save and Send Final Update" : "Save and Send Update";
 
 	const handleSave = async () => {
-		const updates: Record<string, unknown> = {};
-
-		if (status !== currentStatus) updates.status = status;
-		if (ownerNotes !== (currentOwnerNotes ?? "")) updates.ownerNotes = ownerNotes || null;
-		if (actionTaken !== (currentActionTaken ?? "")) updates.actionTaken = actionTaken || null;
-		if (status === "declined") {
-			updates.rejectionReason = rejectionReason || null;
-		}
-
-		await onSave(updates);
+		if (status === "new" || !statusChanged) return;
+		await onSave({
+			status,
+			messageToSubmitter: needsMessage ? messageToSubmitter.trim() : null,
+			declineReason: needsReason ? declineReason : null,
+		});
 	};
 
 	return (
@@ -161,7 +144,7 @@ export function OwnerActions({
 			{isClosed && (
 				<ClosedIdeaPanel
 					status={currentStatus as "accepted" | "declined" | "redirected"}
-					rejectionReason={currentRejectionReason}
+					declineReason={currentDeclineReason}
 					closedAt={closedAt}
 					submittedAt={submittedAt}
 					assignedOwner={
@@ -273,15 +256,16 @@ export function OwnerActions({
 						<CardTitle className="text-sm font-medium">Actions</CardTitle>
 					</CardHeader>
 					<CardContent className="space-y-4">
-						{/* Status change */}
+						{/* Status change. `new` is shown as the current state when applicable
+						    but cannot be selected — reassignment is the only path back. */}
 						<div className="space-y-1.5">
 							<Label htmlFor="status">Status</Label>
-							<Select value={status} onValueChange={setStatus}>
+							<Select value={status} onValueChange={(v) => setStatus(v as SelectableStatus)}>
 								<SelectTrigger id="status">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="new">
+									<SelectItem value="new" disabled>
 										<span>New</span>
 										<span className="ml-1 text-xs text-muted-foreground">— Untouched</span>
 									</SelectItem>
@@ -301,12 +285,14 @@ export function OwnerActions({
 							</Select>
 						</div>
 
-						{/* Rejection reason (only when declined) */}
-						{status === "declined" && (
+						{/* Decline reason — required when status is being set to declined */}
+						{needsReason && (
 							<div className="space-y-1.5">
-								<Label htmlFor="rejection-reason">Rejection Reason</Label>
-								<Select value={rejectionReason} onValueChange={setRejectionReason}>
-									<SelectTrigger id="rejection-reason">
+								<Label htmlFor="decline-reason">
+									Decline reason <span className="text-red-600">*</span>
+								</Label>
+								<Select value={declineReason} onValueChange={setDeclineReason}>
+									<SelectTrigger id="decline-reason">
 										<SelectValue placeholder="Select a reason..." />
 									</SelectTrigger>
 									<SelectContent>
@@ -319,91 +305,33 @@ export function OwnerActions({
 							</div>
 						)}
 
-						{/* Owner notes */}
-						<div className="space-y-1.5">
-							<Label htmlFor="owner-notes">Owner Notes</Label>
-							<Textarea
-								id="owner-notes"
-								value={ownerNotes}
-								onChange={(e) => setOwnerNotes(e.target.value)}
-								placeholder="Research, decisions, context..."
-								className="min-h-[80px] resize-none"
-							/>
-						</div>
+						{/* Message to submitter — required for accepted/declined */}
+						{needsMessage && (
+							<div className="space-y-1.5">
+								<Label htmlFor="message-to-submitter">
+									Message to Submitter <span className="text-red-600">*</span>
+								</Label>
+								<Textarea
+									id="message-to-submitter"
+									value={messageToSubmitter}
+									onChange={(e) => setMessageToSubmitter(e.target.value)}
+									placeholder="This goes to the submitter in the status email. Be clear and kind."
+									className="min-h-[100px] resize-none"
+								/>
+								<p className="text-xs text-muted-foreground">
+									Sent to the submitter when you save. Closed ideas cannot be edited, so make sure
+									it reads the way you want.
+								</p>
+							</div>
+						)}
 
-						{/* Action taken */}
-						<div className="space-y-1.5">
-							<Label htmlFor="action-taken">Action Taken</Label>
-							<Input
-								id="action-taken"
-								value={actionTaken}
-								onChange={(e) => setActionTaken(e.target.value)}
-								placeholder="What was done..."
-							/>
-						</div>
-
-						<Button onClick={handleSave} disabled={!hasChanges || isSaving} className="w-full">
-							{isSaving ? "Saving..." : "Save Changes"}
+						<Button onClick={handleSave} disabled={!canSave || isSaving} className="w-full">
+							{isSaving ? "Saving..." : saveLabel}
 						</Button>
 					</CardContent>
 				</Card>
 			)}
 
-			{/* Send Update */}
-			<Button
-				variant="outline"
-				className="w-full"
-				onClick={() => {
-					const statusLabel =
-						currentStatus === "accepted"
-							? "accepted"
-							: currentStatus === "declined"
-								? "declined"
-								: currentStatus === "under_review"
-									? "under review"
-									: currentStatus;
-					const template = currentOwnerNotes
-						? `Your idea is currently ${statusLabel}.\n\n${currentOwnerNotes}`
-						: `Your idea is currently ${statusLabel}. We'll keep you posted on any updates.`;
-					setCommunicateMessage(template);
-					setCommunicateOpen(true);
-				}}
-			>
-				<Mail className="mr-2 size-4" />
-				Send Update
-			</Button>
-
-			{/* Communicate Dialog */}
-			<Dialog open={communicateOpen} onOpenChange={setCommunicateOpen}>
-				<DialogContent className="max-w-lg">
-					<DialogHeader>
-						<DialogTitle>Send Update to Employee</DialogTitle>
-					</DialogHeader>
-					<p className="text-sm text-muted-foreground">
-						Review and edit the message below before sending. The employee will receive this as a
-						message on their idea.
-					</p>
-					<Textarea
-						value={communicateMessage}
-						onChange={(e) => setCommunicateMessage(e.target.value)}
-						className="min-h-[120px]"
-					/>
-					<DialogFooter>
-						<Button variant="outline" onClick={() => setCommunicateOpen(false)}>
-							Cancel
-						</Button>
-						<Button
-							disabled={!communicateMessage.trim() || isCommunicating}
-							onClick={async () => {
-								await onCommunicate(communicateMessage.trim());
-								setCommunicateOpen(false);
-							}}
-						>
-							{isCommunicating ? "Sending..." : "Send Message"}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
 			{/* Reassign confirmation */}
 			<AlertDialog
 				open={!!pendingReassign}
@@ -507,8 +435,8 @@ export function OwnerActions({
 					<AlertDialogDescription>
 						{assignedOwnerId
 							? userRole === "admin"
-								? "This will send a notification email and reset SLA timers."
-								: "This will send a notification email, reset SLA timers, and you will lose access to this idea."
+								? "This will send a notification email and reset SLA timers. Status will roll back to New."
+								: "This will send a notification email, reset SLA timers (status rolls back to New), and you will lose access to this idea."
 							: "This will send a notification email and start SLA timers."}
 					</AlertDialogDescription>
 

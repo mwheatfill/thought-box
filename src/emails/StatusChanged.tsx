@@ -15,8 +15,8 @@ interface StatusChangedProps {
 	ideaTitle: string;
 	newStatus: "under_review" | "accepted" | "declined";
 	ownerFirstName: string;
-	ownerNotes: string | null;
-	rejectionReason: string | null;
+	messageToSubmitter: string | null;
+	declineReason: string | null;
 	viewUrl: string;
 }
 
@@ -50,7 +50,7 @@ const STATUS_CONFIG = {
 	},
 };
 
-const REJECTION_LABELS: Record<string, string> = {
+const DECLINE_REASON_LABELS: Record<string, string> = {
 	already_in_progress: "This is already in progress",
 	not_feasible: "Not feasible at this time",
 	not_aligned: "Not aligned with current priorities",
@@ -63,8 +63,8 @@ export default function StatusChanged({
 	ideaTitle = "Add dark mode toggle to mobile app",
 	newStatus = "accepted",
 	ownerFirstName = "Michelle",
-	ownerNotes = "This is a great idea! We'll be adding this to the Q3 roadmap.",
-	rejectionReason = null,
+	messageToSubmitter = "This is a great idea! We'll be adding this to the Q3 roadmap.",
+	declineReason = null,
 	viewUrl = "https://thoughtbox.desertfinancial.com/ideas/TB-0001",
 }: StatusChangedProps) {
 	const config = STATUS_CONFIG[newStatus];
@@ -83,7 +83,7 @@ export default function StatusChanged({
 
 			<IdeaCard submissionId={submissionId} title={ideaTitle} />
 
-			{newStatus === "declined" && rejectionReason && (
+			{newStatus === "declined" && declineReason && (
 				<div
 					style={{
 						backgroundColor: "#f9fafb",
@@ -94,12 +94,14 @@ export default function StatusChanged({
 				>
 					<Text className="m-0 text-[11px] font-semibold text-gray-400">REASON</Text>
 					<Text className="m-0 mt-1 text-sm font-medium text-gray-700">
-						{REJECTION_LABELS[rejectionReason] ?? rejectionReason}
+						{DECLINE_REASON_LABELS[declineReason] ?? declineReason}
 					</Text>
 				</div>
 			)}
 
-			{ownerNotes && <QuoteBlock label={`Note from ${ownerFirstName}`}>{ownerNotes}</QuoteBlock>}
+			{messageToSubmitter && (
+				<QuoteBlock label={`Message from ${ownerFirstName}`}>{messageToSubmitter}</QuoteBlock>
+			)}
 
 			{newStatus === "accepted" && (
 				<>

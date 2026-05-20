@@ -83,8 +83,8 @@ function IdeaDetailPage() {
 			queryClient.invalidateQueries({ queryKey: ["idea", submissionId] });
 			toast.success("Changes saved");
 		},
-		onError: () => {
-			toast.error("Failed to save changes");
+		onError: (err: Error) => {
+			toast.error(err.message || "Failed to save changes");
 		},
 	});
 
@@ -222,13 +222,15 @@ function IdeaDetailPage() {
 									)}
 								</div>
 
-								{/* Owner notes (read-only for submitters) */}
-								{idea.ownerNotes && !idea.canEdit && (
+								{/* Message from reviewer (read-only for submitters) */}
+								{idea.messageToSubmitter && !idea.canEdit && (
 									<>
 										<Separator />
 										<div>
-											<p className="mb-1 text-xs font-medium text-muted-foreground">Owner Notes</p>
-											<p className="text-sm">{idea.ownerNotes}</p>
+											<p className="mb-1 text-xs font-medium text-muted-foreground">
+												Message from reviewer
+											</p>
+											<p className="text-sm">{idea.messageToSubmitter}</p>
 										</div>
 									</>
 								)}
@@ -313,9 +315,8 @@ function IdeaDetailPage() {
 								impactArea={idea.impactArea}
 								userRole={user.role}
 								currentStatus={idea.status}
-								currentRejectionReason={idea.rejectionReason}
-								currentOwnerNotes={idea.ownerNotes}
-								currentActionTaken={idea.actionTaken}
+								currentDeclineReason={idea.declineReason}
+								currentMessageToSubmitter={idea.messageToSubmitter}
 								slaStatus={idea.slaStatus}
 								slaDaysRemaining={idea.slaDaysRemaining}
 								slaDueDate={idea.slaDueDate}
@@ -341,12 +342,8 @@ function IdeaDetailPage() {
 								onReassignComplete={() => {
 									window.history.back();
 								}}
-								onCommunicate={async (message) => {
-									await messageMutation.mutateAsync(message);
-								}}
 								isSaving={updateMutation.isPending}
 								isReassigning={reassignMutation.isPending}
-								isCommunicating={messageMutation.isPending}
 							/>
 
 							{/* Activity */}
@@ -367,7 +364,7 @@ function IdeaDetailPage() {
 							{isLocked ? (
 								<ClosedIdeaPanel
 									status={idea.status as "accepted" | "declined" | "redirected"}
-									rejectionReason={idea.rejectionReason}
+									declineReason={idea.declineReason}
 									closedAt={idea.closedAt}
 									submittedAt={idea.submittedAt}
 									assignedOwner={

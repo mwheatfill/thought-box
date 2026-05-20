@@ -78,8 +78,8 @@ export async function sendStatusChangedEmail(params: {
 	ideaTitle: string;
 	newStatus: "under_review" | "accepted" | "declined";
 	ownerFirstName: string;
-	ownerNotes: string | null;
-	rejectionReason: string | null;
+	messageToSubmitter: string | null;
+	declineReason: string | null;
 }) {
 	const subjectMap = {
 		under_review: `Your idea is being reviewed: ${params.submissionId}`,
@@ -97,8 +97,8 @@ export async function sendStatusChangedEmail(params: {
 			ideaTitle: params.ideaTitle,
 			newStatus: params.newStatus,
 			ownerFirstName: params.ownerFirstName,
-			ownerNotes: params.ownerNotes,
-			rejectionReason: params.rejectionReason,
+			messageToSubmitter: params.messageToSubmitter,
+			declineReason: params.declineReason,
 			viewUrl: ideaUrl(params.submissionId),
 		}),
 	});
@@ -337,8 +337,8 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						ideaTitle: sample.ideaTitle,
 						newStatus: "under_review",
 						ownerFirstName: "Michelle",
-						ownerNotes: null,
-						rejectionReason: null,
+						messageToSubmitter: null,
+						declineReason: null,
 						viewUrl,
 					}),
 				},
@@ -350,9 +350,9 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						ideaTitle: sample.ideaTitle,
 						newStatus: "accepted",
 						ownerFirstName: "Michelle",
-						ownerNotes:
+						messageToSubmitter:
 							"This is a great idea. We're going to pilot it at the Scottsdale branch next quarter.",
-						rejectionReason: null,
+						declineReason: null,
 						viewUrl,
 					}),
 				},
@@ -364,8 +364,8 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						ideaTitle: sample.ideaTitle,
 						newStatus: "declined",
 						ownerFirstName: "Michelle",
-						ownerNotes: "We appreciate the suggestion but this is already in progress.",
-						rejectionReason: "already_in_progress",
+						messageToSubmitter: "We appreciate the suggestion but this is already in progress.",
+						declineReason: "already_in_progress",
 						viewUrl,
 					}),
 				},

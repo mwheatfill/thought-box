@@ -250,9 +250,8 @@ export const getIdeaDetail = createServerFn()
 			categoryId: idea.categoryId,
 			impactArea: idea.impactArea,
 			status: idea.status,
-			rejectionReason: idea.rejectionReason,
-			ownerNotes: idea.ownerNotes,
-			actionTaken: idea.actionTaken,
+			declineReason: idea.declineReason,
+			messageToSubmitter: idea.messageToSubmitter,
 			submittedAt: idea.submittedAt.toISOString(),
 			closedAt: idea.closedAt?.toISOString() ?? null,
 			slaDueDate: idea.slaDueDate?.toISOString() ?? null,
@@ -293,13 +292,12 @@ export const getIdeaDetail = createServerFn()
 
 const UpdateIdeaSchema = z.object({
 	ideaId: z.string(),
-	status: z.enum(["new", "under_review", "accepted", "declined"]).optional(),
-	rejectionReason: z
+	status: z.enum(["under_review", "accepted", "declined"]).optional(),
+	declineReason: z
 		.enum(["already_in_progress", "not_feasible", "not_aligned", "not_thoughtbox"])
 		.nullable()
 		.optional(),
-	ownerNotes: z.string().nullable().optional(),
-	actionTaken: z.string().nullable().optional(),
+	messageToSubmitter: z.string().nullable().optional(),
 });
 
 export const updateIdea = createServerFn({ method: "POST" })
@@ -316,7 +314,7 @@ export const updateIdea = createServerFn({ method: "POST" })
 				hasBeenReviewed: true,
 				submitterId: true,
 				assignedOwnerId: true,
-				ownerNotes: true,
+				messageToSubmitter: true,
 			},
 			with: {
 				submitter: { columns: { email: true, displayName: true } },
@@ -336,12 +334,23 @@ export const updateIdea = createServerFn({ method: "POST" })
 			throw new Error("This idea is closed and locked. No further edits are allowed.");
 		}
 
+		// Required-field enforcement for terminal statuses. Accepted/Declined both
+		// require a Message to Submitter; Declined additionally requires a reason.
+		if (data.status === "accepted" || data.status === "declined") {
+			const message = data.messageToSubmitter?.trim();
+			if (!message) {
+				throw new Error("A message to the submitter is required when accepting or declining.");
+			}
+			if (data.status === "declined" && !data.declineReason) {
+				throw new Error("A decline reason is required when declining an idea.");
+			}
+		}
+
 		const updates: Record<string, unknown> = { updatedAt: new Date() };
 
 		if (data.status !== undefined) updates.status = data.status;
-		if (data.rejectionReason !== undefined) updates.rejectionReason = data.rejectionReason;
-		if (data.ownerNotes !== undefined) updates.ownerNotes = data.ownerNotes;
-		if (data.actionTaken !== undefined) updates.actionTaken = data.actionTaken;
+		if (data.declineReason !== undefined) updates.declineReason = data.declineReason;
+		if (data.messageToSubmitter !== undefined) updates.messageToSubmitter = data.messageToSubmitter;
 		// Track when idea enters active review (for owner anonymity)
 		if (data.status && (REVIEWED_STATUSES as readonly string[]).includes(data.status)) {
 			updates.hasBeenReviewed = true;
@@ -361,6 +370,7 @@ export const updateIdea = createServerFn({ method: "POST" })
 				actorId: context.user.id,
 				oldValue: idea.status,
 				newValue: data.status,
+				note: data.messageToSubmitter?.trim() || null,
 			});
 
 			trackEvent("IdeaStatusChanged", {
@@ -371,31 +381,17 @@ export const updateIdea = createServerFn({ method: "POST" })
 			});
 
 			// Fire-and-forget: notify submitter of status change
-			const emailStatuses = ["under_review", "accepted", "declined"] as const;
-			if (emailStatuses.includes(data.status as (typeof emailStatuses)[number])) {
-				// Owner is visible if idea has been (or is being) reviewed
-				const ownerVisible =
-					idea.hasBeenReviewed || (REVIEWED_STATUSES as readonly string[]).includes(data.status);
-				sendStatusChangedEmail({
-					submitterEmail: idea.submitter.email,
-					submitterFirstName: idea.submitter.displayName.split(" ")[0],
-					submissionId: idea.submissionId,
-					ideaTitle: idea.title,
-					newStatus: data.status as "under_review" | "accepted" | "declined",
-					ownerFirstName: ownerVisible ? context.user.displayName.split(" ")[0] : "Your reviewer",
-					ownerNotes: data.ownerNotes ?? idea.ownerNotes ?? null,
-					rejectionReason: data.rejectionReason ?? null,
-				});
-			}
-		}
-
-		// Log note event
-		if (data.ownerNotes !== undefined && data.ownerNotes !== null) {
-			await db.insert(ideaEvents).values({
-				ideaId: data.ideaId,
-				eventType: "note_added",
-				actorId: context.user.id,
-				note: data.ownerNotes,
+			const ownerVisible =
+				idea.hasBeenReviewed || (REVIEWED_STATUSES as readonly string[]).includes(data.status);
+			sendStatusChangedEmail({
+				submitterEmail: idea.submitter.email,
+				submitterFirstName: idea.submitter.displayName.split(" ")[0],
+				submissionId: idea.submissionId,
+				ideaTitle: idea.title,
+				newStatus: data.status,
+				ownerFirstName: ownerVisible ? context.user.displayName.split(" ")[0] : "Your reviewer",
+				messageToSubmitter: data.messageToSubmitter ?? idea.messageToSubmitter ?? null,
+				declineReason: data.declineReason ?? null,
 			});
 		}
 
@@ -414,12 +410,16 @@ export const updateIdea = createServerFn({ method: "POST" })
 
 // ── Bulk Update Status ────────────────────────────────────────────────────
 
+// Bulk is intentionally restricted to `under_review` only. Accepted/Declined
+// require a per-idea Message to Submitter (and Declined a reason), which the
+// bulk action cannot collect. Those transitions must happen one idea at a time
+// via updateIdea.
 export const bulkUpdateStatus = createServerFn({ method: "POST" })
 	.middleware([ownerMiddleware])
 	.inputValidator(
 		z.object({
 			ideaIds: z.array(z.string()).min(1),
-			status: z.enum(["new", "under_review", "accepted", "declined"]),
+			status: z.enum(["under_review"]),
 		}),
 	)
 	.handler(async ({ context, data }) => {
@@ -432,14 +432,13 @@ export const bulkUpdateStatus = createServerFn({ method: "POST" })
 			if (!idea) continue;
 			if (context.user.role === "owner" && idea.assignedOwnerId !== context.user.id) continue;
 			if (idea.status === data.status) continue;
+			if ((CLOSED_STATUSES as readonly string[]).includes(idea.status)) continue;
 
-			const updates: Record<string, unknown> = { status: data.status, updatedAt: new Date() };
-			if ((REVIEWED_STATUSES as readonly string[]).includes(data.status)) {
-				updates.hasBeenReviewed = true;
-			}
-			if ((CLOSED_STATUSES as readonly string[]).includes(data.status)) {
-				updates.closedAt = new Date();
-			}
+			const updates: Record<string, unknown> = {
+				status: data.status,
+				hasBeenReviewed: true,
+				updatedAt: new Date(),
+			};
 
 			await db.update(ideas).set(updates).where(eq(ideas.id, ideaId));
 			await db.insert(ideaEvents).values({
@@ -531,10 +530,13 @@ export const reassignIdea = createServerFn({ method: "POST" })
 			reason = data.reason;
 		}
 
-		// Reset SLA and update assignment
+		// Reset SLA and update assignment. Reassignment also rolls status back to
+		// `new` — the incoming owner starts fresh. (Direct rollback to `new` is
+		// not exposed in the UI; reassignment is the only path back.)
 		const now = new Date();
 		const newSlaDueDate = calculateSlaDueDate(now, 15);
 		const newClosureSlaDueDate = calculateSlaDueDate(now, 30);
+		const statusWillReset = isReassignment && idea.status !== "new";
 
 		await db
 			.update(ideas)
@@ -544,6 +546,7 @@ export const reassignIdea = createServerFn({ method: "POST" })
 				closureSlaDueDate: newClosureSlaDueDate,
 				slaStartedAt: now,
 				updatedAt: now,
+				...(statusWillReset ? { status: "new" as const } : {}),
 			})
 			.where(eq(ideas.id, data.ideaId));
 
@@ -563,6 +566,16 @@ export const reassignIdea = createServerFn({ method: "POST" })
 				reason,
 				note,
 			});
+
+			if (statusWillReset) {
+				await db.insert(ideaEvents).values({
+					ideaId: data.ideaId,
+					eventType: "status_changed",
+					actorId: context.user.id,
+					oldValue: idea.status,
+					newValue: "new",
+				});
+			}
 		}
 
 		if (isReassignment) {

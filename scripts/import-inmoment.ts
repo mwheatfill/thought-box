@@ -103,7 +103,7 @@ interface SourceRow {
 	ticketNumber: string;
 	researchNotes: string;
 	status: "new" | "under_review" | "accepted" | "declined";
-	rejectionReason: "already_in_progress" | "not_thoughtbox" | "not_feasible" | "not_aligned" | null;
+	declineReason: "already_in_progress" | "not_thoughtbox" | "not_feasible" | "not_aligned" | null;
 	closedAt: Date | null;
 }
 
@@ -181,14 +181,14 @@ function parseXlsx(path: string): SourceRow[] {
 		const reasonRaw = String(r[14] ?? "")
 			.trim()
 			.toLowerCase();
-		const rejectionReason = reasonRaw ? (DECLINE_REASON_MAP[reasonRaw] ?? null) : null;
-		if (reasonRaw && !rejectionReason) {
+		const declineReason = reasonRaw ? (DECLINE_REASON_MAP[reasonRaw] ?? null) : null;
+		if (reasonRaw && !declineReason) {
 			errors.push(
 				`Row ${rowNum} (case ${caseId}): unknown decline reason ${JSON.stringify(r[14])}`,
 			);
 			continue;
 		}
-		if (status === "declined" && !rejectionReason) {
+		if (status === "declined" && !declineReason) {
 			errors.push(`Row ${rowNum} (case ${caseId}): status Declined but no decline reason set`);
 			continue;
 		}
@@ -210,7 +210,7 @@ function parseXlsx(path: string): SourceRow[] {
 			ticketNumber: String(r[10] ?? "").trim(),
 			researchNotes: String(r[11] ?? "").trim(),
 			status,
-			rejectionReason,
+			declineReason,
 			closedAt,
 		});
 	}
@@ -673,9 +673,14 @@ async function applyPlan(plan: Plan): Promise<void> {
 		const slaDueDate = addBusinessDays(slaStartedAt, SLA_BUSINESS_DAYS_DEFAULT);
 
 		const title = autoTitle(row.suggestion);
-		const ownerNotes =
+		// The legacy import folds research notes, ticket number, action-taken,
+		// original submitter, and the "communicated" flag into the single
+		// message_to_submitter column. The action_taken column was dropped in
+		// migration 0014; its content lives here in the imported blob.
+		const messageToSubmitter =
 			[
 				row.researchNotes,
+				row.actionTaken ? `Action taken: ${row.actionTaken}` : "",
 				row.ticketNumber ? `Ticket: ${row.ticketNumber}` : "",
 				usingLegacy ? `Original submitter: ${row.submitterName}` : "",
 				row.communicated === "Yes" ? "Outcome communicated to submitter (per InMoment)." : "",
@@ -691,11 +696,10 @@ async function applyPlan(plan: Plan): Promise<void> {
 				description: row.suggestion,
 				categoryId,
 				status: row.status,
-				rejectionReason: row.rejectionReason,
+				declineReason: row.declineReason,
 				submitterId,
 				assignedOwnerId: ownerId,
-				ownerNotes,
-				actionTaken: row.actionTaken || null,
+				messageToSubmitter,
 				slaDueDate,
 				slaStartedAt,
 				hasBeenReviewed: row.status !== "new",
@@ -724,7 +728,7 @@ async function applyPlan(plan: Plan): Promise<void> {
 				actorId: ownerId,
 				oldValue: "new",
 				newValue: row.status,
-				note: row.rejectionReason ? `Reason: ${row.rejectionReason}` : null,
+				note: row.declineReason ? `Reason: ${row.declineReason}` : null,
 				createdAt: row.closedAt ?? importedAt,
 			});
 		} else if (row.status === "under_review") {

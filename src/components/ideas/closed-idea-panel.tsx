@@ -10,7 +10,7 @@ type ClosedStatus = "accepted" | "declined" | "redirected";
 
 interface ClosedIdeaPanelProps {
 	status: ClosedStatus;
-	rejectionReason: string | null;
+	declineReason: string | null;
 	closedAt: string | null;
 	submittedAt: string;
 	assignedOwner: { id: string; displayName: string; photoUrl: string | null } | null;
@@ -32,7 +32,7 @@ const OUTCOME_CONFIG: Record<ClosedStatus, { label: string; badgeClass: string }
 	},
 };
 
-const REJECTION_REASON_LABELS: Record<string, string> = {
+const DECLINE_REASON_LABELS: Record<string, string> = {
 	already_in_progress: "Already in progress",
 	not_feasible: "Not feasible at this time",
 	not_aligned: "Not aligned with priorities",
@@ -57,7 +57,7 @@ function initials(name: string): string {
 
 export function ClosedIdeaPanel({
 	status,
-	rejectionReason,
+	declineReason,
 	closedAt,
 	submittedAt,
 	assignedOwner,
@@ -80,11 +80,11 @@ export function ClosedIdeaPanel({
 			</CardHeader>
 			<CardContent className="space-y-4">
 				<dl className="space-y-3">
-					{rejectionReason && (
+					{declineReason && (
 						<div className="flex items-baseline justify-between gap-3">
 							<dt className="text-xs text-muted-foreground">Reason</dt>
 							<dd className="text-sm font-medium text-right">
-								{REJECTION_REASON_LABELS[rejectionReason] ?? rejectionReason}
+								{DECLINE_REASON_LABELS[declineReason] ?? declineReason}
 							</dd>
 						</div>
 					)}

@@ -27,7 +27,7 @@ export const ideaStatusEnum = pgEnum("idea_status", [
 	"redirected",
 ]);
 
-export const rejectionReasonEnum = pgEnum("rejection_reason", [
+export const declineReasonEnum = pgEnum("decline_reason", [
 	"already_in_progress",
 	"not_feasible",
 	"not_aligned",
@@ -110,11 +110,10 @@ export const ideas = pgTable("ideas", {
 	categoryId: varchar("category_id", { length: 128 }).notNull(),
 	impactArea: impactAreaEnum("impact_area"),
 	status: ideaStatusEnum("status").notNull().default("new"),
-	rejectionReason: rejectionReasonEnum("rejection_reason"),
+	declineReason: declineReasonEnum("decline_reason"),
 	submitterId: varchar("submitter_id", { length: 128 }).notNull(),
 	assignedOwnerId: varchar("assigned_owner_id", { length: 128 }),
-	ownerNotes: text("owner_notes"),
-	actionTaken: varchar("action_taken", { length: 255 }),
+	messageToSubmitter: text("message_to_submitter"),
 	slaDueDate: timestamp("sla_due_date", { withTimezone: true }),
 	closureSlaDueDate: timestamp("closure_sla_due_date", { withTimezone: true }),
 	slaStartedAt: timestamp("sla_started_at", { withTimezone: true }),
