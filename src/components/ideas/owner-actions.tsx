@@ -42,7 +42,7 @@ import {
 	REASSIGNMENT_REASONS,
 	type ReassignmentReason,
 } from "#/lib/constants";
-import { cn } from "#/lib/utils";
+import { cn, initials } from "#/lib/utils";
 
 interface Owner {
 	id: string;
@@ -192,11 +192,7 @@ export function OwnerActions({
 													<AvatarImage src={assignedOwnerPhotoUrl} alt={assignedOwnerName ?? ""} />
 												)}
 												<AvatarFallback className="text-[10px]">
-													{(assignedOwnerName ?? "")
-														.split(" ")
-														.map((n) => n[0])
-														.join("")
-														.slice(0, 2)}
+													{initials(assignedOwnerName ?? "")}
 												</AvatarFallback>
 											</Avatar>
 											<span className="text-sm font-medium hover:underline">
@@ -381,11 +377,7 @@ export function OwnerActions({
 									<AvatarImage src={pendingReassign.photoUrl} alt={pendingReassign.displayName} />
 								)}
 								<AvatarFallback className="text-xs">
-									{pendingReassign.displayName
-										.split(" ")
-										.map((n) => n[0])
-										.join("")
-										.slice(0, 2)}
+									{initials(pendingReassign.displayName)}
 								</AvatarFallback>
 							</Avatar>
 							<div>

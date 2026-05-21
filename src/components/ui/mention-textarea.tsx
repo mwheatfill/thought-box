@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Textarea } from "#/components/ui/textarea";
-import { cn } from "#/lib/utils";
+import { cn, escapeRegex, initials } from "#/lib/utils";
 
 export interface Mentionable {
 	id: string;
@@ -26,22 +26,10 @@ interface MentionTextareaProps extends Omit<React.ComponentProps<"textarea">, "o
 export function parseMentions(text: string, directory: Mentionable[]): string[] {
 	const ids = new Set<string>();
 	for (const user of directory) {
-		const pattern = new RegExp(
-			`@${user.displayName.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}(?=\\s|$|[.,!?;:])`,
-			"u",
-		);
+		const pattern = new RegExp(`@${escapeRegex(user.displayName)}(?=\\s|$|[.,!?;:])`, "u");
 		if (pattern.test(text)) ids.add(user.id);
 	}
 	return Array.from(ids);
-}
-
-/** Initials helper kept identical to the avatar fallback used elsewhere. */
-function initials(name: string): string {
-	return name
-		.split(" ")
-		.map((n) => n[0])
-		.join("")
-		.slice(0, 2);
 }
 
 export function MentionTextarea({
@@ -65,9 +53,9 @@ export function MentionTextarea({
 			.slice(0, 6);
 	}, [picker, directory]);
 
-	React.useEffect(() => {
-		if (selectedIndex >= matches.length) setSelectedIndex(0);
-	}, [matches.length, selectedIndex]);
+	// Clamp the index inline instead of mirroring it in state — the user's
+	// stored selectedIndex may be stale if the directory filter just shrank.
+	const safeIndex = matches.length > 0 ? Math.min(selectedIndex, matches.length - 1) : 0;
 
 	const closePicker = () => setPicker(null);
 
@@ -131,7 +119,7 @@ export function MentionTextarea({
 			}
 			if (e.key === "Enter" || e.key === "Tab") {
 				e.preventDefault();
-				insertMention(matches[selectedIndex]);
+				insertMention(matches[safeIndex]);
 				return;
 			}
 			if (e.key === "Escape") {
@@ -175,7 +163,7 @@ export function MentionTextarea({
 									onMouseEnter={() => setSelectedIndex(i)}
 									className={cn(
 										"flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm",
-										i === selectedIndex ? "bg-accent" : "hover:bg-accent/60",
+										i === safeIndex ? "bg-accent" : "hover:bg-accent/60",
 									)}
 								>
 									<Avatar className="size-6">

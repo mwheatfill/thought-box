@@ -39,7 +39,7 @@ import { SortableHeader } from "#/components/ui/data-table";
 import { KpiCard } from "#/components/ui/kpi-card";
 import { UserCardPopover } from "#/components/ui/user-card";
 import { STATUS_LABELS } from "#/lib/constants";
-import { cn } from "#/lib/utils";
+import { cn, initials } from "#/lib/utils";
 import { SlaIndicator } from "./sla-indicator";
 import { StatusBadge } from "./status-badge";
 
@@ -162,11 +162,7 @@ export const adminIdeaColumns: ColumnDef<AdminIdea, unknown>[] = [
 							<AvatarImage src={row.original.submitterPhotoUrl} alt={row.original.submitterName} />
 						)}
 						<AvatarFallback className="text-[10px]">
-							{row.original.submitterName
-								.split(" ")
-								.map((n) => n[0])
-								.join("")
-								.slice(0, 2)}
+							{initials(row.original.submitterName)}
 						</AvatarFallback>
 					</Avatar>
 					<span className="text-muted-foreground">{row.original.submitterName}</span>

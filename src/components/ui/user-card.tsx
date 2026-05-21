@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
 import { Skeleton } from "#/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
-import { cn } from "#/lib/utils";
+import { cn, initials } from "#/lib/utils";
 import { getUserCard } from "#/server/functions/users";
 
 // ── Presence ──────────────────────────────────────────────────────────────
@@ -96,11 +96,7 @@ export function UserCardPopover({ userId, children }: UserCardPopoverProps) {
 										<AvatarImage src={user.photoUrl} alt={user.displayName} />
 									)}
 									<AvatarFallback className="text-base">
-										{user.displayName
-											.split(" ")
-											.map((n) => n[0])
-											.join("")
-											.slice(0, 2)}
+										{initials(user.displayName)}
 									</AvatarFallback>
 								</Avatar>
 								{user.presence && PRESENCE_CONFIG[user.presence] && (() => {

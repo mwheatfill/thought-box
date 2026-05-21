@@ -2,6 +2,7 @@ import { Building2, MapPin, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { UserCardPopover } from "#/components/ui/user-card";
+import { initials } from "#/lib/utils";
 
 interface PersonInfo {
 	id: string;
@@ -18,15 +19,6 @@ interface PeopleCardProps {
 	person: PersonInfo;
 	title: string;
 	submittedAt?: string;
-}
-
-function getInitials(name: string): string {
-	return name
-		.split(" ")
-		.map((n) => n[0])
-		.join("")
-		.toUpperCase()
-		.slice(0, 2);
 }
 
 function getAvatarColor(id: string): string {
@@ -58,7 +50,7 @@ export function PeopleCard({ person, title, submittedAt }: PeopleCardProps) {
 					<Avatar className="size-10">
 						{person.photoUrl && <AvatarImage src={person.photoUrl} alt={person.displayName} />}
 						<AvatarFallback className={`${getAvatarColor(person.id)} text-white text-xs`}>
-							{getInitials(person.displayName)}
+							{initials(person.displayName)}
 						</AvatarFallback>
 					</Avatar>
 

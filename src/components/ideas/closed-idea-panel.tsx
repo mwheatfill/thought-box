@@ -4,7 +4,7 @@ import { Badge } from "#/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { UserCardPopover } from "#/components/ui/user-card";
 import { DECLINE_REASONS, type LockedStatus } from "#/lib/constants";
-import { cn } from "#/lib/utils";
+import { cn, initials } from "#/lib/utils";
 import { businessDaysBetween } from "#/server/lib/sla";
 
 interface ClosedIdeaPanelProps {
@@ -37,14 +37,6 @@ function formatDate(iso: string): string {
 		day: "numeric",
 		year: "numeric",
 	});
-}
-
-function initials(name: string): string {
-	return name
-		.split(" ")
-		.map((n) => n[0])
-		.join("")
-		.slice(0, 2);
 }
 
 export function ClosedIdeaPanel({

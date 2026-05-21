@@ -20,24 +20,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import { UserCardPopover } from "#/components/ui/user-card";
 import { IMPACT_AREAS, LOCKED_STATUSES } from "#/lib/constants";
 import type { IdeaStatus, LockedStatus } from "#/lib/constants";
+import { initials } from "#/lib/utils";
 import { getIdeaAttachments } from "#/server/functions/attachments";
 import {
+	getActiveOwnersAndAdmins,
 	getIdeaDetail,
-	getOwnersForReassign,
 	reassignIdea,
 	updateIdea,
 } from "#/server/functions/ideas";
-import {
-	addInternalNote,
-	getIdeaInternalNotes,
-	getMentionableUsers,
-} from "#/server/functions/internal-notes";
+import { addInternalNote, getIdeaInternalNotes } from "#/server/functions/internal-notes";
 import { addMessage, getIdeaMessages } from "#/server/functions/messages";
 
 export const Route = createFileRoute("/ideas/$submissionId")({
 	errorComponent: ({ error }) => <RouteError error={error} variant="not-found" />,
 	loader: async ({ params }) => {
-		const owners = getOwnersForReassign().catch(() => []);
+		const owners = getActiveOwnersAndAdmins().catch(() => []);
 		try {
 			const idea = await getIdeaDetail({ data: { submissionId: params.submissionId } });
 			return { idea, owners: await owners };
@@ -78,19 +75,10 @@ function IdeaDetailPage() {
 
 	const canSeeInternalNotes = user.role === "owner" || user.role === "admin";
 
-	// Internal notes (owners/admins only). The query is conditional so
-	// submitters never trigger the request.
 	const { data: internalNotes = [] } = useQuery({
 		queryKey: ["idea-internal-notes", idea.id],
 		queryFn: () => getIdeaInternalNotes({ data: { ideaId: idea.id } }),
 		enabled: canSeeInternalNotes,
-	});
-
-	const { data: mentionableUsers = [] } = useQuery({
-		queryKey: ["mentionable-users"],
-		queryFn: () => getMentionableUsers(),
-		enabled: canSeeInternalNotes,
-		staleTime: 5 * 60 * 1000,
 	});
 
 	const isLocked = (LOCKED_STATUSES as readonly string[]).includes(idea.status) && !idea.canEdit;
@@ -135,7 +123,6 @@ function IdeaDetailPage() {
 		},
 	});
 
-	// Internal note mutation (owners/admins only)
 	const internalNoteFn = useServerFn(addInternalNote);
 	const internalNoteMutation = useMutation({
 		mutationFn: (input: { content: string; mentions?: string[] }) =>
@@ -210,11 +197,7 @@ function IdeaDetailPage() {
 											<AvatarImage src={idea.submitter.photoUrl} alt={idea.submitter.displayName} />
 										)}
 										<AvatarFallback className="text-[10px]">
-											{idea.submitter.displayName
-												.split(" ")
-												.map((n: string) => n[0])
-												.join("")
-												.slice(0, 2)}
+											{initials(idea.submitter.displayName)}
 										</AvatarFallback>
 									</Avatar>
 									<div>
@@ -334,7 +317,7 @@ function IdeaDetailPage() {
 													});
 												}}
 												isSending={internalNoteMutation.isPending}
-												mentionable={mentionableUsers}
+												mentionable={owners}
 												placeholder="Internal note — use @ to mention an owner"
 												emptyMessage="No internal notes yet. Submitters never see this thread."
 											/>

@@ -1,9 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/server/db";
-import { attachments, ideaEvents, ideas, users } from "#/server/db/schema";
+import { ideaEvents, ideas, users } from "#/server/db/schema";
 import { sendMentionAlertEmail } from "#/server/functions/email";
+import { loadAttachmentsByEvent } from "#/server/lib/attachments-by-event";
 import { ownerMiddleware } from "#/server/middleware/auth";
 
 /**
@@ -18,7 +19,10 @@ export const addInternalNote = createServerFn({ method: "POST" })
 		z.object({
 			ideaId: z.string(),
 			content: z.string().min(1),
-			mentions: z.array(z.string()).optional(),
+			mentions: z
+				.array(z.string())
+				.optional()
+				.transform((arr) => (arr && arr.length > 0 ? Array.from(new Set(arr)) : null)),
 		}),
 	)
 	.handler(async ({ context, data }) => {
@@ -34,12 +38,9 @@ export const addInternalNote = createServerFn({ method: "POST" })
 
 		if (!idea) throw new Error("Idea not found");
 
-		// Owners can only post on their assigned ideas; admins can post on any.
 		if (context.user.role === "owner" && idea.assignedOwnerId !== context.user.id) {
 			throw new Error("Forbidden");
 		}
-
-		const mentions = data.mentions?.length ? Array.from(new Set(data.mentions)) : null;
 
 		const [event] = await db
 			.insert(ideaEvents)
@@ -48,22 +49,25 @@ export const addInternalNote = createServerFn({ method: "POST" })
 				eventType: "internal_note",
 				actorId: context.user.id,
 				note: data.content,
-				mentions,
+				mentions: data.mentions,
 			})
 			.returning({ id: ideaEvents.id });
 
-		// Fire-and-forget: notify each mentioned user. Limited to owner/admin
-		// role so we don't email submitters who can't see the note anyway.
-		if (mentions && mentions.length > 0) {
-			const mentioned = await db.query.users.findMany({
-				where: and(inArray(users.id, mentions), inArray(users.role, ["owner", "admin"])),
-				columns: { id: true, email: true, displayName: true },
+		// Fire-and-forget: notify each mentioned user. Skip self-mentions and
+		// filter to owner/admin (submitters can't read internal notes anyway).
+		if (data.mentions && data.mentions.length > 0) {
+			const recipients = await db.query.users.findMany({
+				where: and(
+					inArray(users.id, data.mentions),
+					inArray(users.role, ["owner", "admin"]),
+					ne(users.id, context.user.id),
+				),
+				columns: { email: true, displayName: true },
 			});
 
 			const preview = data.content.length > 200 ? `${data.content.slice(0, 200)}...` : data.content;
 
-			for (const recipient of mentioned) {
-				if (recipient.id === context.user.id) continue; // skip self-mention
+			for (const recipient of recipients) {
 				sendMentionAlertEmail({
 					recipientEmail: recipient.email,
 					recipientFirstName: recipient.displayName.split(" ")[0],
@@ -78,9 +82,6 @@ export const addInternalNote = createServerFn({ method: "POST" })
 		return { success: true, messageId: event.id };
 	});
 
-/**
- * Load internal notes for an idea. Owner/admin only.
- */
 export const getIdeaInternalNotes = createServerFn()
 	.middleware([ownerMiddleware])
 	.inputValidator(z.object({ ideaId: z.string() }))
@@ -103,30 +104,10 @@ export const getIdeaInternalNotes = createServerFn()
 			},
 		});
 
-		// Reuse the attachments-on-message join — internal notes use the same
-		// messageId field on attachments since both are idea_events.
-		const messageIds = events.map((e) => e.id);
-		const noteAttachments =
-			messageIds.length > 0
-				? await db.query.attachments.findMany({
-						where: and(eq(attachments.ideaId, data.ideaId), isNull(attachments.deletedAt)),
-						columns: {
-							id: true,
-							messageId: true,
-							filename: true,
-							contentType: true,
-							sizeBytes: true,
-						},
-					})
-				: [];
-
-		const attachmentsByMessage = new Map<string, typeof noteAttachments>();
-		for (const att of noteAttachments) {
-			if (!att.messageId) continue;
-			const existing = attachmentsByMessage.get(att.messageId) ?? [];
-			existing.push(att);
-			attachmentsByMessage.set(att.messageId, existing);
-		}
+		const attachmentsByEvent = await loadAttachmentsByEvent(
+			data.ideaId,
+			events.map((e) => e.id),
+		);
 
 		return events.map((e) => ({
 			id: e.id,
@@ -135,32 +116,6 @@ export const getIdeaInternalNotes = createServerFn()
 			content: e.note,
 			mentions: e.mentions ?? [],
 			createdAt: e.createdAt.toISOString(),
-			attachments: (attachmentsByMessage.get(e.id) ?? []).map((a) => ({
-				id: a.id,
-				filename: a.filename,
-				contentType: a.contentType,
-				sizeBytes: a.sizeBytes,
-			})),
+			attachments: attachmentsByEvent.get(e.id) ?? [],
 		}));
-	});
-
-/**
- * Load owner + admin directory for the @mention picker. Returns active
- * users only, sorted by display name.
- */
-export const getMentionableUsers = createServerFn()
-	.middleware([ownerMiddleware])
-	.handler(async () => {
-		const rows = await db.query.users.findMany({
-			where: and(inArray(users.role, ["owner", "admin"]), eq(users.active, true)),
-			columns: {
-				id: true,
-				displayName: true,
-				email: true,
-				jobTitle: true,
-				photoUrl: true,
-			},
-			orderBy: (u, { asc }) => [asc(u.displayName)],
-		});
-		return rows;
 	});

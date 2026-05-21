@@ -638,9 +638,14 @@ export const reassignIdea = createServerFn({ method: "POST" })
 		return { success: true, newOwnerName: newOwner.displayName };
 	});
 
-// ── Get Owners for Reassignment ──────────────────────────────────────────
+// ── Active Owners + Admins directory ─────────────────────────────────────
 
-export const getOwnersForReassign = createServerFn()
+/**
+ * Active owner/admin directory. Used by the reassign picker and the
+ * @mention picker — both want the same filter, sort, and (superset of)
+ * columns.
+ */
+export const getActiveOwnersAndAdmins = createServerFn()
 	.middleware([ownerMiddleware])
 	.handler(async () => {
 		return db.query.users.findMany({
@@ -649,6 +654,7 @@ export const getOwnersForReassign = createServerFn()
 			columns: {
 				id: true,
 				displayName: true,
+				email: true,
 				role: true,
 				jobTitle: true,
 				department: true,

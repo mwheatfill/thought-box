@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { UserCardPopover } from "#/components/ui/user-card";
 import { DECLINE_REASONS, REASSIGNMENT_REASONS, STATUS_LABELS } from "#/lib/constants";
-import { cn } from "#/lib/utils";
+import { cn, initials } from "#/lib/utils";
 
 interface TimelineEvent {
 	id: string;
@@ -53,11 +53,7 @@ export function ActivityTimeline({ events, limit = 5 }: ActivityTimelineProps) {
 											: "bg-muted text-muted-foreground",
 									)}
 								>
-									{event.actorName
-										.split(" ")
-										.map((n) => n[0])
-										.join("")
-										.slice(0, 2)}
+									{initials(event.actorName)}
 								</AvatarFallback>
 							</Avatar>
 							{!isLast && <div className="w-px flex-1 bg-border" />}

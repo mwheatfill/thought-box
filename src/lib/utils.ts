@@ -14,3 +14,19 @@ export function fireSubmissionConfetti() {
 		colors: ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6"],
 	});
 }
+
+/** Escape regex metacharacters in a literal string. */
+export function escapeRegex(s: string): string {
+	return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Two-letter uppercase initials for an avatar fallback. */
+export function initials(name: string): string {
+	return name
+		.split(" ")
+		.filter(Boolean)
+		.map((n) => n[0])
+		.join("")
+		.slice(0, 2)
+		.toUpperCase();
+}

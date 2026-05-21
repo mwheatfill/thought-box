@@ -27,6 +27,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "#/components/ui/select";
+import { initials } from "#/lib/utils";
 import {
 	getUsers,
 	searchDirectory,
@@ -127,13 +128,7 @@ function UsersPage() {
 					<div className="flex items-center gap-2">
 						<Avatar className="size-7">
 							{u.photoUrl && <AvatarImage src={u.photoUrl} alt={u.displayName} />}
-							<AvatarFallback className="text-[10px]">
-								{u.displayName
-									.split(" ")
-									.map((n) => n[0])
-									.join("")
-									.slice(0, 2)}
-							</AvatarFallback>
+							<AvatarFallback className="text-[10px]">{initials(u.displayName)}</AvatarFallback>
 						</Avatar>
 						<div>
 							<span className="font-medium">{u.displayName}</span>

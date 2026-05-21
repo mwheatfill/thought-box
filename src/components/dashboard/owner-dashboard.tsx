@@ -18,7 +18,7 @@ import {
 } from "#/components/ui/select";
 import { UserCardPopover } from "#/components/ui/user-card";
 import { OPEN_STATUSES, STATUS_LABELS } from "#/lib/constants";
-import { cn } from "#/lib/utils";
+import { cn, initials } from "#/lib/utils";
 import { SlaIndicator } from "./sla-indicator";
 import { StatusBadge } from "./status-badge";
 
@@ -87,11 +87,7 @@ const ownerColumns: ColumnDef<OwnerIdea, unknown>[] = [
 							<AvatarImage src={row.original.submitterPhotoUrl} alt={row.original.submitterName} />
 						)}
 						<AvatarFallback className="text-[10px]">
-							{row.original.submitterName
-								.split(" ")
-								.map((n) => n[0])
-								.join("")
-								.slice(0, 2)}
+							{initials(row.original.submitterName)}
 						</AvatarFallback>
 					</Avatar>
 					<span className="text-muted-foreground">{row.original.submitterName}</span>

@@ -28,6 +28,7 @@ import {
 	SidebarMenuItem,
 	SidebarRail,
 } from "#/components/ui/sidebar";
+import { initials } from "#/lib/utils";
 import type { AuthUser } from "#/server/middleware/auth";
 
 // ── Nav items ──────────────────────────────────────────────────────────────
@@ -64,18 +65,6 @@ const adminNav: NavItem[] = [
 	{ label: "Recycle Bin", href: "/admin/recycle-bin", icon: Trash2 },
 	{ label: "Settings", href: "/admin/settings", icon: Settings },
 ];
-
-// ── Initials helper ────────────────────────────────────────────────────────
-
-function getInitials(name: string): string {
-	return name
-		.split(" ")
-		.map((part) => part[0])
-		.filter(Boolean)
-		.slice(0, 2)
-		.join("")
-		.toUpperCase();
-}
 
 // ── Sidebar ────────────────────────────────────────────────────────────────
 
@@ -148,7 +137,7 @@ export function AppSidebar({ user }: AppSidebarProps) {
 					<div className="flex items-center gap-3">
 						<Avatar className="size-8">
 							{user.photoUrl && <AvatarImage src={user.photoUrl} alt={user.displayName} />}
-							<AvatarFallback className="text-xs">{getInitials(user.displayName)}</AvatarFallback>
+							<AvatarFallback className="text-xs">{initials(user.displayName)}</AvatarFallback>
 						</Avatar>
 						<div className="flex flex-col">
 							<span className="text-sm font-medium leading-none">{user.displayName}</span>

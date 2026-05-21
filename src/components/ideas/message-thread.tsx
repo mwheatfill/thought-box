@@ -11,13 +11,13 @@ import {
 	Send,
 	X,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "#/components/ui/button";
 import { MentionTextarea, type Mentionable, parseMentions } from "#/components/ui/mention-textarea";
 import { Textarea } from "#/components/ui/textarea";
 import { UserCardPopover } from "#/components/ui/user-card";
-import { cn } from "#/lib/utils";
+import { cn, escapeRegex } from "#/lib/utils";
 
 const ALLOWED_TYPES = new Set([
 	"image/jpeg",
@@ -93,42 +93,45 @@ interface MessageThreadProps {
 }
 
 /**
- * Render a message body with any tokens that match the directory styled as
- * mention pills. Falls back to plain text when no directory is provided.
+ * Build a regex that matches `@DisplayName` for any directory entry. Longest
+ * names first so "Sarah Chen" wins over "Sarah" when both are in the list.
  */
-function renderContent(text: string, directory?: Mentionable[]) {
-	if (!directory || directory.length === 0) return text;
-	// Build a regex that matches @DisplayName for any directory entry. Longest
-	// names first so "Sarah Chen" wins over "Sarah" when both are in the list.
+function buildMentionPattern(directory: Mentionable[]): RegExp | null {
+	if (directory.length === 0) return null;
 	const names = directory
 		.map((u) => u.displayName)
 		.sort((a, b) => b.length - a.length)
-		.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-	if (names.length === 0) return text;
-	const pattern = new RegExp(`@(${names.join("|")})(?=\\s|$|[.,!?;:])`, "gu");
-	const parts: (string | { name: string })[] = [];
+		.map(escapeRegex);
+	return new RegExp(`@(${names.join("|")})(?=\\s|$|[.,!?;:])`, "gu");
+}
+
+function renderContent(text: string, pattern: RegExp | null) {
+	if (!pattern) return text;
+	const nodes: React.ReactNode[] = [];
 	let lastIndex = 0;
+	let i = 0;
 	for (const match of text.matchAll(pattern)) {
 		if (match.index === undefined) continue;
-		if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
-		parts.push({ name: match[1] });
-		lastIndex = match.index + match[0].length;
-	}
-	if (lastIndex < text.length) parts.push(text.slice(lastIndex));
-	return parts.map((part, i) =>
-		typeof part === "string" ? (
+		if (match.index > lastIndex) {
 			// biome-ignore lint/suspicious/noArrayIndexKey: text fragments are positional
-			<span key={i}>{part}</span>
-		) : (
+			nodes.push(<span key={i++}>{text.slice(lastIndex, match.index)}</span>);
+		}
+		nodes.push(
 			<span
 				// biome-ignore lint/suspicious/noArrayIndexKey: text fragments are positional
-				key={i}
+				key={i++}
 				className="rounded-sm bg-primary/15 px-1 font-medium text-primary"
 			>
-				@{part.name}
-			</span>
-		),
-	);
+				@{match[1]}
+			</span>,
+		);
+		lastIndex = match.index + match[0].length;
+	}
+	if (lastIndex < text.length) {
+		// biome-ignore lint/suspicious/noArrayIndexKey: text fragments are positional
+		nodes.push(<span key={i++}>{text.slice(lastIndex)}</span>);
+	}
+	return nodes;
 }
 
 export function MessageThread({
@@ -146,6 +149,10 @@ export function MessageThread({
 	const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 	const [isDragging, setIsDragging] = useState(false);
 	const [isSendingWithFiles, setIsSendingWithFiles] = useState(false);
+	const mentionPattern = useMemo(
+		() => (mentionable ? buildMentionPattern(mentionable) : null),
+		[mentionable],
+	);
 	const dragCounter = useRef(0);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -319,7 +326,9 @@ export function MessageThread({
 										</UserCardPopover>
 									)}
 									{msg.content && (
-										<p className="whitespace-pre-wrap">{renderContent(msg.content, mentionable)}</p>
+										<p className="whitespace-pre-wrap">
+											{renderContent(msg.content, mentionPattern)}
+										</p>
 									)}
 									{msg.attachments && msg.attachments.length > 0 && (
 										<div className={cn("space-y-1", msg.content && "mt-1.5")}>
