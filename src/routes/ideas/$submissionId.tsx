@@ -18,8 +18,8 @@ import { RouteError } from "#/components/ui/route-error";
 import { Separator } from "#/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import { UserCardPopover } from "#/components/ui/user-card";
-import { IMPACT_AREAS } from "#/lib/constants";
-import type { IdeaStatus } from "#/lib/constants";
+import { IMPACT_AREAS, LOCKED_STATUSES } from "#/lib/constants";
+import type { IdeaStatus, LockedStatus } from "#/lib/constants";
 import { getIdeaAttachments } from "#/server/functions/attachments";
 import {
 	getIdeaDetail,
@@ -71,8 +71,7 @@ function IdeaDetailPage() {
 		queryFn: () => getIdeaAttachments({ data: { ideaId: idea.id } }),
 	});
 
-	const lockedStatuses = ["accepted", "declined", "redirected"];
-	const isLocked = lockedStatuses.includes(idea.status) && !idea.canEdit;
+	const isLocked = (LOCKED_STATUSES as readonly string[]).includes(idea.status) && !idea.canEdit;
 
 	// Update mutation
 	const updateFn = useServerFn(updateIdea);
@@ -308,7 +307,6 @@ function IdeaDetailPage() {
 					{idea.canEdit && (
 						<div className="space-y-6">
 							<OwnerActions
-								ideaId={idea.id}
 								submissionId={idea.submissionId}
 								ideaTitle={idea.title}
 								categoryName={idea.categoryName}
@@ -363,7 +361,7 @@ function IdeaDetailPage() {
 						<div className="space-y-6">
 							{isLocked ? (
 								<ClosedIdeaPanel
-									status={idea.status as "accepted" | "declined" | "redirected"}
+									status={idea.status as LockedStatus}
 									declineReason={idea.declineReason}
 									closedAt={idea.closedAt}
 									submittedAt={idea.submittedAt}

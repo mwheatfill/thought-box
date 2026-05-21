@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import {
 	CLOSED_STATUSES,
@@ -424,36 +424,44 @@ export const bulkUpdateStatus = createServerFn({ method: "POST" })
 		}),
 	)
 	.handler(async ({ context, data }) => {
-		for (const ideaId of data.ideaIds) {
-			const idea = await db.query.ideas.findFirst({
-				where: eq(ideas.id, ideaId),
-				columns: { id: true, status: true, assignedOwnerId: true },
-			});
+		const candidates = await db.query.ideas.findMany({
+			where: inArray(ideas.id, data.ideaIds),
+			columns: { id: true, status: true, assignedOwnerId: true },
+		});
 
-			if (!idea) continue;
-			if (context.user.role === "owner" && idea.assignedOwnerId !== context.user.id) continue;
-			if (idea.status === data.status) continue;
-			if ((CLOSED_STATUSES as readonly string[]).includes(idea.status)) continue;
+		const targets = candidates.filter((idea) => {
+			if (context.user.role === "owner" && idea.assignedOwnerId !== context.user.id) return false;
+			if (idea.status === data.status) return false;
+			if ((CLOSED_STATUSES as readonly string[]).includes(idea.status)) return false;
+			return true;
+		});
 
-			const updates: Record<string, unknown> = {
-				status: data.status,
-				hasBeenReviewed: true,
-				updatedAt: new Date(),
-			};
-
-			await db.update(ideas).set(updates).where(eq(ideas.id, ideaId));
-			await db.insert(ideaEvents).values({
-				ideaId,
-				eventType: "status_changed",
-				actorId: context.user.id,
-				oldValue: idea.status,
-				newValue: data.status,
-			});
+		if (targets.length === 0) {
+			return { success: true, count: 0 };
 		}
 
-		trackEvent("BulkStatusChanged", { newStatus: data.status }, { count: data.ideaIds.length });
+		const now = new Date();
+		const targetIds = targets.map((t) => t.id);
 
-		return { success: true, count: data.ideaIds.length };
+		await Promise.all([
+			db
+				.update(ideas)
+				.set({ status: data.status, hasBeenReviewed: true, updatedAt: now })
+				.where(inArray(ideas.id, targetIds)),
+			db.insert(ideaEvents).values(
+				targets.map((t) => ({
+					ideaId: t.id,
+					eventType: "status_changed" as const,
+					actorId: context.user.id,
+					oldValue: t.status,
+					newValue: data.status,
+				})),
+			),
+		]);
+
+		trackEvent("BulkStatusChanged", { newStatus: data.status }, { count: targets.length });
+
+		return { success: true, count: targets.length };
 	});
 
 // ── Reassign Idea ─────────────────────────────────────────────────────────

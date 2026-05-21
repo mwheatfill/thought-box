@@ -524,8 +524,6 @@ function formatEventDescription(event: ActivityEvent): string {
 			return `changed status to ${STATUS_LABELS[event.newValue as keyof typeof STATUS_LABELS] ?? event.newValue} on`;
 		case "reassigned":
 			return "reassigned";
-		case "note_added":
-			return "added a note on";
 		case "message":
 			return "sent a message on";
 		default:

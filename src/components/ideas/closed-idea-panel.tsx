@@ -3,14 +3,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Badge } from "#/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { UserCardPopover } from "#/components/ui/user-card";
-import { DECLINE_REASONS } from "#/lib/constants";
+import { DECLINE_REASONS, type LockedStatus } from "#/lib/constants";
 import { cn } from "#/lib/utils";
 import { businessDaysBetween } from "#/server/lib/sla";
 
-type ClosedStatus = "accepted" | "declined" | "redirected";
-
 interface ClosedIdeaPanelProps {
-	status: ClosedStatus;
+	status: LockedStatus;
 	declineReason: string | null;
 	closedAt: string | null;
 	submittedAt: string;
@@ -18,7 +16,7 @@ interface ClosedIdeaPanelProps {
 	className?: string;
 }
 
-const OUTCOME_CONFIG: Record<ClosedStatus, { label: string; badgeClass: string }> = {
+const OUTCOME_CONFIG: Record<LockedStatus, { label: string; badgeClass: string }> = {
 	accepted: {
 		label: "Accepted",
 		badgeClass: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",

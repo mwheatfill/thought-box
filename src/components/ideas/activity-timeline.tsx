@@ -124,8 +124,6 @@ function formatEventText(event: TimelineEvent): string {
 			}
 			return `reassigned to ${target}`;
 		}
-		case "note_added":
-			return "added a note";
 		case "message":
 			return "sent a message";
 		case "communicated":

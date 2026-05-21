@@ -37,6 +37,8 @@ import { UserCardPopover } from "#/components/ui/user-card";
 import {
 	DECLINE_REASONS,
 	IMPACT_AREAS,
+	LOCKED_STATUSES,
+	type LockedStatus,
 	REASSIGNMENT_REASONS,
 	type ReassignmentReason,
 } from "#/lib/constants";
@@ -52,7 +54,6 @@ interface Owner {
 }
 
 interface OwnerActionsProps {
-	ideaId: string;
 	submissionId: string;
 	ideaTitle: string;
 	categoryName: string;
@@ -114,8 +115,7 @@ export function OwnerActions({
 	isSaving,
 	isReassigning,
 }: OwnerActionsProps) {
-	const closedStatuses = ["accepted", "declined", "redirected"];
-	const isClosed = closedStatuses.includes(currentStatus);
+	const isClosed = (LOCKED_STATUSES as readonly string[]).includes(currentStatus);
 
 	const [status, setStatus] = useState<SelectableStatus>(currentStatus as SelectableStatus);
 	const [declineReason, setDeclineReason] = useState(currentDeclineReason ?? "");
@@ -135,7 +135,9 @@ export function OwnerActions({
 	const saveLabel = needsMessage ? "Save and Send Final Update" : "Save and Send Update";
 
 	const handleSave = async () => {
-		if (status === "new" || !statusChanged) return;
+		// `new` is filtered out of the save path — it's disabled in the dropdown
+		// and reassignment is the only route back. Narrow the type for onSave.
+		if (status === "new") return;
 		await onSave({
 			status,
 			messageToSubmitter: needsMessage ? messageToSubmitter.trim() : null,
@@ -148,7 +150,7 @@ export function OwnerActions({
 			{/* Closed idea: summary panel replaces SLA/reassign/locked banner */}
 			{isClosed && (
 				<ClosedIdeaPanel
-					status={currentStatus as "accepted" | "declined" | "redirected"}
+					status={currentStatus as LockedStatus}
 					declineReason={currentDeclineReason}
 					closedAt={closedAt}
 					submittedAt={submittedAt}

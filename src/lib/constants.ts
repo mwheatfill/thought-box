@@ -45,8 +45,12 @@ export type DeclineReason = keyof typeof DECLINE_REASONS;
 export const OPEN_STATUSES = ["new", "under_review"] as const;
 /** Statuses where the owner's identity is visible to submitters */
 export const REVIEWED_STATUSES = ["under_review", "accepted"] as const;
-/** Statuses that close an idea */
+/** Statuses that close an idea (user-initiated terminal states) */
 export const CLOSED_STATUSES = ["accepted", "declined"] as const;
+/** Statuses that lock an idea from further edits (includes AI-routed redirects) */
+export const LOCKED_STATUSES = ["accepted", "declined", "redirected"] as const;
+
+export type LockedStatus = (typeof LOCKED_STATUSES)[number];
 
 export const KPI_COLORS = {
 	amber: { bg: "bg-amber-100 dark:bg-amber-900/30", icon: "text-amber-600 dark:text-amber-400" },
