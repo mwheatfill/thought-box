@@ -370,6 +370,7 @@ export const updateIdea = createServerFn({ method: "POST" })
 				actorId: context.user.id,
 				oldValue: idea.status,
 				newValue: data.status,
+				reason: data.status === "declined" ? (data.declineReason ?? null) : null,
 				note: data.messageToSubmitter?.trim() || null,
 			});
 

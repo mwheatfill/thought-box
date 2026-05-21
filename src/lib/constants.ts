@@ -33,6 +33,15 @@ export const REASSIGNMENT_REASONS = {
 
 export type ReassignmentReason = keyof typeof REASSIGNMENT_REASONS;
 
+export const DECLINE_REASONS = {
+	already_in_progress: "Already in progress",
+	not_feasible: "Not feasible at this time",
+	not_aligned: "Not aligned with priorities",
+	not_thoughtbox: "Not a ThoughtBox idea",
+} as const;
+
+export type DeclineReason = keyof typeof DECLINE_REASONS;
+
 export const OPEN_STATUSES = ["new", "under_review"] as const;
 /** Statuses where the owner's identity is visible to submitters */
 export const REVIEWED_STATUSES = ["under_review", "accepted"] as const;

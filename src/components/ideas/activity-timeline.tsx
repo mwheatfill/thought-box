@@ -2,7 +2,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { UserCardPopover } from "#/components/ui/user-card";
-import { REASSIGNMENT_REASONS, STATUS_LABELS } from "#/lib/constants";
+import { DECLINE_REASONS, REASSIGNMENT_REASONS, STATUS_LABELS } from "#/lib/constants";
 import { cn } from "#/lib/utils";
 
 interface TimelineEvent {
@@ -73,7 +73,9 @@ export function ActivityTimeline({ events, limit = 5 }: ActivityTimelineProps) {
 								</UserCardPopover>{" "}
 								{formatEventText(event)}
 							</p>
-							{(event.eventType === "message" || event.eventType === "reassigned") &&
+							{(event.eventType === "message" ||
+								event.eventType === "reassigned" ||
+								event.eventType === "status_changed") &&
 								event.note && (
 									<div className="mt-1 rounded-md bg-muted px-3 py-2 text-sm whitespace-pre-wrap">
 										{event.note}
@@ -106,6 +108,11 @@ function formatEventText(event: TimelineEvent): string {
 		case "status_changed": {
 			const newLabel =
 				STATUS_LABELS[event.newValue as keyof typeof STATUS_LABELS] ?? event.newValue;
+			if (event.newValue === "declined" && event.reason) {
+				const reasonLabel =
+					DECLINE_REASONS[event.reason as keyof typeof DECLINE_REASONS] ?? event.reason;
+				return `changed status to ${newLabel} — ${reasonLabel}`;
+			}
 			return `changed status to ${newLabel}`;
 		}
 		case "reassigned": {

@@ -34,7 +34,12 @@ import {
 } from "#/components/ui/select";
 import { Textarea } from "#/components/ui/textarea";
 import { UserCardPopover } from "#/components/ui/user-card";
-import { IMPACT_AREAS, REASSIGNMENT_REASONS, type ReassignmentReason } from "#/lib/constants";
+import {
+	DECLINE_REASONS,
+	IMPACT_AREAS,
+	REASSIGNMENT_REASONS,
+	type ReassignmentReason,
+} from "#/lib/constants";
 import { cn } from "#/lib/utils";
 
 interface Owner {
@@ -296,10 +301,11 @@ export function OwnerActions({
 										<SelectValue placeholder="Select a reason..." />
 									</SelectTrigger>
 									<SelectContent>
-										<SelectItem value="already_in_progress">Already in progress</SelectItem>
-										<SelectItem value="not_feasible">Not feasible at this time</SelectItem>
-										<SelectItem value="not_aligned">Not aligned with priorities</SelectItem>
-										<SelectItem value="not_thoughtbox">Not a ThoughtBox idea</SelectItem>
+										{Object.entries(DECLINE_REASONS).map(([key, label]) => (
+											<SelectItem key={key} value={key}>
+												{label}
+											</SelectItem>
+										))}
 									</SelectContent>
 								</Select>
 							</div>
@@ -315,12 +321,11 @@ export function OwnerActions({
 									id="message-to-submitter"
 									value={messageToSubmitter}
 									onChange={(e) => setMessageToSubmitter(e.target.value)}
-									placeholder="This goes to the submitter in the status email. Be clear and kind."
+									placeholder="What should the submitter know?"
 									className="min-h-[100px] resize-none"
 								/>
 								<p className="text-xs text-muted-foreground">
-									Sent to the submitter when you save. Closed ideas cannot be edited, so make sure
-									it reads the way you want.
+									Sent on save. Cannot be edited later.
 								</p>
 							</div>
 						)}

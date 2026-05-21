@@ -3,6 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Badge } from "#/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { UserCardPopover } from "#/components/ui/user-card";
+import { DECLINE_REASONS } from "#/lib/constants";
 import { cn } from "#/lib/utils";
 import { businessDaysBetween } from "#/server/lib/sla";
 
@@ -30,13 +31,6 @@ const OUTCOME_CONFIG: Record<ClosedStatus, { label: string; badgeClass: string }
 		label: "Redirected",
 		badgeClass: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
 	},
-};
-
-const DECLINE_REASON_LABELS: Record<string, string> = {
-	already_in_progress: "Already in progress",
-	not_feasible: "Not feasible at this time",
-	not_aligned: "Not aligned with priorities",
-	not_thoughtbox: "Not a ThoughtBox idea",
 };
 
 function formatDate(iso: string): string {
@@ -84,7 +78,7 @@ export function ClosedIdeaPanel({
 						<div className="flex items-baseline justify-between gap-3">
 							<dt className="text-xs text-muted-foreground">Reason</dt>
 							<dd className="text-sm font-medium text-right">
-								{DECLINE_REASON_LABELS[declineReason] ?? declineReason}
+								{DECLINE_REASONS[declineReason as keyof typeof DECLINE_REASONS] ?? declineReason}
 							</dd>
 						</div>
 					)}
