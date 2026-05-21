@@ -7,8 +7,10 @@ const startHandler = createStartHandler(defaultStreamHandler);
 
 // In production, server-adapter.js intercepts custom API routes before they reach here.
 // This routing is only active in dev mode (vite dev).
+type StartHandlerOpts = Parameters<typeof startHandler>[1];
+
 export default {
-	async fetch(request: Request, opts?: unknown): Promise<Response> {
+	async fetch(request: Request, opts?: StartHandlerOpts): Promise<Response> {
 		const url = new URL(request.url);
 
 		if (url.pathname === "/api/chat" && request.method === "POST") {

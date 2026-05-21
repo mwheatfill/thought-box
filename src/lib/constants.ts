@@ -52,6 +52,14 @@ export const LOCKED_STATUSES = ["accepted", "declined", "redirected"] as const;
 
 export type LockedStatus = (typeof LOCKED_STATUSES)[number];
 
+export function isOpenStatus(s: string): boolean {
+	return (OPEN_STATUSES as readonly string[]).includes(s);
+}
+
+export function isLockedStatus(s: string): boolean {
+	return (LOCKED_STATUSES as readonly string[]).includes(s);
+}
+
 export const KPI_COLORS = {
 	amber: { bg: "bg-amber-100 dark:bg-amber-900/30", icon: "text-amber-600 dark:text-amber-400" },
 	blue: { bg: "bg-blue-100 dark:bg-blue-900/30", icon: "text-blue-600 dark:text-blue-400" },

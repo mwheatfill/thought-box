@@ -36,7 +36,7 @@ export default function UserInvite({
 			</HeroIcon>
 
 			<Text className="m-0 text-center text-xl font-bold text-gray-900">
-				Welcome to ThoughtBox!
+				Welcome to ThoughtBox, {recipientFirstName}!
 			</Text>
 
 			<Text className="m-0 mt-2 text-center text-sm text-gray-500">

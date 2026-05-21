@@ -1,24 +1,31 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, Lock, Paperclip } from "lucide-react";
+import { ArrowLeft, Eye, Lock, MessagesSquare, NotebookPen, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { DualSlaProgress } from "#/components/dashboard/sla-progress";
 import { StatusBadge } from "#/components/dashboard/status-badge";
 import { ActivityTimeline } from "#/components/ideas/activity-timeline";
 import { ClosedIdeaPanel } from "#/components/ideas/closed-idea-panel";
-import { MessageThread } from "#/components/ideas/message-thread";
+import { AudienceBanner, MessageThread } from "#/components/ideas/message-thread";
 import { OwnerActions } from "#/components/ideas/owner-actions";
 import { PageTransition } from "#/components/ui/animated";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Badge } from "#/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import { DropZone } from "#/components/ui/drop-zone";
+import {
+	Empty,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyMedia,
+	EmptyTitle,
+} from "#/components/ui/empty";
 import { RouteError } from "#/components/ui/route-error";
 import { Separator } from "#/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/components/ui/tabs";
 import { UserCardPopover } from "#/components/ui/user-card";
-import { IMPACT_AREAS, LOCKED_STATUSES } from "#/lib/constants";
+import { IMPACT_AREAS, isLockedStatus } from "#/lib/constants";
 import type { IdeaStatus, LockedStatus } from "#/lib/constants";
 import { initials } from "#/lib/utils";
 import { getIdeaAttachments } from "#/server/functions/attachments";
@@ -81,7 +88,7 @@ function IdeaDetailPage() {
 		enabled: canSeeInternalNotes,
 	});
 
-	const isLocked = (LOCKED_STATUSES as readonly string[]).includes(idea.status) && !idea.canEdit;
+	const isLocked = isLockedStatus(idea.status) && !idea.canEdit;
 
 	// Update mutation
 	const updateFn = useServerFn(updateIdea);
@@ -128,13 +135,76 @@ function IdeaDetailPage() {
 		mutationFn: (input: { content: string; mentions?: string[] }) =>
 			internalNoteFn({ data: { ideaId: idea.id, ...input } }),
 		onSuccess: () => {
+			// Only the internal-notes thread changes. The idea aggregate does not
+			// track a notes count or any field affected by note insertion, so we
+			// skip the broader ["idea", submissionId] invalidation here — that
+			// avoids a redundant refetch when the inline-note path chains this
+			// mutation right after updateMutation (which already invalidated it).
 			queryClient.invalidateQueries({ queryKey: ["idea-internal-notes", idea.id] });
-			queryClient.invalidateQueries({ queryKey: ["idea", submissionId] });
 		},
 		onError: (err: Error) => {
 			toast.error(err.message || "Failed to save note");
 		},
 	});
+
+	const submitterFirstName = idea.submitter.displayName.split(" ")[0];
+
+	// Submitters only see the Messages tab, so they don't need a banner
+	// (no other thread to confuse it with). Owners/admins get both.
+	const messagesAudience = canSeeInternalNotes ? (
+		<AudienceBanner
+			tone="visible"
+			icon={<Eye className="size-3.5 shrink-0" />}
+			avatar={{
+				displayName: idea.submitter.displayName,
+				photoUrl: idea.submitter.photoUrl,
+			}}
+			label={
+				<>
+					Visible to <span className="font-medium">{idea.submitter.displayName}</span>
+				</>
+			}
+		/>
+	) : undefined;
+
+	const internalNotesAudience = (
+		<AudienceBanner
+			tone="private"
+			icon={<Lock className="size-3.5 shrink-0" />}
+			label="Private — owners & admins only"
+		/>
+	);
+
+	const messagesEmpty = (
+		<Empty>
+			<EmptyHeader>
+				<EmptyMedia variant="icon">
+					<MessagesSquare />
+				</EmptyMedia>
+				<EmptyTitle>Start the conversation</EmptyTitle>
+				<EmptyDescription>
+					{canSeeInternalNotes
+						? `Ask ${submitterFirstName} a clarifying question or share an update — they'll get an email.`
+						: "Reply with more context for your reviewer or ask a question — you'll both get notified of new messages."}
+				</EmptyDescription>
+			</EmptyHeader>
+		</Empty>
+	);
+
+	const internalNotesEmpty = (
+		<Empty>
+			<EmptyHeader>
+				<EmptyMedia variant="icon">
+					<NotebookPen />
+				</EmptyMedia>
+				<EmptyTitle>No internal notes yet</EmptyTitle>
+				<EmptyDescription>
+					Capture research, context, or decisions for the team. Submitters never see this thread.
+					Type <span className="font-medium">@</span> to tag another owner and notify them by email.
+				</EmptyDescription>
+			</EmptyHeader>
+		</Empty>
+	);
 
 	return (
 		<PageTransition>
@@ -300,6 +370,9 @@ function IdeaDetailPage() {
 												});
 											}}
 											isSending={messageMutation.isPending}
+											audience={messagesAudience}
+											emptyMessage={messagesEmpty}
+											sendLabel={canSeeInternalNotes ? `Send to ${submitterFirstName}` : undefined}
 										/>
 									</TabsContent>
 									{canSeeInternalNotes && (
@@ -319,7 +392,11 @@ function IdeaDetailPage() {
 												isSending={internalNoteMutation.isPending}
 												mentionable={owners}
 												placeholder="Internal note — use @ to mention an owner"
-												emptyMessage="No internal notes yet. Submitters never see this thread."
+												emptyMessage={internalNotesEmpty}
+												variant="notes"
+												audience={internalNotesAudience}
+												sendLabel="Save note"
+												sendIcon={<NotebookPen className="size-4" />}
 											/>
 										</TabsContent>
 									)}
@@ -356,6 +433,8 @@ function IdeaDetailPage() {
 					{idea.canEdit && (
 						<div className="space-y-6">
 							<OwnerActions
+								// Remount on status/owner change to resync local form state.
+								key={`${idea.status}-${idea.assignedOwner?.id ?? "none"}`}
 								submissionId={idea.submissionId}
 								ideaTitle={idea.title}
 								categoryName={idea.categoryName}
@@ -376,7 +455,16 @@ function IdeaDetailPage() {
 								assignedOwnerPhotoUrl={idea.assignedOwner?.photoUrl ?? null}
 								owners={owners}
 								onSave={async (updates) => {
-									await updateMutation.mutateAsync(updates);
+									const { internalNote, internalNoteMentions, ...statusUpdates } = updates;
+									await updateMutation.mutateAsync(statusUpdates);
+									if (internalNote) {
+										// Fire-and-forget: the status save already succeeded; a failed
+										// note shouldn't roll back the status change.
+										internalNoteMutation.mutate({
+											content: internalNote,
+											mentions: internalNoteMentions,
+										});
+									}
 								}}
 								onReassign={async ({ newOwnerId, reason, note }) => {
 									await reassignMutation.mutateAsync({

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Textarea } from "#/components/ui/textarea";
-import { cn, escapeRegex, initials } from "#/lib/utils";
+import { cn, escapeRegex, initials, isSendShortcut } from "#/lib/utils";
 
 export interface Mentionable {
 	id: string;
@@ -17,17 +17,43 @@ interface MentionTextareaProps extends Omit<React.ComponentProps<"textarea">, "o
 	directory: Mentionable[];
 }
 
+export interface MentionLookup {
+	pattern: RegExp;
+	idByName: Map<string, string>;
+}
+
 /**
- * Parse the user IDs currently mentioned in `text`. An ID is considered
- * "currently mentioned" if its display name appears in the text preceded by
- * `@` and followed by a word boundary. Same logic the picker uses on insert,
- * applied at parse time to stay stateless about edits.
+ * Build the alternation regex + name→id map for a directory. Longest names
+ * first so "Sarah Chen" wins over "Sarah" when both are in the list.
  */
-export function parseMentions(text: string, directory: Mentionable[]): string[] {
+export function buildMentionLookup(directory: Mentionable[]): MentionLookup | null {
+	if (directory.length === 0) return null;
+	const sorted = [...directory].sort((a, b) => b.displayName.length - a.displayName.length);
+	const names = sorted.map((u) => escapeRegex(u.displayName));
+	const idByName = new Map(sorted.map((u) => [u.displayName, u.id]));
+	return {
+		pattern: new RegExp(`@(${names.join("|")})(?=\\s|$|[.,!?;:])`, "gu"),
+		idByName,
+	};
+}
+
+/**
+ * User IDs mentioned in `text`. Pass a pre-built lookup when on a hot path
+ * (e.g., per-keystroke) to avoid rebuilding the regex each call.
+ */
+export function parseMentions(
+	text: string,
+	directoryOrLookup: Mentionable[] | MentionLookup,
+): string[] {
+	if (text.length === 0) return [];
+	const lookup = Array.isArray(directoryOrLookup)
+		? buildMentionLookup(directoryOrLookup)
+		: directoryOrLookup;
+	if (!lookup) return [];
 	const ids = new Set<string>();
-	for (const user of directory) {
-		const pattern = new RegExp(`@${escapeRegex(user.displayName)}(?=\\s|$|[.,!?;:])`, "u");
-		if (pattern.test(text)) ids.add(user.id);
+	for (const match of text.matchAll(lookup.pattern)) {
+		const id = lookup.idByName.get(match[1]);
+		if (id) ids.add(id);
 	}
 	return Array.from(ids);
 }
@@ -128,10 +154,11 @@ export function MentionTextarea({
 				return;
 			}
 		}
-		// Defer plain Enter to onSubmit (matches MessageThread send behavior).
-		if (e.key === "Enter" && !e.shiftKey && !picker) {
+		// Plain Enter inserts a newline (matches every other textarea in the
+		// app). Cmd/Ctrl+Enter is the explicit send shortcut.
+		if (onSubmit && isSendShortcut(e) && !picker) {
 			e.preventDefault();
-			onSubmit?.();
+			onSubmit();
 			return;
 		}
 		onKeyDown?.(e);

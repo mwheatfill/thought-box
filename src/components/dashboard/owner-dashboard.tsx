@@ -17,7 +17,7 @@ import {
 	SelectValue,
 } from "#/components/ui/select";
 import { UserCardPopover } from "#/components/ui/user-card";
-import { OPEN_STATUSES, STATUS_LABELS } from "#/lib/constants";
+import { STATUS_LABELS, isOpenStatus } from "#/lib/constants";
 import { cn, initials } from "#/lib/utils";
 import { SlaIndicator } from "./sla-indicator";
 import { StatusBadge } from "./status-badge";
@@ -141,11 +141,8 @@ export function OwnerDashboard({
 	enableKpiFilter,
 }: OwnerDashboardProps) {
 	const navigate = useNavigate();
-	const openIdeas = useMemo(() => ideas.filter((i) => OPEN_STATUSES.includes(i.status)), [ideas]);
-	const closedIdeas = useMemo(
-		() => ideas.filter((i) => !OPEN_STATUSES.includes(i.status)),
-		[ideas],
-	);
+	const openIdeas = useMemo(() => ideas.filter((i) => isOpenStatus(i.status)), [ideas]);
+	const closedIdeas = useMemo(() => ideas.filter((i) => !isOpenStatus(i.status)), [ideas]);
 	const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 	const [bulkStatus, setBulkStatus] = useState("under_review");
 	const [kpiFilter, setKpiFilter] = useState<QueueFilter>(enableKpiFilter ? "open" : null);
@@ -183,7 +180,7 @@ export function OwnerDashboard({
 						icon={AlertTriangle}
 						label="Overdue"
 						value={stats.overdueCount}
-						variant={stats.overdueCount > 0 ? "destructive" : "default"}
+						variant={stats.overdueCount > 0 ? "destructive" : undefined}
 						color={stats.overdueCount > 0 ? "red" : undefined}
 						onClick={enableKpiFilter ? () => toggleKpi("overdue") : undefined}
 						isActive={kpiFilter === "overdue"}

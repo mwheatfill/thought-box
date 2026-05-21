@@ -319,12 +319,14 @@ export function AdminDashboard({
 										fill="var(--color-count)"
 										radius={4}
 										className="cursor-pointer"
-										// @ts-expect-error recharts onClick data has dynamic shape
 										onClick={(data) => {
-											if (data?.categoryName) {
+											// Recharts types this as BarRectangleItem; the payload at
+											// runtime is the original chart datum (our { categoryName, count }).
+											const datum = data as { categoryName?: string };
+											if (datum.categoryName) {
 												navigate({
 													to: "/admin/ideas",
-													search: { category: String(data.categoryName) },
+													search: { category: String(datum.categoryName) },
 												});
 											}
 										}}
@@ -655,7 +657,7 @@ function KpiRow({ stats }: { stats: DashboardStats }) {
 					icon={AlertTriangle}
 					label="Overdue"
 					value={stats.overdueCount}
-					variant={stats.overdueCount > 0 ? "destructive" : "default"}
+					variant={stats.overdueCount > 0 ? "destructive" : undefined}
 					color={stats.overdueCount > 0 ? "red" : undefined}
 					onClick={() => goToIdeas("overdue")}
 				/>

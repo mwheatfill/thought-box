@@ -53,7 +53,7 @@ export async function handlePhotoRequest(request: Request): Promise<Response> {
 		// Try Blob Storage first
 		const blob = await downloadBlob("photos", `${user.entraId}.jpg`);
 		if (blob) {
-			return new Response(blob.data, {
+			return new Response(blob.data as unknown as BodyInit, {
 				headers: {
 					"Content-Type": "image/jpeg",
 					"Cache-Control": "public, max-age=86400",

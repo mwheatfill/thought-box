@@ -1,5 +1,6 @@
 import confetti from "canvas-confetti";
 import { type ClassValue, clsx } from "clsx";
+import type * as React from "react";
 import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
@@ -29,4 +30,9 @@ export function initials(name: string): string {
 		.join("")
 		.slice(0, 2)
 		.toUpperCase();
+}
+
+/** Cmd/Ctrl + Enter — the universal "send" shortcut in chat composers. */
+export function isSendShortcut(e: KeyboardEvent | React.KeyboardEvent<Element>): boolean {
+	return (e.metaKey || e.ctrlKey) && e.key === "Enter";
 }

@@ -99,7 +99,7 @@ export const getIdeaMessages = createServerFn()
 			where: and(eq(ideaEvents.ideaId, data.ideaId), eq(ideaEvents.eventType, "message")),
 			orderBy: (e, { asc }) => [asc(e.createdAt)],
 			with: {
-				actor: { columns: { id: true, displayName: true } },
+				actor: { columns: { id: true, displayName: true, photoUrl: true } },
 			},
 		});
 
@@ -112,6 +112,7 @@ export const getIdeaMessages = createServerFn()
 			id: m.id,
 			actorId: m.actor.id,
 			actorName: m.actor.displayName,
+			actorPhotoUrl: m.actor.photoUrl,
 			content: m.note,
 			createdAt: m.createdAt.toISOString(),
 			attachments: attachmentsByMessage.get(m.id) ?? [],

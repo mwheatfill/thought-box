@@ -1,4 +1,4 @@
-import { ChevronsUpDown, RefreshCw } from "lucide-react";
+import { ChevronsUpDown, Lock, Plus, RefreshCw, X } from "lucide-react";
 import { useState } from "react";
 import { DualSlaProgress } from "#/components/dashboard/sla-progress";
 import { ClosedIdeaPanel } from "#/components/ideas/closed-idea-panel";
@@ -24,6 +24,7 @@ import {
 	CommandList,
 } from "#/components/ui/command";
 import { Label } from "#/components/ui/label";
+import { MentionTextarea, parseMentions } from "#/components/ui/mention-textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
 import {
 	Select,
@@ -37,10 +38,10 @@ import { UserCardPopover } from "#/components/ui/user-card";
 import {
 	DECLINE_REASONS,
 	IMPACT_AREAS,
-	LOCKED_STATUSES,
 	type LockedStatus,
 	REASSIGNMENT_REASONS,
 	type ReassignmentReason,
+	isLockedStatus,
 } from "#/lib/constants";
 import { cn, initials } from "#/lib/utils";
 
@@ -77,6 +78,18 @@ interface OwnerActionsProps {
 		status?: "under_review" | "accepted" | "declined";
 		declineReason?: string | null;
 		messageToSubmitter?: string | null;
+		/**
+		 * Optional private note added inline with the status change. Saved as
+		 * a separate `internal_note` event so it lives in the dedicated thread
+		 * and is never sent to the submitter.
+		 */
+		internalNote?: string | null;
+		/**
+		 * User IDs mentioned in `internalNote`. Resolved on the caller side
+		 * against the owner directory so server-side notifications can fire
+		 * without re-parsing the note text.
+		 */
+		internalNoteMentions?: string[];
 	}) => Promise<void>;
 	onReassign: (input: {
 		newOwnerId: string;
@@ -115,7 +128,7 @@ export function OwnerActions({
 	isSaving,
 	isReassigning,
 }: OwnerActionsProps) {
-	const isClosed = (LOCKED_STATUSES as readonly string[]).includes(currentStatus);
+	const isClosed = isLockedStatus(currentStatus);
 
 	const [status, setStatus] = useState<SelectableStatus>(currentStatus as SelectableStatus);
 	const [declineReason, setDeclineReason] = useState(currentDeclineReason ?? "");
@@ -124,6 +137,8 @@ export function OwnerActions({
 	const [pendingReassign, setPendingReassign] = useState<Owner | null>(null);
 	const [reassignReason, setReassignReason] = useState<ReassignmentReason | "">("");
 	const [reassignNote, setReassignNote] = useState("");
+	const [internalNote, setInternalNote] = useState("");
+	const [internalNoteOpen, setInternalNoteOpen] = useState(false);
 
 	const statusChanged = status !== currentStatus;
 	const needsMessage = status === "accepted" || status === "declined";
@@ -135,13 +150,15 @@ export function OwnerActions({
 	const saveLabel = needsMessage ? "Save and Send Final Update" : "Save and Send Update";
 
 	const handleSave = async () => {
-		// `new` is filtered out of the save path — it's disabled in the dropdown
-		// and reassignment is the only route back. Narrow the type for onSave.
 		if (status === "new") return;
+		const trimmedNote = internalNote.trim();
+		const noteMentions = trimmedNote ? parseMentions(trimmedNote, owners) : [];
 		await onSave({
 			status,
 			messageToSubmitter: needsMessage ? messageToSubmitter.trim() : null,
 			declineReason: needsReason ? declineReason : null,
+			internalNote: trimmedNote || null,
+			internalNoteMentions: noteMentions,
 		});
 	};
 
@@ -288,49 +305,96 @@ export function OwnerActions({
 							</Select>
 						</div>
 
-						{/* Decline reason — required when status is being set to declined */}
-						{needsReason && (
-							<div className="space-y-1.5">
-								<Label htmlFor="decline-reason">
-									Decline reason <span className="text-red-600">*</span>
-								</Label>
-								<Select value={declineReason} onValueChange={setDeclineReason}>
-									<SelectTrigger id="decline-reason">
-										<SelectValue placeholder="Select a reason..." />
-									</SelectTrigger>
-									<SelectContent>
-										{Object.entries(DECLINE_REASONS).map(([key, label]) => (
-											<SelectItem key={key} value={key}>
-												{label}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-							</div>
-						)}
+						{statusChanged && (
+							<>
+								{needsReason && (
+									<div className="space-y-1.5">
+										<Label htmlFor="decline-reason">
+											Decline reason <span className="text-red-600">*</span>
+										</Label>
+										<Select value={declineReason} onValueChange={setDeclineReason}>
+											<SelectTrigger id="decline-reason">
+												<SelectValue placeholder="Select a reason..." />
+											</SelectTrigger>
+											<SelectContent>
+												{Object.entries(DECLINE_REASONS).map(([key, label]) => (
+													<SelectItem key={key} value={key}>
+														{label}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+									</div>
+								)}
 
-						{/* Message to submitter — required for accepted/declined */}
-						{needsMessage && (
-							<div className="space-y-1.5">
-								<Label htmlFor="message-to-submitter">
-									Message to Submitter <span className="text-red-600">*</span>
-								</Label>
-								<Textarea
-									id="message-to-submitter"
-									value={messageToSubmitter}
-									onChange={(e) => setMessageToSubmitter(e.target.value)}
-									placeholder="What should the submitter know?"
-									className="min-h-[100px] resize-none"
-								/>
-								<p className="text-xs text-muted-foreground">
-									Sent on save. Cannot be edited later.
-								</p>
-							</div>
-						)}
+								{needsMessage && (
+									<div className="space-y-1.5">
+										<Label htmlFor="message-to-submitter">
+											Message to Submitter <span className="text-red-600">*</span>
+										</Label>
+										<Textarea
+											id="message-to-submitter"
+											value={messageToSubmitter}
+											onChange={(e) => setMessageToSubmitter(e.target.value)}
+											placeholder="What should the submitter know?"
+											className="min-h-[100px] resize-none"
+										/>
+										<p className="text-xs text-muted-foreground">
+											Sent on save. Cannot be edited later.
+										</p>
+									</div>
+								)}
 
-						<Button onClick={handleSave} disabled={!canSave || isSaving} className="w-full">
-							{isSaving ? "Saving..." : saveLabel}
-						</Button>
+								{!internalNoteOpen ? (
+									<button
+										type="button"
+										onClick={() => setInternalNoteOpen(true)}
+										className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+									>
+										<Plus className="size-3.5" />
+										Add a private note for the team
+									</button>
+								) : (
+									<div className="space-y-2 rounded-md border border-dashed border-muted-foreground/30 bg-muted/30 p-3">
+										<div className="flex items-center justify-between gap-2">
+											<div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+												<Lock className="size-3.5" />
+												<span>
+													Private team note{" "}
+													<span className="text-muted-foreground/70">(optional)</span>
+												</span>
+											</div>
+											<button
+												type="button"
+												onClick={() => {
+													setInternalNoteOpen(false);
+													setInternalNote("");
+												}}
+												className="rounded p-0.5 hover:bg-foreground/10"
+												title="Discard note"
+											>
+												<X className="size-3.5" />
+											</button>
+										</div>
+										<MentionTextarea
+											value={internalNote}
+											onChange={setInternalNote}
+											directory={owners}
+											placeholder="Research, decisions, anything the team should know… Type @ to tag an owner."
+											className="min-h-[60px] resize-none"
+										/>
+										<p className="text-xs text-muted-foreground">
+											Owners &amp; admins only. Submitters never see this. Tagged owners get an
+											email.
+										</p>
+									</div>
+								)}
+
+								<Button onClick={handleSave} disabled={!canSave || isSaving} className="w-full">
+									{isSaving ? "Saving..." : saveLabel}
+								</Button>
+							</>
+						)}
 					</CardContent>
 				</Card>
 			)}

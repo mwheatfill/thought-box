@@ -355,7 +355,6 @@ function UsersPage() {
 						</DialogDescription>
 					</DialogHeader>
 					<PromotionActions
-						pendingPromotion={pendingPromotion}
 						onConfirm={async (sendEmail) => {
 							if (!pendingPromotion) return;
 							await roleMutation.mutateAsync({

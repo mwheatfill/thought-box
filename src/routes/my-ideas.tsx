@@ -8,7 +8,7 @@ import { StatusPipeline } from "#/components/dashboard/status-pipeline";
 import { Card, CardContent } from "#/components/ui/card";
 import { DataTable, SortableHeader } from "#/components/ui/data-table";
 import { KpiCard } from "#/components/ui/kpi-card";
-import { type IdeaStatus, OPEN_STATUSES } from "#/lib/constants";
+import { type IdeaStatus, isOpenStatus } from "#/lib/constants";
 import { getUserSubmissionCount } from "#/server/functions/ai";
 import { getMyIdeas } from "#/server/functions/dashboard";
 
@@ -86,14 +86,14 @@ function MyIdeasPage() {
 	const [kpiFilter, setKpiFilter] = useState<KpiFilter>(null);
 
 	const stats = useMemo(() => {
-		const active = ideas.filter((i) => OPEN_STATUSES.includes(i.status)).length;
+		const active = ideas.filter((i) => isOpenStatus(i.status)).length;
 		const accepted = ideas.filter((i) => i.status === "accepted").length;
 		return { active, accepted };
 	}, [ideas]);
 
 	const filteredIdeas = useMemo(() => {
 		if (!kpiFilter) return ideas;
-		if (kpiFilter === "active") return ideas.filter((i) => OPEN_STATUSES.includes(i.status));
+		if (kpiFilter === "active") return ideas.filter((i) => isOpenStatus(i.status));
 		if (kpiFilter === "accepted") return ideas.filter((i) => i.status === "accepted");
 		return ideas; // "all"
 	}, [ideas, kpiFilter]);

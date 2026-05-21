@@ -11,7 +11,7 @@ import { Button } from "#/components/ui/button";
 import { Card, CardContent } from "#/components/ui/card";
 import { DataTable } from "#/components/ui/data-table";
 import { KpiCard } from "#/components/ui/kpi-card";
-import { type KPI_COLORS, OPEN_STATUSES, STATUS_LABELS } from "#/lib/constants";
+import { type KPI_COLORS, STATUS_LABELS, isOpenStatus } from "#/lib/constants";
 import { cn } from "#/lib/utils";
 import { getAllIdeas } from "#/server/functions/dashboard";
 
@@ -73,7 +73,7 @@ function AdminIdeasPage() {
 			(i) => new Date(i.submittedAt).getTime() >= startOfMonthMs,
 		).length;
 		const thisYear = ideas.filter((i) => new Date(i.submittedAt).getTime() >= startOfYearMs).length;
-		const open = ideas.filter((i) => OPEN_STATUSES.includes(i.status)).length;
+		const open = ideas.filter((i) => isOpenStatus(i.status)).length;
 		const overdue = ideas.filter((i) => i.slaStatus === "overdue").length;
 		return { thisMonth, thisYear, open, overdue };
 	}, [ideas, startOfMonthMs, startOfYearMs]);
@@ -91,7 +91,7 @@ function AdminIdeasPage() {
 			case "thisMonth":
 				return ideas.filter((i) => new Date(i.submittedAt).getTime() >= startOfMonthMs);
 			case "open":
-				return ideas.filter((i) => OPEN_STATUSES.includes(i.status));
+				return ideas.filter((i) => isOpenStatus(i.status));
 			case "overdue":
 				return ideas.filter((i) => i.slaStatus === "overdue");
 			case "thisYear":

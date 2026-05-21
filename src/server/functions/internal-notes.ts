@@ -100,7 +100,7 @@ export const getIdeaInternalNotes = createServerFn()
 			where: and(eq(ideaEvents.ideaId, data.ideaId), eq(ideaEvents.eventType, "internal_note")),
 			orderBy: (e, { asc }) => [asc(e.createdAt)],
 			with: {
-				actor: { columns: { id: true, displayName: true } },
+				actor: { columns: { id: true, displayName: true, photoUrl: true } },
 			},
 		});
 
@@ -113,6 +113,7 @@ export const getIdeaInternalNotes = createServerFn()
 			id: e.id,
 			actorId: e.actor.id,
 			actorName: e.actor.displayName,
+			actorPhotoUrl: e.actor.photoUrl,
 			content: e.note,
 			mentions: e.mentions ?? [],
 			createdAt: e.createdAt.toISOString(),

@@ -169,7 +169,7 @@ export async function handleAttachmentDownload(request: Request): Promise<Respon
 		const blob = await downloadBlob("attachments", attachment.blobName);
 		if (!blob) return new Response("File not found in storage", { status: 404 });
 
-		return new Response(blob.data, {
+		return new Response(blob.data as unknown as BodyInit, {
 			headers: {
 				"Content-Type": blob.contentType,
 				"Content-Disposition": `inline; filename="${attachment.filename}"`,

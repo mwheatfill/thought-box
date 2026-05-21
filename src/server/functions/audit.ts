@@ -29,7 +29,7 @@ export const getAuditLog = createServerFn()
 			action: e.action,
 			resourceType: e.resourceType,
 			resourceId: e.resourceId,
-			details: e.details as Record<string, unknown> | null,
+			details: e.details as { [key: string]: NonNullable<unknown> } | null,
 			createdAt: e.createdAt.toISOString(),
 		}));
 	});

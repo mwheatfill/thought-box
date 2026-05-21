@@ -30,7 +30,7 @@ const TOOL_NAMES = {
 } as const;
 
 function sendUserMessage(threadRuntime: ReturnType<typeof useThreadRuntime>, text: string) {
-	threadRuntime.append({ role: "user", content: [{ type: "text", text }] });
+	threadRuntime?.append({ role: "user", content: [{ type: "text", text }] });
 }
 
 // ── Tool UI components ─────────────────────────────────────────────────────

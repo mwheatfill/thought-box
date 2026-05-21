@@ -1,5 +1,5 @@
 import { anthropic } from "@ai-sdk/anthropic";
-import { convertToModelMessages, streamText, tool } from "ai";
+import { convertToModelMessages, stepCountIs, streamText, tool } from "ai";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, sql } from "#/server/db";
@@ -118,7 +118,7 @@ ${categoryTaxonomy}${userContext}`;
 		model: anthropic("claude-haiku-4-5-20251001"),
 		system: systemPrompt,
 		messages,
-		maxSteps: 5,
+		stopWhen: stepCountIs(5),
 		tools: {
 			set_readiness: tool({
 				description:
@@ -247,13 +247,11 @@ ${categoryTaxonomy}${userContext}`;
 						columns: { email: true, displayName: true, department: true },
 					});
 
-					let assignedOwnerName: string | null = null;
 					if (category.defaultOwnerId) {
 						const owner = await db.query.users.findFirst({
 							where: eq(users.id, category.defaultOwnerId),
 							columns: { displayName: true, email: true },
 						});
-						assignedOwnerName = owner?.displayName ?? null;
 
 						// Fire-and-forget: notify the owner
 						if (owner) {
