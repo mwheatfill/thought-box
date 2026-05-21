@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { DualSlaProgress } from "#/components/dashboard/sla-progress";
 import { StatusBadge } from "#/components/dashboard/status-badge";
 import { ActivityTimeline } from "#/components/ideas/activity-timeline";
+import { AttachmentsPanel } from "#/components/ideas/attachments-panel";
 import { ClosedIdeaPanel } from "#/components/ideas/closed-idea-panel";
 import { AudienceBanner, MessageThread } from "#/components/ideas/message-thread";
 import { OwnerActions } from "#/components/ideas/owner-actions";
@@ -13,7 +14,6 @@ import { PageTransition } from "#/components/ui/animated";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Badge } from "#/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
-import { DropZone } from "#/components/ui/drop-zone";
 import {
 	Empty,
 	EmptyDescription,
@@ -401,23 +401,13 @@ function IdeaDetailPage() {
 										</TabsContent>
 									)}
 									<TabsContent value="attachments" className="mt-0">
-										<DropZone
+										<AttachmentsPanel
 											ideaId={idea.id}
-											userId={user.id}
+											currentUserId={user.id}
+											currentUserRole={user.role}
+											attachments={ideaAttachments}
 											readOnly={isLocked}
-											existingFiles={ideaAttachments}
-											onUpload={() => {
-												queryClient.invalidateQueries({
-													queryKey: ["idea-attachments", idea.id],
-												});
-												queryClient.invalidateQueries({
-													queryKey: ["idea", submissionId],
-												});
-											}}
-											onDelete={() => {
-												queryClient.invalidateQueries({
-													queryKey: ["idea-attachments", idea.id],
-												});
+											onChange={() => {
 												queryClient.invalidateQueries({
 													queryKey: ["idea", submissionId],
 												});

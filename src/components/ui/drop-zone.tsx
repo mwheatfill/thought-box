@@ -54,6 +54,9 @@ interface UploadedFile {
 	filename: string;
 	contentType: string;
 	sizeBytes: number;
+	uploadedBy?: string;
+	createdAt?: string;
+	isInternal?: boolean;
 }
 
 interface DropZoneProps {
@@ -260,7 +263,10 @@ export function DropZone({
 		return displayFiles.length > 0 ? (
 			<div className="space-y-1.5">
 				{displayFiles.map((f) => (
-					<div key={f.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
+					<div
+						key={f.id}
+						className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+					>
 						<a
 							href={`/api/attachments/${f.id}`}
 							target="_blank"
@@ -374,7 +380,10 @@ export function DropZone({
 			{displayFiles.length > 0 && (
 				<div className="mt-3 space-y-1.5">
 					{displayFiles.map((f) => (
-						<div key={f.id} className="group flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
+						<div
+							key={f.id}
+							className="group flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+						>
 							<a
 								href={`/api/attachments/${f.id}`}
 								target="_blank"

@@ -169,6 +169,7 @@ export const attachments = pgTable("attachments", {
 	sizeBytes: integer("size_bytes").notNull(),
 	blobName: varchar("blob_name", { length: 500 }).notNull(),
 	uploadedById: varchar("uploaded_by_id", { length: 128 }).notNull(),
+	isInternal: boolean("is_internal").notNull().default(false),
 	deletedAt: timestamp("deleted_at", { withTimezone: true }),
 	deletedById: varchar("deleted_by_id", { length: 128 }),
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
