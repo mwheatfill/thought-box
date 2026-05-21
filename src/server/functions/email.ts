@@ -6,6 +6,7 @@ import IdeaAssigned from "#/emails/IdeaAssigned";
 import IdeaReassigned from "#/emails/IdeaReassigned";
 import IdeaReassignedSubmitter from "#/emails/IdeaReassignedSubmitter";
 import IdeaSubmitted from "#/emails/IdeaSubmitted";
+import MentionAlert from "#/emails/MentionAlert";
 import NewMessage from "#/emails/NewMessage";
 import SlaReminder from "#/emails/SlaReminder";
 import StatusChanged from "#/emails/StatusChanged";
@@ -129,6 +130,30 @@ export async function sendNewMessageEmail(params: {
 			ideaTitle: params.ideaTitle,
 			messagePreview: params.messagePreview,
 			isFromOwner: params.isFromOwner,
+			viewUrl: ideaUrl(params.submissionId),
+		}),
+	});
+}
+
+/** Notify an owner/admin that they were @-mentioned in an internal note. */
+export async function sendMentionAlertEmail(params: {
+	recipientEmail: string;
+	recipientFirstName: string;
+	mentionerName: string;
+	submissionId: string;
+	ideaTitle: string;
+	notePreview: string;
+}) {
+	await sendEmail({
+		to: params.recipientEmail,
+		subject: `${params.mentionerName} mentioned you on ${params.submissionId}`,
+		templateName: "MentionAlert",
+		template: createElement(MentionAlert, {
+			recipientFirstName: params.recipientFirstName,
+			mentionerName: params.mentionerName,
+			submissionId: params.submissionId,
+			ideaTitle: params.ideaTitle,
+			notePreview: params.notePreview,
 			viewUrl: ideaUrl(params.submissionId),
 		}),
 	});
@@ -281,6 +306,7 @@ const TEST_TEMPLATES = [
 	"idea_reassigned_submitter",
 	"message_from_owner",
 	"message_from_submitter",
+	"mention_alert",
 	"watcher_alert",
 	"sla_reminder",
 	"user_invite_owner",
@@ -414,6 +440,17 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						messagePreview:
 							"The ID verification step takes about 15 minutes per account. If we could automate the address validation that would cut it in half.",
 						isFromOwner: false,
+						viewUrl,
+					}),
+				},
+				mention_alert: {
+					subject: `[TEST] Nubia Ruiz mentioned you on ${sample.submissionId}`,
+					template: createElement(MentionAlert, {
+						recipientFirstName: firstName,
+						mentionerName: "Nubia Ruiz",
+						submissionId: sample.submissionId,
+						ideaTitle: sample.ideaTitle,
+						notePreview: `@${firstName} can you check whether the Retail Banking team has this on the roadmap?`,
 						viewUrl,
 					}),
 				},

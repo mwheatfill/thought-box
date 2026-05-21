@@ -48,6 +48,7 @@ export const eventTypeEnum = pgEnum("event_type", [
 	"reassigned",
 	"note_added",
 	"message",
+	"internal_note",
 	"communicated",
 	"reminder_sent",
 	"attachment_added",
@@ -133,6 +134,7 @@ export const ideaEvents = pgTable("idea_events", {
 	newValue: varchar("new_value", { length: 500 }),
 	reason: varchar("reason", { length: 50 }),
 	note: text("note"),
+	mentions: jsonb("mentions").$type<string[]>(),
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

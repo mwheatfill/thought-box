@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, Paperclip } from "lucide-react";
+import { ArrowLeft, Lock, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { DualSlaProgress } from "#/components/dashboard/sla-progress";
 import { StatusBadge } from "#/components/dashboard/status-badge";
@@ -27,6 +27,11 @@ import {
 	reassignIdea,
 	updateIdea,
 } from "#/server/functions/ideas";
+import {
+	addInternalNote,
+	getIdeaInternalNotes,
+	getMentionableUsers,
+} from "#/server/functions/internal-notes";
 import { addMessage, getIdeaMessages } from "#/server/functions/messages";
 
 export const Route = createFileRoute("/ideas/$submissionId")({
@@ -71,6 +76,23 @@ function IdeaDetailPage() {
 		queryFn: () => getIdeaAttachments({ data: { ideaId: idea.id } }),
 	});
 
+	const canSeeInternalNotes = user.role === "owner" || user.role === "admin";
+
+	// Internal notes (owners/admins only). The query is conditional so
+	// submitters never trigger the request.
+	const { data: internalNotes = [] } = useQuery({
+		queryKey: ["idea-internal-notes", idea.id],
+		queryFn: () => getIdeaInternalNotes({ data: { ideaId: idea.id } }),
+		enabled: canSeeInternalNotes,
+	});
+
+	const { data: mentionableUsers = [] } = useQuery({
+		queryKey: ["mentionable-users"],
+		queryFn: () => getMentionableUsers(),
+		enabled: canSeeInternalNotes,
+		staleTime: 5 * 60 * 1000,
+	});
+
 	const isLocked = (LOCKED_STATUSES as readonly string[]).includes(idea.status) && !idea.canEdit;
 
 	// Update mutation
@@ -110,6 +132,20 @@ function IdeaDetailPage() {
 		},
 		onError: () => {
 			toast.error("Failed to send message");
+		},
+	});
+
+	// Internal note mutation (owners/admins only)
+	const internalNoteFn = useServerFn(addInternalNote);
+	const internalNoteMutation = useMutation({
+		mutationFn: (input: { content: string; mentions?: string[] }) =>
+			internalNoteFn({ data: { ideaId: idea.id, ...input } }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["idea-internal-notes", idea.id] });
+			queryClient.invalidateQueries({ queryKey: ["idea", submissionId] });
+		},
+		onError: (err: Error) => {
+			toast.error(err.message || "Failed to save note");
 		},
 	});
 
@@ -249,6 +285,15 @@ function IdeaDetailPage() {
 												</Badge>
 											)}
 										</TabsTrigger>
+										{canSeeInternalNotes && (
+											<TabsTrigger value="internal-notes" className="gap-1">
+												<Lock className="size-3.5" />
+												Internal Notes
+												{internalNotes.length > 0 && (
+													<Badge variant="secondary">{internalNotes.length}</Badge>
+												)}
+											</TabsTrigger>
+										)}
 										<TabsTrigger value="attachments" className="gap-1">
 											<Paperclip className="size-3.5" />
 											{ideaAttachments.length > 0 && (
@@ -274,6 +319,27 @@ function IdeaDetailPage() {
 											isSending={messageMutation.isPending}
 										/>
 									</TabsContent>
+									{canSeeInternalNotes && (
+										<TabsContent value="internal-notes" className="mt-0">
+											<MessageThread
+												messages={internalNotes}
+												currentUserId={user.id}
+												ideaId={idea.id}
+												onSend={async (content, mentions) => {
+													return await internalNoteMutation.mutateAsync({ content, mentions });
+												}}
+												onAttachmentUpload={() => {
+													queryClient.invalidateQueries({
+														queryKey: ["idea-attachments", idea.id],
+													});
+												}}
+												isSending={internalNoteMutation.isPending}
+												mentionable={mentionableUsers}
+												placeholder="Internal note — use @ to mention an owner"
+												emptyMessage="No internal notes yet. Submitters never see this thread."
+											/>
+										</TabsContent>
+									)}
 									<TabsContent value="attachments" className="mt-0">
 										<DropZone
 											ideaId={idea.id}

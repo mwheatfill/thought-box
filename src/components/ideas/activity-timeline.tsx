@@ -126,6 +126,8 @@ function formatEventText(event: TimelineEvent): string {
 		}
 		case "message":
 			return "sent a message";
+		case "internal_note":
+			return "added an internal note";
 		case "communicated":
 			return "communicated with the employee";
 		case "reminder_sent":

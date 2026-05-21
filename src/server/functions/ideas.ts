@@ -228,14 +228,19 @@ export const getIdeaDetail = createServerFn()
 			throw new Error("Not found");
 		}
 
-		// Load activity events
-		const events = await db.query.ideaEvents.findMany({
+		// Load activity events. Internal notes are owner/admin-only — never
+		// returned to submitters in either the timeline or any other shape.
+		const isSubmitter = context.user.role === "submitter";
+		const allEvents = await db.query.ideaEvents.findMany({
 			where: eq(ideaEvents.ideaId, idea.id),
 			orderBy: (e, { asc }) => [asc(e.createdAt)],
 			with: {
 				actor: { columns: { displayName: true, photoUrl: true } },
 			},
 		});
+		const events = isSubmitter
+			? allEvents.filter((e) => e.eventType !== "internal_note")
+			: allEvents;
 
 		const daysRemaining = businessDaysRemaining(idea.slaDueDate);
 		const showOwner = shouldShowOwner(context.user.role, idea.hasBeenReviewed);

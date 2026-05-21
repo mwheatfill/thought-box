@@ -14,6 +14,7 @@ import {
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "#/components/ui/button";
+import { MentionTextarea, type Mentionable, parseMentions } from "#/components/ui/mention-textarea";
 import { Textarea } from "#/components/ui/textarea";
 import { UserCardPopover } from "#/components/ui/user-card";
 import { cn } from "#/lib/utils";
@@ -71,15 +72,63 @@ interface Message {
 	content: string | null;
 	createdAt: string;
 	attachments?: MessageFile[];
+	mentions?: string[];
 }
 
 interface MessageThreadProps {
 	messages: Message[];
 	currentUserId: string;
 	ideaId?: string;
-	onSend: (content: string) => Promise<{ messageId?: string } | undefined>;
+	onSend: (content: string, mentions?: string[]) => Promise<{ messageId?: string } | undefined>;
 	onAttachmentUpload?: () => void;
 	isSending: boolean;
+	/**
+	 * When provided, the composer accepts `@mentions` and the picker shows
+	 * this directory. Messages in the thread also get their @tokens styled.
+	 * Omit for the submitter-facing thread (no mentions).
+	 */
+	mentionable?: Mentionable[];
+	placeholder?: string;
+	emptyMessage?: string;
+}
+
+/**
+ * Render a message body with any tokens that match the directory styled as
+ * mention pills. Falls back to plain text when no directory is provided.
+ */
+function renderContent(text: string, directory?: Mentionable[]) {
+	if (!directory || directory.length === 0) return text;
+	// Build a regex that matches @DisplayName for any directory entry. Longest
+	// names first so "Sarah Chen" wins over "Sarah" when both are in the list.
+	const names = directory
+		.map((u) => u.displayName)
+		.sort((a, b) => b.length - a.length)
+		.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+	if (names.length === 0) return text;
+	const pattern = new RegExp(`@(${names.join("|")})(?=\\s|$|[.,!?;:])`, "gu");
+	const parts: (string | { name: string })[] = [];
+	let lastIndex = 0;
+	for (const match of text.matchAll(pattern)) {
+		if (match.index === undefined) continue;
+		if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
+		parts.push({ name: match[1] });
+		lastIndex = match.index + match[0].length;
+	}
+	if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+	return parts.map((part, i) =>
+		typeof part === "string" ? (
+			// biome-ignore lint/suspicious/noArrayIndexKey: text fragments are positional
+			<span key={i}>{part}</span>
+		) : (
+			<span
+				// biome-ignore lint/suspicious/noArrayIndexKey: text fragments are positional
+				key={i}
+				className="rounded-sm bg-primary/15 px-1 font-medium text-primary"
+			>
+				@{part.name}
+			</span>
+		),
+	);
 }
 
 export function MessageThread({
@@ -89,6 +138,9 @@ export function MessageThread({
 	onSend,
 	onAttachmentUpload,
 	isSending,
+	mentionable,
+	placeholder = "Type a message...",
+	emptyMessage = "No messages yet. Start a conversation about this idea.",
 }: MessageThreadProps) {
 	const [draft, setDraft] = useState("");
 	const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -126,8 +178,9 @@ export function MessageThread({
 
 			// Send message text if present
 			if (text) {
+				const mentions = mentionable ? parseMentions(text, mentionable) : undefined;
 				setDraft("");
-				const result = await onSend(text);
+				const result = await onSend(text, mentions);
 				messageId = result?.messageId;
 			}
 
@@ -239,9 +292,7 @@ export function MessageThread({
 
 			{/* Messages */}
 			{messages.length === 0 ? (
-				<p className="py-4 text-center text-sm text-muted-foreground">
-					No messages yet. Start a conversation about this idea.
-				</p>
+				<p className="py-4 text-center text-sm text-muted-foreground">{emptyMessage}</p>
 			) : (
 				<div className="space-y-3">
 					{messages.map((msg) => {
@@ -267,7 +318,9 @@ export function MessageThread({
 											</button>
 										</UserCardPopover>
 									)}
-									{msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
+									{msg.content && (
+										<p className="whitespace-pre-wrap">{renderContent(msg.content, mentionable)}</p>
+									)}
 									{msg.attachments && msg.attachments.length > 0 && (
 										<div className={cn("space-y-1", msg.content && "mt-1.5")}>
 											{msg.attachments.map((att) => (
@@ -358,18 +411,29 @@ export function MessageThread({
 					>
 						<Paperclip className="size-4" />
 					</Button>
-					<Textarea
-						value={draft}
-						onChange={(e) => setDraft(e.target.value)}
-						placeholder="Type a message..."
-						className="min-h-[60px] resize-none"
-						onKeyDown={(e) => {
-							if (e.key === "Enter" && !e.shiftKey) {
-								e.preventDefault();
-								handleSend();
-							}
-						}}
-					/>
+					{mentionable ? (
+						<MentionTextarea
+							value={draft}
+							onChange={setDraft}
+							onSubmit={handleSend}
+							directory={mentionable}
+							placeholder={placeholder}
+							className="min-h-[60px] resize-none"
+						/>
+					) : (
+						<Textarea
+							value={draft}
+							onChange={(e) => setDraft(e.target.value)}
+							placeholder={placeholder}
+							className="min-h-[60px] resize-none"
+							onKeyDown={(e) => {
+								if (e.key === "Enter" && !e.shiftKey) {
+									e.preventDefault();
+									handleSend();
+								}
+							}}
+						/>
+					)}
 					<Button
 						size="icon"
 						onClick={handleSend}

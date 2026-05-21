@@ -526,6 +526,8 @@ function formatEventDescription(event: ActivityEvent): string {
 			return "reassigned";
 		case "message":
 			return "sent a message on";
+		case "internal_note":
+			return "added an internal note on";
 		default:
 			return "updated";
 	}
