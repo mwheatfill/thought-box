@@ -218,19 +218,26 @@ export const getIdeaDetail = createServerFn()
 			throw new Error("Idea not found");
 		}
 
-		// Access check: submitters can only see their own ideas
-		if (context.user.role === "submitter" && idea.submitterId !== context.user.id) {
+		// Access & perspective are based on the viewer's relationship to THIS
+		// idea, not their global role. A user with the "owner" role who submitted
+		// an idea assigned to a different owner still views it — as its submitter
+		// (sees the message thread, not internal notes).
+		const isAdmin = context.user.role === "admin";
+		const isAssignedOwner = idea.assignedOwnerId === context.user.id;
+		const isIdeaSubmitter = idea.submitterId === context.user.id;
+		if (!isAdmin && !isAssignedOwner && !isIdeaSubmitter) {
 			throw new Error("Not found");
 		}
 
-		// Owners can only see ideas assigned to them (admins see all)
-		if (context.user.role === "owner" && idea.assignedOwnerId !== context.user.id) {
-			throw new Error("Not found");
-		}
+		// Effective perspective for owner anonymity and internal-note visibility:
+		// admins and the assigned owner get the owner/admin view; anyone else with
+		// access (i.e. the submitter) gets the submitter view, even if their
+		// global role is "owner".
+		const viewerRole = isAdmin ? "admin" : isAssignedOwner ? "owner" : "submitter";
 
 		// Load activity events. Internal notes are owner/admin-only — never
 		// returned to submitters in either the timeline or any other shape.
-		const isSubmitter = context.user.role === "submitter";
+		const isSubmitter = viewerRole === "submitter";
 		const allEvents = await db.query.ideaEvents.findMany({
 			where: eq(ideaEvents.ideaId, idea.id),
 			orderBy: (e, { asc }) => [asc(e.createdAt)],
@@ -243,7 +250,7 @@ export const getIdeaDetail = createServerFn()
 			: allEvents;
 
 		const daysRemaining = businessDaysRemaining(idea.slaDueDate);
-		const showOwner = shouldShowOwner(context.user.role, idea.hasBeenReviewed);
+		const showOwner = shouldShowOwner(viewerRole, idea.hasBeenReviewed);
 
 		return {
 			id: idea.id,
@@ -276,7 +283,7 @@ export const getIdeaDetail = createServerFn()
 						e.actor.displayName,
 						e.actorId,
 						idea.assignedOwnerId,
-						context.user.role,
+						viewerRole,
 						idea.hasBeenReviewed,
 					),
 					actorPhotoUrl: showOwner || e.actorId !== idea.assignedOwnerId ? e.actor.photoUrl : null,
@@ -287,9 +294,7 @@ export const getIdeaDetail = createServerFn()
 					createdAt: e.createdAt.toISOString(),
 				};
 			}),
-			canEdit:
-				context.user.role === "admin" ||
-				(context.user.role === "owner" && idea.assignedOwnerId === context.user.id),
+			canEdit: isAdmin || isAssignedOwner,
 		};
 	});
 

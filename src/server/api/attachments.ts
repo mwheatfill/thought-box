@@ -66,10 +66,11 @@ export async function handleAttachmentUpload(request: Request): Promise<Response
 				headers: { "Content-Type": "application/json" },
 			});
 		}
-		const ideaOK =
-			user.role === "admin" ||
-			(user.role === "owner" && idea.assignedOwnerId === user.id) ||
-			(user.role === "submitter" && idea.submitterId === user.id);
+		// Access & perspective by relationship to this idea, not global role —
+		// an "owner"-role user who submitted this idea acts on it as its submitter.
+		const isAssignedOwner = idea.assignedOwnerId === user.id;
+		const viewerIsSubmitter = user.role !== "admin" && !isAssignedOwner;
+		const ideaOK = user.role === "admin" || isAssignedOwner || idea.submitterId === user.id;
 		if (!ideaOK) {
 			return new Response(JSON.stringify({ error: "Forbidden" }), {
 				status: 403,
@@ -90,14 +91,14 @@ export async function handleAttachmentUpload(request: Request): Promise<Response
 				columns: { eventType: true },
 			});
 			isInternal = event?.eventType === "internal_note";
-			if (isInternal && user.role === "submitter") {
+			if (isInternal && viewerIsSubmitter) {
 				return new Response(JSON.stringify({ error: "Forbidden" }), {
 					status: 403,
 					headers: { "Content-Type": "application/json" },
 				});
 			}
 		} else {
-			isInternal = user.role !== "submitter";
+			isInternal = !viewerIsSubmitter;
 		}
 
 		// Read file buffer and validate magic bytes
@@ -230,16 +231,17 @@ export async function handleAttachmentDownload(request: Request): Promise<Respon
 			columns: { submitterId: true, assignedOwnerId: true },
 		});
 		if (!idea) return new Response("Not found", { status: 404 });
-		const ideaOK =
-			user.role === "admin" ||
-			(user.role === "owner" && idea.assignedOwnerId === user.id) ||
-			(user.role === "submitter" && idea.submitterId === user.id);
+		// Access & perspective by relationship to this idea, not global role —
+		// an "owner"-role user who submitted this idea views it as its submitter.
+		const isAssignedOwner = idea.assignedOwnerId === user.id;
+		const viewerIsSubmitter = user.role !== "admin" && !isAssignedOwner;
+		const ideaOK = user.role === "admin" || isAssignedOwner || idea.submitterId === user.id;
 		if (!ideaOK) return new Response("Not found", { status: 404 });
 
 		// Visibility check: internal attachments are owner/admin-only. A row
 		// is internal if the column flag is set OR its parent event is an
 		// internal_note. Both paths block submitter access here.
-		if (user.role === "submitter") {
+		if (viewerIsSubmitter) {
 			let blocked = attachment.isInternal;
 			if (!blocked && attachment.messageId) {
 				const event = await db.query.ideaEvents.findFirst({
@@ -298,13 +300,14 @@ export async function handleAttachmentDelete(request: Request): Promise<Response
 			columns: { submissionId: true, submitterId: true, assignedOwnerId: true },
 		});
 		if (!idea) return new Response("Not found", { status: 404 });
-		const ideaOK =
-			user.role === "admin" ||
-			(user.role === "owner" && idea.assignedOwnerId === user.id) ||
-			(user.role === "submitter" && idea.submitterId === user.id);
+		// Access & perspective by relationship to this idea, not global role —
+		// an "owner"-role user who submitted this idea acts on it as its submitter.
+		const isAssignedOwner = idea.assignedOwnerId === user.id;
+		const viewerIsSubmitter = user.role !== "admin" && !isAssignedOwner;
+		const ideaOK = user.role === "admin" || isAssignedOwner || idea.submitterId === user.id;
 		if (!ideaOK) return new Response("Not found", { status: 404 });
 
-		if (user.role === "submitter") {
+		if (viewerIsSubmitter) {
 			let blocked = attachment.isInternal;
 			if (!blocked && attachment.messageId) {
 				const event = await db.query.ideaEvents.findFirst({
