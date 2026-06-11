@@ -29,6 +29,23 @@ export function registerEmailLogger(fn: EmailLogFn) {
 	logFn = fn;
 }
 
+/**
+ * Addresses that exist in the data but have no real inbox behind them — e.g. the
+ * "Legacy InMoment User" placeholder submitter created during the InMoment import
+ * (scripts/import-inmoment.ts). Sending to these bounces (and sending to our own
+ * shared mailbox would trigger a mail loop), so they're dropped before we call
+ * Graph. Skipped recipients are still logged so the attempt is auditable.
+ */
+const UNDELIVERABLE_RECIPIENTS = new Set(["legacy-inmoment@desertfinancial.com"]);
+
+function isUndeliverable(email: string, fromMailbox: string | undefined): boolean {
+	const normalized = email.trim().toLowerCase();
+	if (UNDELIVERABLE_RECIPIENTS.has(normalized)) return true;
+	// Never email our own sending mailbox — that's a self-addressed mail loop.
+	if (fromMailbox && normalized === fromMailbox.trim().toLowerCase()) return true;
+	return false;
+}
+
 function getMailClient(): Client | null {
 	const isAzure = process.cwd().startsWith("/home/site");
 	if (isAzure) {
@@ -69,13 +86,33 @@ export async function sendEmail({
 	templateName,
 	ideaId,
 }: SendEmailOptions): Promise<void> {
-	const recipients = Array.isArray(to) ? to : [to];
-	const html = await render(template);
 	const tplName = templateName ?? "unknown";
 	const iId = ideaId ?? null;
 
 	const client = getMailClient();
 	const fromMailbox = process.env.THOUGHTBOX_SHARED_MAILBOX;
+
+	// Drop placeholder/self-addressed recipients before doing any work. Log each
+	// skip so it shows up in the email log as intentional, not a silent failure.
+	const requested = Array.isArray(to) ? to : [to];
+	const recipients: string[] = [];
+	for (const r of requested) {
+		if (isUndeliverable(r, fromMailbox)) {
+			logFn?.({
+				recipient: r,
+				subject,
+				template: tplName,
+				ideaId: iId,
+				status: "skipped_placeholder",
+				error: null,
+			});
+		} else {
+			recipients.push(r);
+		}
+	}
+	if (recipients.length === 0) return;
+
+	const html = await render(template);
 
 	// Dev mode: log instead of sending
 	if (!client || !fromMailbox) {

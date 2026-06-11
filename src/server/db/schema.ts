@@ -181,7 +181,7 @@ export const emailLog = pgTable("email_log", {
 	subject: varchar("subject", { length: 500 }).notNull(),
 	template: varchar("template", { length: 100 }).notNull(),
 	ideaId: varchar("idea_id", { length: 128 }),
-	status: varchar("status", { length: 20 }).notNull(), // sent, failed, dev_skipped
+	status: varchar("status", { length: 20 }).notNull(), // sent, failed, dev_skipped, skipped_placeholder
 	error: text("error"),
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
