@@ -19,7 +19,11 @@ import {
 	sendWatcherAlert,
 } from "#/server/functions/email";
 import { audit } from "#/server/lib/audit";
-import { anonymizeActorName, shouldShowOwner } from "#/server/lib/owner-visibility";
+import {
+	anonymizeActorName,
+	resolveIdeaAccess,
+	shouldShowOwner,
+} from "#/server/lib/owner-visibility";
 import { businessDaysRemaining, calculateSlaDueDate, calculateSlaStatus } from "#/server/lib/sla";
 import { nextSubmissionId } from "#/server/lib/submission-id";
 import { trackEvent } from "#/server/lib/telemetry";
@@ -222,18 +226,15 @@ export const getIdeaDetail = createServerFn()
 		// idea, not their global role. A user with the "owner" role who submitted
 		// an idea assigned to a different owner still views it — as its submitter
 		// (sees the message thread, not internal notes).
-		const isAdmin = context.user.role === "admin";
-		const isAssignedOwner = idea.assignedOwnerId === context.user.id;
-		const isIdeaSubmitter = idea.submitterId === context.user.id;
-		if (!isAdmin && !isAssignedOwner && !isIdeaSubmitter) {
+		const { canView, viewerRole, canEdit } = resolveIdeaAccess({
+			userId: context.user.id,
+			userRole: context.user.role,
+			submitterId: idea.submitterId,
+			assignedOwnerId: idea.assignedOwnerId,
+		});
+		if (!canView) {
 			throw new Error("Not found");
 		}
-
-		// Effective perspective for owner anonymity and internal-note visibility:
-		// admins and the assigned owner get the owner/admin view; anyone else with
-		// access (i.e. the submitter) gets the submitter view, even if their
-		// global role is "owner".
-		const viewerRole = isAdmin ? "admin" : isAssignedOwner ? "owner" : "submitter";
 
 		// Load activity events. Internal notes are owner/admin-only — never
 		// returned to submitters in either the timeline or any other shape.
@@ -294,7 +295,7 @@ export const getIdeaDetail = createServerFn()
 					createdAt: e.createdAt.toISOString(),
 				};
 			}),
-			canEdit: isAdmin || isAssignedOwner,
+			canEdit,
 		};
 	});
 
