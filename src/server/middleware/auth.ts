@@ -2,6 +2,7 @@ import { createMiddleware } from "@tanstack/react-start";
 import { and, count, eq, isNull } from "drizzle-orm";
 import { db } from "#/server/db";
 import { categories, categoryContributors, users } from "#/server/db/schema";
+import { devClaimsFor, isDevEnv } from "#/server/lib/dev-personas";
 import { enrichUserProfile } from "#/server/lib/enrichment";
 import { type EffectiveRole, deriveUserRole } from "#/server/lib/roles";
 
@@ -105,10 +106,14 @@ function parseEasyAuthHeaders(request: Request): EasyAuthClaims | null {
 		return { entraId, email, displayName };
 	}
 
-	// Development: use mock user
-	if (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") {
-		const devEntraId = process.env.DEV_USER_ENTRA_ID;
-		if (devEntraId) return { entraId: devEntraId, email: "dev@localhost", displayName: "Michael" };
+	// Development: the persona switcher sets a `dev_persona` cookie to flip the
+	// active user without a restart; fall back to the DEV_USER_ENTRA_ID env mock.
+	if (isDevEnv()) {
+		const cookie = request.headers.get("cookie") ?? "";
+		const match = cookie.match(/(?:^|;\s*)dev_persona=([^;]+)/);
+		const devEntraId =
+			(match ? decodeURIComponent(match[1]) : undefined) ?? process.env.DEV_USER_ENTRA_ID;
+		if (devEntraId) return devClaimsFor(devEntraId);
 	}
 
 	return null;

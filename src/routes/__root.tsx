@@ -11,6 +11,7 @@ import {
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useState } from "react";
+import { PersonaSwitcher } from "#/components/dev/persona-switcher";
 import { AppSidebar } from "#/components/layout/app-sidebar";
 import { Button } from "#/components/ui/button";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "#/components/ui/sidebar";
@@ -177,6 +178,7 @@ function RootComponent() {
 					</SidebarInset>
 				</SidebarProvider>
 				<Toaster position="bottom-right" richColors />
+				{import.meta.env.DEV && <PersonaSwitcher currentEntraId={user?.entraId} />}
 				<TanStackDevtools
 					config={{ position: "bottom-right" }}
 					plugins={[
