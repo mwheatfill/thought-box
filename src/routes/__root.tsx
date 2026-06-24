@@ -163,8 +163,10 @@ function RootComponent() {
 		<QueryClientProvider client={queryClient}>
 			<TooltipProvider>
 				<SidebarProvider
-					defaultOpen={isLandingPage ? false : (sidebarOpen ?? true)}
-					persistState={!isLandingPage}
+					// Honor the user's saved open/collapsed state on every page,
+					// landing included. Only a user who has never set a preference
+					// (no cookie → sidebarOpen null) gets the clean collapsed landing.
+					defaultOpen={sidebarOpen ?? !isLandingPage}
 				>
 					<AppSidebar user={user} />
 					<SidebarInset>
