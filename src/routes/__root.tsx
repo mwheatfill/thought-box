@@ -16,6 +16,7 @@ import { Button } from "#/components/ui/button";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "#/components/ui/sidebar";
 import { Toaster } from "#/components/ui/sonner";
 import { TooltipProvider } from "#/components/ui/tooltip";
+import { getSidebarState } from "#/server/functions/sidebar";
 import { getCurrentUser } from "#/server/functions/users";
 
 import type { AuthUser } from "#/server/middleware/auth";
@@ -27,6 +28,16 @@ const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getIte
 
 // Clarity snippet — replace YOUR_CLARITY_ID with your project ID from clarity.microsoft.com
 const CLARITY_SCRIPT = `(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y)})(window,document,"clarity","script","w9sdqqjw4a");`;
+
+/**
+ * Read the persisted sidebar state for SSR so the first paint matches the
+ * user's preference (no open→closed flash). Only the server render consumes
+ * this — the provider does not remount on client navigations.
+ */
+async function readSidebarState(): Promise<boolean | null> {
+	if (typeof window !== "undefined") return null;
+	return getSidebarState().catch(() => null);
+}
 
 export const Route = createRootRoute({
 	head: () => ({
@@ -46,21 +57,23 @@ export const Route = createRootRoute({
 		],
 	}),
 	beforeLoad: async ({ location }) => {
+		const sidebarOpen = await readSidebarState();
+
 		// Skip auth for the deactivated page to avoid redirect loops
 		if (location.pathname === "/deactivated") {
-			return { user: null as unknown as AuthUser };
+			return { user: null as unknown as AuthUser, sidebarOpen };
 		}
 
 		// Cache user on client after first load — only changes on login/logout (full reload)
 		if (typeof window !== "undefined" && cachedUser) {
-			return { user: cachedUser };
+			return { user: cachedUser, sidebarOpen };
 		}
 		try {
 			const user = await getCurrentUser();
 			if (typeof window !== "undefined") {
 				cachedUser = user;
 			}
-			return { user };
+			return { user, sidebarOpen };
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : "";
 
@@ -127,7 +140,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
-	const { user } = Route.useRouteContext();
+	const { user, sidebarOpen } = Route.useRouteContext();
 	const [queryClient] = useState(() => new QueryClient());
 	const pathname = useLocation().pathname;
 	const isLandingPage = pathname === "/";
@@ -148,7 +161,10 @@ function RootComponent() {
 	return (
 		<QueryClientProvider client={queryClient}>
 			<TooltipProvider>
-				<SidebarProvider defaultOpen={!isLandingPage} persistState={!isLandingPage}>
+				<SidebarProvider
+					defaultOpen={isLandingPage ? false : (sidebarOpen ?? true)}
+					persistState={!isLandingPage}
+				>
 					<AppSidebar user={user} />
 					<SidebarInset>
 						<header
