@@ -6,6 +6,7 @@ import CategoryRoleGranted from "#/emails/CategoryRoleGranted";
 import IdeaAssigned from "#/emails/IdeaAssigned";
 import IdeaReassigned from "#/emails/IdeaReassigned";
 import IdeaReassignedSubmitter from "#/emails/IdeaReassignedSubmitter";
+import IdeaReopened from "#/emails/IdeaReopened";
 import IdeaSubmitted from "#/emails/IdeaSubmitted";
 import MentionAlert from "#/emails/MentionAlert";
 import NewMessage from "#/emails/NewMessage";
@@ -194,6 +195,26 @@ export async function sendIdeaReassignedEmail(params: {
 	});
 }
 
+/** Notify the submitter that their closed idea has been reopened for another look. */
+export async function sendIdeaReopenedEmail(params: {
+	submitterEmail: string;
+	submitterFirstName: string;
+	submissionId: string;
+	ideaTitle: string;
+}) {
+	await sendEmail({
+		to: params.submitterEmail,
+		subject: `Your idea ${params.submissionId} is back under review`,
+		templateName: "IdeaReopened",
+		template: createElement(IdeaReopened, {
+			submitterFirstName: params.submitterFirstName,
+			submissionId: params.submissionId,
+			ideaTitle: params.ideaTitle,
+			viewUrl: ideaUrl(params.submissionId),
+		}),
+	});
+}
+
 /**
  * Notify a per-idea Watcher of a submitter-facing update — a status change or a
  * new public message (ADR/CONTEXT: Watchers never get internal notes, SLA
@@ -352,6 +373,7 @@ const TEST_TEMPLATES = [
 	"status_declined",
 	"idea_reassigned",
 	"idea_reassigned_submitter",
+	"idea_reopened",
 	"message_from_owner",
 	"message_from_submitter",
 	"mention_alert",
@@ -558,6 +580,15 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						requesterDepartment: "Retail Banking",
 						requesterJobTitle: "Branch Manager",
 						adminUsersUrl: `${APP_URL}/admin/users`,
+					}),
+				},
+				idea_reopened: {
+					subject: `[TEST] Your idea ${sample.submissionId} is back under review`,
+					template: createElement(IdeaReopened, {
+						submitterFirstName: firstName,
+						submissionId: sample.submissionId,
+						ideaTitle: sample.ideaTitle,
+						viewUrl,
 					}),
 				},
 				watcher_update: {

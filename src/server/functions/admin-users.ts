@@ -123,12 +123,23 @@ export const updateUserRole = createServerFn({ method: "POST" })
 
 		const target = await db.query.users.findFirst({
 			where: eq(users.id, data.userId),
-			columns: { role: true, displayName: true },
+			columns: { role: true, displayName: true, email: true },
 		});
 		await db
 			.update(users)
 			.set({ role: data.role, updatedAt: new Date() })
 			.where(eq(users.id, data.userId));
+
+		// Fire-and-forget: granting admin auto-notifies them (replaces the old manual
+		// invite). Owner/Contributor grants are emailed by the category/roster flows.
+		if (data.role === "admin" && target && target.role !== "admin") {
+			sendUserInviteEmail({
+				recipientEmail: target.email,
+				recipientFirstName: target.displayName.split(" ")[0],
+				role: "admin",
+				invitedByName: context.user.displayName,
+			}).catch(() => {});
+		}
 
 		trackEvent("UserRoleChanged", {
 			userId: data.userId,
@@ -179,38 +190,6 @@ export const toggleUserActive = createServerFn({ method: "POST" })
 		return { success: true };
 	});
 
-/** Send (or resend) an invite email to an existing user. */
-export const sendInvite = createServerFn({ method: "POST" })
-	.middleware([adminMiddleware])
-	.inputValidator(z.object({ userId: z.string() }))
-	.handler(async ({ data, context }) => {
-		const user = await db.query.users.findFirst({
-			where: eq(users.id, data.userId),
-			columns: { email: true, displayName: true, role: true },
-		});
-		if (!user) throw new Error("User not found");
-		if (user.role !== "owner" && user.role !== "admin") {
-			throw new Error("Invites are only for owners and admins");
-		}
-
-		await sendUserInviteEmail({
-			recipientEmail: user.email,
-			recipientFirstName: user.displayName.split(" ")[0],
-			role: user.role,
-			invitedByName: context.user.displayName,
-		});
-
-		audit({
-			actorId: context.user.id,
-			action: "user.invited",
-			resourceType: "user",
-			resourceId: data.userId,
-			details: { name: user.displayName, email: user.email, role: user.role },
-		});
-
-		return { success: true, sentTo: user.email };
-	});
-
 /** Search the Entra ID directory for users to add. */
 export const searchDirectory = createServerFn()
 	.middleware([adminMiddleware])
@@ -231,14 +210,13 @@ export const upsertUser = createServerFn({ method: "POST" })
 			department: z.string().nullable().optional(),
 			officeLocation: z.string().nullable().optional(),
 			role: z.enum(["submitter", "owner", "admin"]).optional(),
-			sendInvite: z.boolean().optional(),
 		}),
 	)
 	.handler(async ({ data, context }) => {
 		// Check if user already exists
 		const existing = await db.query.users.findFirst({
 			where: eq(users.entraId, data.entraId),
-			columns: { id: true },
+			columns: { id: true, role: true },
 		});
 
 		if (existing) {
@@ -257,6 +235,16 @@ export const upsertUser = createServerFn({ method: "POST" })
 				.where(eq(users.id, existing.id));
 
 			enrichUserProfile(existing.id).catch(() => {});
+
+			// Fire-and-forget: notify them if this grant newly makes them an admin.
+			if (data.role === "admin" && existing.role !== "admin") {
+				sendUserInviteEmail({
+					recipientEmail: data.email,
+					recipientFirstName: data.displayName.split(" ")[0],
+					role: "admin",
+					invitedByName: context.user.displayName,
+				}).catch(() => {});
+			}
 
 			audit({
 				actorId: context.user.id,
@@ -298,13 +286,14 @@ export const upsertUser = createServerFn({ method: "POST" })
 			details: { name: data.displayName, email: data.email, role: data.role ?? "submitter" },
 		});
 
-		// Fire-and-forget: send invite email for owners/admins
-		const role = data.role ?? "submitter";
-		if (data.sendInvite && (role === "owner" || role === "admin")) {
+		// Fire-and-forget: granting admin auto-notifies them. (Owner/Contributor
+		// access is granted by assigning a category / roster seat, which emails
+		// them through those flows — not here.)
+		if ((data.role ?? "submitter") === "admin") {
 			sendUserInviteEmail({
 				recipientEmail: data.email,
 				recipientFirstName: data.displayName.split(" ")[0],
-				role,
+				role: "admin",
 				invitedByName: context.user.displayName,
 			}).catch(() => {});
 		}

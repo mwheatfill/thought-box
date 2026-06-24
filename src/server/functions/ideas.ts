@@ -23,6 +23,7 @@ import type { ConversationMessage } from "#/server/db/schema";
 import {
 	sendIdeaAssignedEmail,
 	sendIdeaReassignedEmail,
+	sendIdeaReopenedEmail,
 	sendIdeaSubmittedEmail,
 	sendStatusChangedEmail,
 	sendWatcherAlert,
@@ -716,42 +717,45 @@ export const changeIdeaCategory = createServerFn({ method: "POST" })
 		// Status returns to New so the idea lands fresh in the new Owner's queue.
 		const statusResets = idea.status !== "new";
 
-		await db
-			.update(ideas)
-			.set({
-				categoryId: plan.newCategoryId,
-				assignedReviewerId: null, // plan.clearsAssignment
-				slaDueDate: calculateSlaDueDate(now, 15), // plan.resetsSla
-				closureSlaDueDate: calculateSlaDueDate(now, 30),
-				slaStartedAt: now,
-				updatedAt: now,
-				...(statusResets ? { status: "new" as const } : {}),
-			})
-			.where(eq(ideas.id, data.ideaId));
+		// Atomic: move the idea + clear reminders + log the event(s) together.
+		await db.transaction(async (tx) => {
+			await tx
+				.update(ideas)
+				.set({
+					categoryId: plan.newCategoryId,
+					assignedReviewerId: null, // plan.clearsAssignment
+					slaDueDate: calculateSlaDueDate(now, 15), // plan.resetsSla
+					closureSlaDueDate: calculateSlaDueDate(now, 30),
+					slaStartedAt: now,
+					updatedAt: now,
+					...(statusResets ? { status: "new" as const } : {}),
+				})
+				.where(eq(ideas.id, data.ideaId));
 
-		// Drop pending reminders so the fresh SLA clock starts clean.
-		await db
-			.delete(ideaEvents)
-			.where(and(eq(ideaEvents.ideaId, data.ideaId), eq(ideaEvents.eventType, "reminder_sent")));
+			// Drop pending reminders so the fresh SLA clock starts clean.
+			await tx
+				.delete(ideaEvents)
+				.where(and(eq(ideaEvents.ideaId, data.ideaId), eq(ideaEvents.eventType, "reminder_sent")));
 
-		// Log the move (administrative — not watcher-facing). old/new = Category names.
-		await db.insert(ideaEvents).values({
-			ideaId: data.ideaId,
-			eventType: "reassigned",
-			actorId: context.user.id,
-			oldValue: idea.category.name,
-			newValue: newCategory.name,
-			reason: data.reason,
-		});
-		if (statusResets) {
-			await db.insert(ideaEvents).values({
+			// Log the move (administrative — not watcher-facing). old/new = Category names.
+			await tx.insert(ideaEvents).values({
 				ideaId: data.ideaId,
-				eventType: "status_changed",
+				eventType: "reassigned",
 				actorId: context.user.id,
-				oldValue: idea.status,
-				newValue: "new",
+				oldValue: idea.category.name,
+				newValue: newCategory.name,
+				reason: data.reason,
 			});
-		}
+			if (statusResets) {
+				await tx.insert(ideaEvents).values({
+					ideaId: data.ideaId,
+					eventType: "status_changed",
+					actorId: context.user.id,
+					oldValue: idea.status,
+					newValue: "new",
+				});
+			}
+		});
 
 		// Notify the new accountable Owner only. (plan.notifyOwnerId is guaranteed
 		// non-null here — we rejected unowned targets above.)
@@ -883,26 +887,8 @@ export const assignReviewer = createServerFn({ method: "POST" })
 		}
 
 		const now = new Date();
-		// Assignment never resets the SLA (slaResetsOnAction: assign_reviewer → false).
-		await db
-			.update(ideas)
-			.set({ assignedReviewerId: plan.assignedReviewerId, updatedAt: now })
-			.where(eq(ideas.id, data.ideaId));
 
-		// Auto-subscribe the assignee as a Watcher (idempotent).
-		if (plan.addsWatcher && plan.assignedReviewerId) {
-			await db
-				.insert(ideaWatchers)
-				.values({
-					ideaId: data.ideaId,
-					userId: plan.assignedReviewerId,
-					source: "assignment",
-					addedById: context.user.id,
-				})
-				.onConflictDoNothing();
-		}
-
-		// Name the prior reviewer for the event trail.
+		// Name the prior reviewer for the event trail (read, outside the txn).
 		const prior = idea.assignedReviewerId
 			? await db.query.users.findFirst({
 					where: eq(users.id, idea.assignedReviewerId),
@@ -910,13 +896,35 @@ export const assignReviewer = createServerFn({ method: "POST" })
 				})
 			: null;
 
-		await db.insert(ideaEvents).values({
-			ideaId: data.ideaId,
-			eventType: "assigned",
-			actorId: context.user.id,
-			oldValue: prior?.displayName ?? null,
-			// Null newValue = reverted to the derived Category Owner.
-			newValue: candidate?.displayName ?? null,
+		// Atomic: set the reviewer + auto-watch + log the event together.
+		// Assignment never resets the SLA (slaResetsOnAction: assign_reviewer → false).
+		await db.transaction(async (tx) => {
+			await tx
+				.update(ideas)
+				.set({ assignedReviewerId: plan.assignedReviewerId, updatedAt: now })
+				.where(eq(ideas.id, data.ideaId));
+
+			// Auto-subscribe the assignee as a Watcher (idempotent).
+			if (plan.addsWatcher && plan.assignedReviewerId) {
+				await tx
+					.insert(ideaWatchers)
+					.values({
+						ideaId: data.ideaId,
+						userId: plan.assignedReviewerId,
+						source: "assignment",
+						addedById: context.user.id,
+					})
+					.onConflictDoNothing();
+			}
+
+			await tx.insert(ideaEvents).values({
+				ideaId: data.ideaId,
+				eventType: "assigned",
+				actorId: context.user.id,
+				oldValue: prior?.displayName ?? null,
+				// Null newValue = reverted to the derived Category Owner.
+				newValue: candidate?.displayName ?? null,
+			});
 		});
 
 		// Notify the assignee (skipped on unassign / assign-to-Owner).
@@ -1034,7 +1042,7 @@ export const reopenIdea = createServerFn({ method: "POST" })
 			},
 			with: {
 				category: { columns: { name: true, ownerId: true } },
-				submitter: { columns: { displayName: true } },
+				submitter: { columns: { displayName: true, email: true } },
 			},
 		});
 		if (!idea) throw new Error("Idea not found");
@@ -1059,44 +1067,55 @@ export const reopenIdea = createServerFn({ method: "POST" })
 				: null;
 
 		const now = new Date();
-		await db
-			.update(ideas)
-			.set({
-				status: "new",
-				categoryId: target ? target.id : idea.categoryId,
-				assignedReviewerId: null, // fresh review
-				declineReason: null, // no longer declined
-				closedAt: null,
-				slaDueDate: calculateSlaDueDate(now, 15),
-				closureSlaDueDate: calculateSlaDueDate(now, 30),
-				slaStartedAt: now,
-				updatedAt: now,
-			})
-			.where(eq(ideas.id, data.ideaId));
+		// Atomic: reset the idea + clear reminders + log the event(s) together.
+		await db.transaction(async (tx) => {
+			await tx
+				.update(ideas)
+				.set({
+					status: "new",
+					categoryId: target ? target.id : idea.categoryId,
+					assignedReviewerId: null, // fresh review
+					declineReason: null, // no longer declined
+					closedAt: null,
+					slaDueDate: calculateSlaDueDate(now, 15),
+					closureSlaDueDate: calculateSlaDueDate(now, 30),
+					slaStartedAt: now,
+					updatedAt: now,
+				})
+				.where(eq(ideas.id, data.ideaId));
 
-		// Clear pending reminders so the fresh SLA starts clean.
-		await db
-			.delete(ideaEvents)
-			.where(and(eq(ideaEvents.ideaId, data.ideaId), eq(ideaEvents.eventType, "reminder_sent")));
+			// Clear pending reminders so the fresh SLA starts clean.
+			await tx
+				.delete(ideaEvents)
+				.where(and(eq(ideaEvents.ideaId, data.ideaId), eq(ideaEvents.eventType, "reminder_sent")));
 
-		// Log the reopen as a status change (submitter-/watcher-facing).
-		await db.insert(ideaEvents).values({
-			ideaId: data.ideaId,
-			eventType: "status_changed",
-			actorId: context.user.id,
-			oldValue: idea.status,
-			newValue: "new",
-			note: "Reopened",
-		});
-		if (target) {
-			await db.insert(ideaEvents).values({
+			// Log the reopen as a status change (submitter-/watcher-facing).
+			await tx.insert(ideaEvents).values({
 				ideaId: data.ideaId,
-				eventType: "reassigned",
+				eventType: "status_changed",
 				actorId: context.user.id,
-				oldValue: idea.category.name,
-				newValue: target.name,
+				oldValue: idea.status,
+				newValue: "new",
+				note: "Reopened",
 			});
-		}
+			if (target) {
+				await tx.insert(ideaEvents).values({
+					ideaId: data.ideaId,
+					eventType: "reassigned",
+					actorId: context.user.id,
+					oldValue: idea.category.name,
+					newValue: target.name,
+				});
+			}
+		});
+
+		// Fire-and-forget: tell the submitter their idea is being looked at again.
+		sendIdeaReopenedEmail({
+			submitterEmail: idea.submitter.email,
+			submitterFirstName: idea.submitter.displayName.split(" ")[0],
+			submissionId: idea.submissionId,
+			ideaTitle: idea.title,
+		});
 
 		// Fire-and-forget: notify Watchers of the reopen (status-facing).
 		notifyIdeaWatchers({
@@ -1205,40 +1224,43 @@ export const requestTriage = createServerFn({ method: "POST" })
 
 		const now = new Date();
 		const statusResets = idea.status !== "new";
-		await db
-			.update(ideas)
-			.set({
-				categoryId: triage.id,
-				assignedReviewerId: null,
-				slaDueDate: calculateSlaDueDate(now, 15),
-				closureSlaDueDate: calculateSlaDueDate(now, 30),
-				slaStartedAt: now,
-				updatedAt: now,
-				...(statusResets ? { status: "new" as const } : {}),
-			})
-			.where(eq(ideas.id, data.ideaId));
+		// Atomic: move to triage + clear reminders + log the event(s) together.
+		await db.transaction(async (tx) => {
+			await tx
+				.update(ideas)
+				.set({
+					categoryId: triage.id,
+					assignedReviewerId: null,
+					slaDueDate: calculateSlaDueDate(now, 15),
+					closureSlaDueDate: calculateSlaDueDate(now, 30),
+					slaStartedAt: now,
+					updatedAt: now,
+					...(statusResets ? { status: "new" as const } : {}),
+				})
+				.where(eq(ideas.id, data.ideaId));
 
-		await db
-			.delete(ideaEvents)
-			.where(and(eq(ideaEvents.ideaId, data.ideaId), eq(ideaEvents.eventType, "reminder_sent")));
+			await tx
+				.delete(ideaEvents)
+				.where(and(eq(ideaEvents.ideaId, data.ideaId), eq(ideaEvents.eventType, "reminder_sent")));
 
-		await db.insert(ideaEvents).values({
-			ideaId: data.ideaId,
-			eventType: "reassigned",
-			actorId: context.user.id,
-			oldValue: idea.category.name,
-			newValue: triage.name,
-			note: data.note?.trim() || "Sent to triage — needs admin assistance.",
-		});
-		if (statusResets) {
-			await db.insert(ideaEvents).values({
+			await tx.insert(ideaEvents).values({
 				ideaId: data.ideaId,
-				eventType: "status_changed",
+				eventType: "reassigned",
 				actorId: context.user.id,
-				oldValue: idea.status,
-				newValue: "new",
+				oldValue: idea.category.name,
+				newValue: triage.name,
+				note: data.note?.trim() || "Sent to triage — needs admin assistance.",
 			});
-		}
+			if (statusResets) {
+				await tx.insert(ideaEvents).values({
+					ideaId: data.ideaId,
+					eventType: "status_changed",
+					actorId: context.user.id,
+					oldValue: idea.status,
+					newValue: "new",
+				});
+			}
+		});
 
 		// Fire-and-forget: alert every active admin to recategorize it.
 		const admins = await db.query.users.findMany({

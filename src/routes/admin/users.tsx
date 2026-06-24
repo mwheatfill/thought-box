@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Building2, Loader2, Mail, Plus, Power, Search, UserPlus } from "lucide-react";
+import { Building2, Loader2, Plus, Power, Search, UserPlus } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
@@ -32,7 +32,6 @@ import { initials } from "#/lib/utils";
 import {
 	getUsers,
 	searchDirectory,
-	sendInvite,
 	toggleUserActive,
 	updateUserRole,
 	upsertUser,
@@ -114,18 +113,6 @@ function UsersPage() {
 		role: "admin";
 		displayName: string;
 	} | null>(null);
-	const [pendingInvite, setPendingInvite] = useState<{
-		userId: string;
-		displayName: string;
-		email: string;
-	} | null>(null);
-
-	const inviteFn = useServerFn(sendInvite);
-	const inviteMutation = useMutation({
-		mutationFn: (userId: string) => inviteFn({ data: { userId } }),
-		onSuccess: (result) => toast.success(`Invite sent to ${result.sentTo}`),
-		onError: (err) => toast.error(err.message || "Failed to send invite"),
-	});
 
 	const columns: ColumnDef<UserRow, unknown>[] = [
 		{
@@ -221,23 +208,6 @@ function UsersPage() {
 			id: "actions",
 			cell: ({ row }) => (
 				<div className="flex gap-1">
-					{(row.original.role === "owner" || row.original.role === "admin") && (
-						<Button
-							variant="ghost"
-							size="icon"
-							title="Send invite email"
-							onClick={(e) => {
-								e.stopPropagation();
-								setPendingInvite({
-									userId: row.original.id,
-									displayName: row.original.displayName,
-									email: row.original.email,
-								});
-							}}
-						>
-							<Mail className="size-3.5" />
-						</Button>
-					)}
 					<Button
 						variant="ghost"
 						size="icon"
@@ -309,40 +279,7 @@ function UsersPage() {
 				}}
 			/>
 
-			{/* Invite confirmation dialog */}
-			<Dialog
-				open={!!pendingInvite}
-				onOpenChange={(open) => {
-					if (!open) setPendingInvite(null);
-				}}
-			>
-				<DialogContent className="max-w-sm">
-					<DialogHeader>
-						<DialogTitle>Send Invite</DialogTitle>
-						<DialogDescription>
-							Send a ThoughtBox invite email to {pendingInvite?.displayName} at{" "}
-							{pendingInvite?.email}?
-						</DialogDescription>
-					</DialogHeader>
-					<div className="flex justify-end gap-2">
-						<Button variant="outline" onClick={() => setPendingInvite(null)}>
-							Cancel
-						</Button>
-						<Button
-							disabled={inviteMutation.isPending}
-							onClick={() => {
-								if (!pendingInvite) return;
-								inviteMutation.mutate(pendingInvite.userId);
-								setPendingInvite(null);
-							}}
-						>
-							{inviteMutation.isPending ? "Sending..." : "Send Invite"}
-						</Button>
-					</div>
-				</DialogContent>
-			</Dialog>
-
-			{/* Promotion confirmation dialog */}
+			{/* Make-admin confirmation dialog */}
 			<Dialog
 				open={!!pendingPromotion}
 				onOpenChange={(open) => {
@@ -354,62 +291,31 @@ function UsersPage() {
 						<DialogTitle>Make administrator</DialogTitle>
 						<DialogDescription>
 							{pendingPromotion?.displayName} will become a ThoughtBox administrator with full
-							access. (Owner and Contributor roles are granted by assigning a category or adding
-							someone to a roster — not here.)
+							access, and we'll email them to let them know. (Owner and Contributor roles are
+							granted by assigning a category or adding someone to a roster — not here.)
 						</DialogDescription>
 					</DialogHeader>
-					<PromotionActions
-						onConfirm={async (sendEmail) => {
-							if (!pendingPromotion) return;
-							await roleMutation.mutateAsync({
-								userId: pendingPromotion.userId,
-								role: pendingPromotion.role,
-							});
-							if (sendEmail) {
-								inviteMutation.mutate(pendingPromotion.userId);
-							}
-							setPendingPromotion(null);
-						}}
-						onCancel={() => setPendingPromotion(null)}
-						isPending={roleMutation.isPending}
-					/>
+					<div className="flex justify-end gap-2">
+						<Button variant="outline" onClick={() => setPendingPromotion(null)}>
+							Cancel
+						</Button>
+						<Button
+							disabled={roleMutation.isPending}
+							onClick={async () => {
+								if (!pendingPromotion) return;
+								await roleMutation.mutateAsync({
+									userId: pendingPromotion.userId,
+									role: pendingPromotion.role,
+								});
+								setPendingPromotion(null);
+							}}
+						>
+							{roleMutation.isPending ? "Updating…" : "Make admin"}
+						</Button>
+					</div>
 				</DialogContent>
 			</Dialog>
 		</main>
-	);
-}
-
-function PromotionActions({
-	onConfirm,
-	onCancel,
-	isPending,
-}: {
-	onConfirm: (sendInvite: boolean) => void;
-	onCancel: () => void;
-	isPending: boolean;
-}) {
-	const [sendEmail, setSendEmail] = useState(true);
-
-	return (
-		<div className="space-y-4">
-			<label className="flex items-center gap-2 text-sm">
-				<input
-					type="checkbox"
-					checked={sendEmail}
-					onChange={(e) => setSendEmail(e.target.checked)}
-					className="size-4 rounded border-input"
-				/>
-				Send invite email
-			</label>
-			<div className="flex justify-end gap-2">
-				<Button variant="outline" onClick={onCancel}>
-					Cancel
-				</Button>
-				<Button onClick={() => onConfirm(sendEmail)} disabled={isPending}>
-					{isPending ? "Updating..." : "Confirm"}
-				</Button>
-			</div>
-		</div>
 	);
 }
 
@@ -438,7 +344,6 @@ function AddUserDialog({
 	const [searching, setSearching] = useState(false);
 	const [selectedUser, setSelectedUser] = useState<DirectoryResult | null>(null);
 	const [role, setRole] = useState<"submitter" | "owner" | "admin">("submitter");
-	const [sendInvite, setSendInvite] = useState(true);
 
 	const searchFn = useServerFn(searchDirectory);
 	const upsertFn = useServerFn(upsertUser);
@@ -472,7 +377,6 @@ function AddUserDialog({
 					department: selectedUser.department,
 					officeLocation: selectedUser.officeLocation,
 					role,
-					sendInvite,
 				},
 			});
 		},
@@ -483,7 +387,6 @@ function AddUserDialog({
 			setResults([]);
 			setSelectedUser(null);
 			setRole("submitter");
-			setSendInvite(true);
 			toast.success(result?.created ? "User added from directory" : "User updated");
 		},
 		onError: () => toast.error("Failed to add user"),
@@ -506,7 +409,6 @@ function AddUserDialog({
 					setResults([]);
 					setSelectedUser(null);
 					setRole("submitter");
-					setSendInvite(true);
 				}
 			}}
 		>
@@ -595,13 +497,7 @@ function AddUserDialog({
 
 							<div className="mt-3 space-y-1.5">
 								<Label>Role</Label>
-								<Select
-									value={role}
-									onValueChange={(v) => {
-										setRole(v as typeof role);
-										setSendInvite(v !== "submitter");
-									}}
-								>
+								<Select value={role} onValueChange={(v) => setRole(v as typeof role)}>
 									<SelectTrigger>
 										<SelectValue />
 									</SelectTrigger>
@@ -610,18 +506,12 @@ function AddUserDialog({
 										<SelectItem value="admin">Admin</SelectItem>
 									</SelectContent>
 								</Select>
+								{role === "admin" && (
+									<p className="text-xs text-muted-foreground">
+										They'll get an email letting them know they're now an admin.
+									</p>
+								)}
 							</div>
-							{role !== "submitter" && (
-								<label className="mt-3 flex items-center gap-2 text-sm">
-									<input
-										type="checkbox"
-										checked={sendInvite}
-										onChange={(e) => setSendInvite(e.target.checked)}
-										className="size-4 rounded border-input"
-									/>
-									Send invite email
-								</label>
-							)}
 						</div>
 					)}
 				</div>
