@@ -1,10 +1,12 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "#/server/db";
-import { categoryContributors } from "#/server/db/schema";
+import { categoryContributors, ideaWatchers } from "#/server/db/schema";
 import { type IdeaCapabilities, resolveIdeaCapabilities } from "#/server/lib/idea-permissions";
 
 /** The minimal idea shape the authz check needs — id columns plus its Category's Owner. */
 export interface IdeaAuthzInput {
+	/** The idea's own id — needed to resolve a per-idea Watcher subscription. */
+	id: string;
 	status: string;
 	submitterId: string;
 	assignedReviewerId: string | null;
@@ -33,18 +35,29 @@ export async function loadIdeaCapabilities(
 	const isCategoryOwner = idea.categoryOwnerId === user.id;
 	const isAssignedReviewer = idea.assignedReviewerId === user.id;
 
-	// Only the roster lookup needs a query, and only when it could change the
-	// answer — an admin or the Category Owner is already maximally privileged.
+	const isSubmitter = idea.submitterId === user.id;
+
+	// The roster/watcher lookups only matter when nothing else has already granted
+	// access — an admin, the Category Owner, the assigned reviewer, or the
+	// submitter is resolved without touching the join tables.
 	let isCategoryContributor = false;
-	if (!isAdmin && !isCategoryOwner && !isAssignedReviewer) {
-		const onRoster = await db.query.categoryContributors.findFirst({
-			where: and(
-				eq(categoryContributors.categoryId, idea.categoryId),
-				eq(categoryContributors.userId, user.id),
-			),
-			columns: { id: true },
-		});
+	let isWatcher = false;
+	if (!isAdmin && !isCategoryOwner && !isAssignedReviewer && !isSubmitter) {
+		const [onRoster, watching] = await Promise.all([
+			db.query.categoryContributors.findFirst({
+				where: and(
+					eq(categoryContributors.categoryId, idea.categoryId),
+					eq(categoryContributors.userId, user.id),
+				),
+				columns: { id: true },
+			}),
+			db.query.ideaWatchers.findFirst({
+				where: and(eq(ideaWatchers.ideaId, idea.id), eq(ideaWatchers.userId, user.id)),
+				columns: { id: true },
+			}),
+		]);
 		isCategoryContributor = !!onRoster;
+		isWatcher = !!watching;
 	}
 
 	return resolveIdeaCapabilities({
@@ -52,7 +65,8 @@ export async function loadIdeaCapabilities(
 		isCategoryOwner,
 		isAssignedReviewer,
 		isCategoryContributor,
-		isSubmitter: idea.submitterId === user.id,
+		isSubmitter,
+		isWatcher,
 		status: idea.status,
 	});
 }

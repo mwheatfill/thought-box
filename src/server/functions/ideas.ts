@@ -6,6 +6,7 @@ import {
 	REASSIGNMENT_REASONS,
 	REVIEWED_STATUSES,
 	type ReassignmentReason,
+	STATUS_LABELS,
 } from "#/lib/constants";
 import { db, sql } from "#/server/db";
 import {
@@ -40,6 +41,7 @@ import { resolveIdeaOwnership } from "#/server/lib/ownership";
 import { businessDaysRemaining, calculateSlaDueDate, calculateSlaStatus } from "#/server/lib/sla";
 import { nextSubmissionId } from "#/server/lib/submission-id";
 import { trackEvent } from "#/server/lib/telemetry";
+import { notifyIdeaWatchers } from "#/server/lib/watcher-notify";
 import { authMiddleware, ownerMiddleware } from "#/server/middleware/auth";
 
 const CreateIdeaSchema = z.object({
@@ -265,18 +267,27 @@ export const getIdeaDetail = createServerFn()
 		const isAdminViewer = context.user.role === "admin";
 		const isOwnerLikeViewer =
 			categoryOwner?.id === context.user.id || idea.assignedReviewerId === context.user.id;
-		// A roster Contributor may view (and watch) their Category's ideas even when
-		// unassigned (ADR-0002). Only look it up when it could change the answer.
+		// A roster Contributor may view their Category's ideas (reviewer side) and a
+		// per-idea Watcher may view a looped-in idea (submitter side), even when
+		// otherwise unrelated. Only look these up when they could change the answer.
 		let isCategoryContributor = false;
+		let isWatcher = false;
 		if (!isAdminViewer && !isOwnerLikeViewer && idea.submitterId !== context.user.id) {
-			const onRoster = await db.query.categoryContributors.findFirst({
-				where: and(
-					eq(categoryContributors.categoryId, idea.categoryId),
-					eq(categoryContributors.userId, context.user.id),
-				),
-				columns: { id: true },
-			});
+			const [onRoster, watching] = await Promise.all([
+				db.query.categoryContributors.findFirst({
+					where: and(
+						eq(categoryContributors.categoryId, idea.categoryId),
+						eq(categoryContributors.userId, context.user.id),
+					),
+					columns: { id: true },
+				}),
+				db.query.ideaWatchers.findFirst({
+					where: and(eq(ideaWatchers.ideaId, idea.id), eq(ideaWatchers.userId, context.user.id)),
+					columns: { id: true },
+				}),
+			]);
 			isCategoryContributor = !!onRoster;
+			isWatcher = !!watching;
 		}
 
 		const { canView, viewerRole, canEdit } = resolveIdeaAccess({
@@ -286,6 +297,7 @@ export const getIdeaDetail = createServerFn()
 			categoryOwnerId: categoryOwner?.id ?? null,
 			assignedReviewerId: idea.assignedReviewerId,
 			isCategoryContributor,
+			isWatcher,
 		});
 		if (!canView) {
 			throw new Error("Not found");
@@ -413,6 +425,7 @@ export const updateIdea = createServerFn({ method: "POST" })
 		// to a Contributor assigned to this idea. Gated on the actual relationship,
 		// not the stored role — a Contributor carries the `submitter` role.
 		const caps = await loadIdeaCapabilities(context.user, {
+			id: idea.id,
 			status: idea.status,
 			submitterId: idea.submitterId,
 			assignedReviewerId: idea.assignedReviewerId,
@@ -488,6 +501,17 @@ export const updateIdea = createServerFn({ method: "POST" })
 				ownerFirstName: ownerVisible ? context.user.displayName.split(" ")[0] : "Your reviewer",
 				messageToSubmitter: data.messageToSubmitter ?? idea.messageToSubmitter ?? null,
 				declineReason: data.declineReason ?? null,
+			});
+
+			// Fire-and-forget: notify Watchers (submitter-facing event).
+			notifyIdeaWatchers({
+				ideaId: data.ideaId,
+				submissionId: idea.submissionId,
+				ideaTitle: idea.title,
+				eventType: "status_changed",
+				actorId: context.user.id,
+				submitterId: idea.submitterId,
+				update: { kind: "status", statusLabel: STATUS_LABELS[data.status] ?? data.status },
 			});
 		}
 

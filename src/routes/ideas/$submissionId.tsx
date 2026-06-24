@@ -11,6 +11,7 @@ import { AttachmentsPanel } from "#/components/ideas/attachments-panel";
 import { ClosedIdeaPanel } from "#/components/ideas/closed-idea-panel";
 import { AudienceBanner, MessageThread } from "#/components/ideas/message-thread";
 import { OwnerActions } from "#/components/ideas/owner-actions";
+import { WatchersCard } from "#/components/ideas/watchers-card";
 import { PageTransition } from "#/components/ui/animated";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Badge } from "#/components/ui/badge";
@@ -495,6 +496,9 @@ function IdeaDetailPage() {
 								isReassigning={reassignMutation.isPending}
 							/>
 
+							{/* Watchers */}
+							<WatchersCard ideaId={idea.id} />
+
 							{/* Activity */}
 							<Card>
 								<CardHeader className="pb-3">
@@ -510,6 +514,7 @@ function IdeaDetailPage() {
 					{/* Right column - Read-only for submitters */}
 					{!idea.canEdit && (
 						<div className="space-y-6">
+							<WatchersCard ideaId={idea.id} />
 							{isLocked ? (
 								<ClosedIdeaPanel
 									status={idea.status as LockedStatus}

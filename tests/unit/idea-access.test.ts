@@ -38,6 +38,18 @@ describe("resolveIdeaAccess", () => {
 		expect(access).toEqual({ canView: true, viewerRole: "owner", canEdit: false });
 	});
 
+	it("lets a per-idea Watcher view from the submitter side (no edit)", () => {
+		const access = resolveIdeaAccess({
+			userId: OTHER,
+			userRole: "submitter",
+			submitterId: SUBMITTER,
+			categoryOwnerId: CATEGORY_OWNER,
+			assignedReviewerId: null,
+			isWatcher: true,
+		});
+		expect(access).toEqual({ canView: true, viewerRole: "submitter", canEdit: false });
+	});
+
 	it("denies a non-roster, non-owner, non-submitter user", () => {
 		const access = resolveIdeaAccess({
 			userId: OTHER,

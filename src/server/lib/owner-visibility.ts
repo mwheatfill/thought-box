@@ -45,6 +45,12 @@ export function resolveIdeaAccess(params: {
 	 * (ADR-0002), but does not edit unless they are the assigned reviewer.
 	 */
 	isCategoryContributor?: boolean;
+	/**
+	 * Whether the viewer holds a per-idea Watcher subscription. A looped-in
+	 * stakeholder sees the idea from the submitter side (public content only —
+	 * no internal notes), never as a reviewer.
+	 */
+	isWatcher?: boolean;
 }): IdeaAccess {
 	const isAdmin = params.userRole === "admin";
 	// Owner-like = the Category Owner (accountable) OR the assigned reviewer
@@ -53,11 +59,12 @@ export function resolveIdeaAccess(params: {
 		params.categoryOwnerId === params.userId || params.assignedReviewerId === params.userId;
 	const isSubmitter = params.submitterId === params.userId;
 	const isContributor = params.isCategoryContributor ?? false;
+	const isWatcher = params.isWatcher ?? false;
 
 	return {
-		canView: isAdmin || isOwnerLike || isContributor || isSubmitter,
+		canView: isAdmin || isOwnerLike || isContributor || isSubmitter || isWatcher,
 		// A roster Contributor views from the reviewer side (sees the real owner,
-		// is internal staff) but cannot edit unless they hold the assignment.
+		// is internal staff); a pure Watcher views from the submitter side.
 		viewerRole: isAdmin ? "admin" : isOwnerLike || isContributor ? "owner" : "submitter",
 		canEdit: isAdmin || isOwnerLike,
 	};

@@ -12,6 +12,7 @@ import SlaReminder from "#/emails/SlaReminder";
 import StatusChanged from "#/emails/StatusChanged";
 import UserInvite from "#/emails/UserInvite";
 import WatcherAlert from "#/emails/WatcherAlert";
+import WatcherUpdate from "#/emails/WatcherUpdate";
 import { sendEmail } from "#/server/lib/email";
 import { adminMiddleware } from "#/server/middleware/auth";
 
@@ -209,6 +210,40 @@ export async function sendIdeaReassignedSubmitterEmail(params: {
 			submissionId: params.submissionId,
 			ideaTitle: params.ideaTitle,
 			categoryName: params.categoryName,
+			viewUrl: ideaUrl(params.submissionId),
+		}),
+	});
+}
+
+/**
+ * Notify a per-idea Watcher of a submitter-facing update — a status change or a
+ * new public message (ADR/CONTEXT: Watchers never get internal notes, SLA
+ * reminders, or administrative events).
+ */
+export async function sendWatcherUpdateEmail(params: {
+	watcherEmail: string;
+	watcherFirstName: string;
+	submissionId: string;
+	ideaTitle: string;
+	updateKind: "status" | "message";
+	statusLabel?: string | null;
+	messagePreview?: string | null;
+}) {
+	const headline =
+		params.updateKind === "status"
+			? `Update on idea ${params.submissionId}: ${params.statusLabel}`
+			: `New activity on idea ${params.submissionId}`;
+	await sendEmail({
+		to: params.watcherEmail,
+		subject: headline,
+		templateName: "WatcherUpdate",
+		template: createElement(WatcherUpdate, {
+			watcherFirstName: params.watcherFirstName,
+			submissionId: params.submissionId,
+			ideaTitle: params.ideaTitle,
+			updateKind: params.updateKind,
+			statusLabel: params.statusLabel ?? null,
+			messagePreview: params.messagePreview ?? null,
 			viewUrl: ideaUrl(params.submissionId),
 		}),
 	});

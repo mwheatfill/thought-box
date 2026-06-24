@@ -47,6 +47,8 @@ export function resolveIdeaCapabilities(params: {
 	isAssignedReviewer: boolean;
 	isCategoryContributor: boolean;
 	isSubmitter: boolean;
+	/** Whether the user has a per-idea Watcher subscription — grants view only. */
+	isWatcher?: boolean;
 	status: string;
 }): IdeaCapabilities {
 	const closed = (CLOSED_STATUSES as readonly string[]).includes(params.status);
@@ -56,7 +58,11 @@ export function resolveIdeaCapabilities(params: {
 
 	return {
 		canView:
-			ownerLike || params.isAssignedReviewer || params.isCategoryContributor || params.isSubmitter,
+			ownerLike ||
+			params.isAssignedReviewer ||
+			params.isCategoryContributor ||
+			params.isSubmitter ||
+			(params.isWatcher ?? false),
 		// Reading internal notes is closed-independent (the thread stays readable
 		// for history) but never extends to an unassigned Contributor or submitter.
 		canReadInternalNotes: assignedActor,

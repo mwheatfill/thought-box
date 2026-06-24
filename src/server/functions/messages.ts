@@ -7,6 +7,7 @@ import { sendNewMessageEmail } from "#/server/functions/email";
 import { loadAttachmentsByEvent } from "#/server/lib/attachments-by-event";
 import { loadIdeaCapabilities } from "#/server/lib/idea-authz";
 import { resolveIdeaOwnership } from "#/server/lib/ownership";
+import { notifyIdeaWatchers } from "#/server/lib/watcher-notify";
 import { authMiddleware } from "#/server/middleware/auth";
 
 /**
@@ -58,6 +59,19 @@ export const addMessage = createServerFn({ method: "POST" })
 			})
 			.returning({ id: ideaEvents.id });
 
+		const preview = data.content.length > 200 ? `${data.content.slice(0, 200)}...` : data.content;
+
+		// Fire-and-forget: notify Watchers of the new public message (submitter-facing).
+		notifyIdeaWatchers({
+			ideaId: data.ideaId,
+			submissionId: idea.submissionId,
+			ideaTitle: idea.title,
+			eventType: "message",
+			actorId: context.user.id,
+			submitterId: idea.submitterId,
+			update: { kind: "message", messagePreview: preview },
+		});
+
 		// Fire-and-forget: notify the other party. From the owner side, the
 		// submitter; from the submitter, the idea's active reviewer.
 		const isFromOwner = !isSubmitter;
@@ -74,8 +88,7 @@ export const addMessage = createServerFn({ method: "POST" })
 					senderName: context.user.displayName,
 					submissionId: idea.submissionId,
 					ideaTitle: idea.title,
-					messagePreview:
-						data.content.length > 200 ? `${data.content.slice(0, 200)}...` : data.content,
+					messagePreview: preview,
 					isFromOwner,
 				});
 			}
@@ -109,6 +122,7 @@ export const getIdeaMessages = createServerFn()
 		// submitter, owner/admin, the assigned reviewer, or a roster Contributor on
 		// the Category (ADR-0002 view-and-watch).
 		const caps = await loadIdeaCapabilities(context.user, {
+			id: idea.id,
 			status: idea.status,
 			submitterId: idea.submitterId,
 			assignedReviewerId: idea.assignedReviewerId,

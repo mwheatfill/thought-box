@@ -71,6 +71,15 @@ describe("resolveIdeaCapabilities", () => {
 		expect(c.canView).toBe(false);
 	});
 
+	it("grants a per-idea Watcher view only — no acting", () => {
+		const c = resolveIdeaCapabilities({ ...NONE, isWatcher: true, status: "under_review" });
+		expect(c.canView).toBe(true);
+		expect(c.canReadInternalNotes).toBe(false);
+		expect(c.canEditOwnerNotes).toBe(false);
+		expect(c.canMessageSubmitter).toBe(false);
+		expect(c.canDecide).toBe(false);
+	});
+
 	it("only allows advancing to Under Review from New", () => {
 		const fromNew = resolveIdeaCapabilities({ ...NONE, isCategoryOwner: true, status: "new" });
 		const fromReview = resolveIdeaCapabilities({

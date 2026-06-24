@@ -46,6 +46,7 @@ export const addInternalNote = createServerFn({ method: "POST" })
 		// Editing Owner Notes is assignment-gated (ADR-0002): owner/admin always, a
 		// Contributor only on ideas assigned to them. Gated on the relationship.
 		const caps = await loadIdeaCapabilities(context.user, {
+			id: idea.id,
 			status: idea.status,
 			submitterId: idea.submitterId,
 			assignedReviewerId: idea.assignedReviewerId,
@@ -116,6 +117,7 @@ export const getIdeaInternalNotes = createServerFn()
 		// Internal notes are owner/admin + assigned-reviewer only (ADR-0002): never
 		// the submitter, never an unassigned Contributor.
 		const caps = await loadIdeaCapabilities(context.user, {
+			id: idea.id,
 			status: idea.status,
 			submitterId: idea.submitterId,
 			assignedReviewerId: idea.assignedReviewerId,
