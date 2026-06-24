@@ -193,7 +193,16 @@ export const createIdea = createServerFn({ method: "POST" })
 			action: "idea.created",
 			resourceType: "idea",
 			resourceId: idea.submissionId,
-			details: { title: data.title, category: category.name, assignedTo: ownerName },
+			details: {
+				ideaId: idea.id,
+				title: data.title,
+				source: "form",
+				categoryId: data.categoryId,
+				category: category.name,
+				impactArea: data.impactArea ?? null,
+				ownerId: category.ownerId,
+				assignedTo: ownerName,
+			},
 		});
 
 		return {
@@ -523,7 +532,12 @@ export const updateIdea = createServerFn({ method: "POST" })
 				action: "idea.status_changed",
 				resourceType: "idea",
 				resourceId: idea.submissionId,
-				details: { from: idea.status, to: data.status },
+				details: {
+					ideaId: data.ideaId,
+					from: idea.status,
+					to: data.status,
+					declineReason: data.status === "declined" ? (data.declineReason ?? null) : null,
+				},
 			});
 		}
 
@@ -588,6 +602,14 @@ export const bulkUpdateStatus = createServerFn({ method: "POST" })
 		]);
 
 		trackEvent("BulkStatusChanged", { newStatus: data.status }, { count: targets.length });
+
+		audit({
+			actorId: context.user.id,
+			action: "idea.bulk_status_changed",
+			resourceType: "idea",
+			resourceId: null,
+			details: { to: data.status, count: targets.length, ideaIds: targetIds },
+		});
 
 		return { success: true, count: targets.length };
 	});
@@ -792,7 +814,10 @@ export const changeIdeaCategory = createServerFn({ method: "POST" })
 			resourceType: "idea",
 			resourceId: idea.submissionId,
 			details: {
+				ideaId: data.ideaId,
 				lever: "change_category",
+				fromCategoryId: idea.categoryId,
+				toCategoryId: newCategory.id,
 				from: idea.category.name,
 				to: newCategory.name,
 				reason: data.reason,
@@ -942,7 +967,13 @@ export const assignReviewer = createServerFn({ method: "POST" })
 			action: "idea.assigned",
 			resourceType: "idea",
 			resourceId: idea.submissionId,
-			details: { to: candidate?.displayName ?? "Category Owner" },
+			details: {
+				ideaId: data.ideaId,
+				from: prior?.displayName ?? "Category Owner",
+				fromReviewerId: idea.assignedReviewerId,
+				to: candidate?.displayName ?? "Category Owner",
+				toReviewerId: plan.assignedReviewerId,
+			},
 		});
 
 		return { success: true, assignedReviewerName: candidate?.displayName ?? null };

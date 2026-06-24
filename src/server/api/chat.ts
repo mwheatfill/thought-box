@@ -6,6 +6,7 @@ import { db, sql } from "#/server/db";
 import { categories, conversations, ideaEvents, ideas, settings, users } from "#/server/db/schema";
 import type { ConversationMessage } from "#/server/db/schema";
 import { sendIdeaAssignedEmail, sendIdeaSubmittedEmail } from "#/server/functions/email";
+import { audit } from "#/server/lib/audit";
 import { calculateSlaDueDate } from "#/server/lib/sla";
 import { nextSubmissionId } from "#/server/lib/submission-id";
 import { trackEvent } from "#/server/lib/telemetry";
@@ -225,6 +226,22 @@ ${categoryTaxonomy}${userContext}`;
 						submissionId,
 						categoryId,
 						source: "ai_chat",
+					});
+
+					audit({
+						actorId: userId,
+						action: "idea.created",
+						resourceType: "idea",
+						resourceId: idea.submissionId,
+						details: {
+							ideaId: idea.id,
+							title: idea.title,
+							source: "ai",
+							categoryId,
+							category: category.name,
+							impactArea: impactArea ?? null,
+							ownerId: category.ownerId,
+						},
 					});
 
 					// Save the conversation

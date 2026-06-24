@@ -1,7 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { Activity, AlertTriangle, Eye, Users } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { Activity, AlertTriangle, Download, Eye, Users } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { toast } from "sonner";
+import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "#/components/ui/card";
 import {
 	type ChartConfig,
@@ -11,6 +14,7 @@ import {
 } from "#/components/ui/chart";
 import { RouteError } from "#/components/ui/route-error";
 import { getAnalytics } from "#/server/functions/analytics";
+import { getIdeaReportCsv } from "#/server/functions/reports";
 
 export const Route = createFileRoute("/admin/analytics")({
 	errorComponent: ({ error }) => <RouteError error={error} />,
@@ -36,13 +40,43 @@ function AnalyticsPage() {
 		initialData,
 	});
 
+	const exportFn = useServerFn(getIdeaReportCsv);
+	const exportMutation = useMutation({
+		mutationFn: () => exportFn(),
+		onSuccess: ({ csv, count }) => {
+			if (count === 0) {
+				toast.message("No ideas to export yet.");
+				return;
+			}
+			const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = `idea-report-${new Date().toISOString().slice(0, 10)}.csv`;
+			a.click();
+			URL.revokeObjectURL(url);
+			toast.success(`Exported ${count} ideas`);
+		},
+		onError: () => toast.error("Export failed"),
+	});
+
 	return (
 		<main className="flex-1 bg-background p-6">
-			<div className="mb-6">
-				<h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
-				<p className="text-muted-foreground">
-					{data.period} — application usage and health metrics.
-				</p>
+			<div className="mb-6 flex items-start justify-between gap-4">
+				<div>
+					<h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+					<p className="text-muted-foreground">
+						{data.period} — application usage and health metrics.
+					</p>
+				</div>
+				<Button
+					variant="outline"
+					disabled={exportMutation.isPending}
+					onClick={() => exportMutation.mutate()}
+				>
+					<Download className="mr-2 size-4" />
+					{exportMutation.isPending ? "Exporting…" : "Export ideas report (CSV)"}
+				</Button>
 			</div>
 
 			{!data.appInsightsConfigured && (

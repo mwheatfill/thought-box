@@ -111,18 +111,47 @@ export const updateCategory = createServerFn({ method: "POST" })
 		// column (ADR-0001 renamed `categories.defaultOwnerId` → `ownerId`).
 		const { id, defaultOwnerId, ...rest } = data;
 
-		// Detect a genuine ownership change so we can welcome the new Owner.
-		const before =
-			defaultOwnerId !== undefined
-				? await db.query.categories.findFirst({
-						where: eq(categories.id, id),
-						columns: { ownerId: true, name: true },
-					})
-				: null;
+		// Snapshot the prior state so the change can be audited (and a genuine
+		// ownership change can welcome the new Owner).
+		const before = await db.query.categories.findFirst({
+			where: eq(categories.id, id),
+			columns: {
+				name: true,
+				description: true,
+				routingType: true,
+				redirectUrl: true,
+				redirectLabel: true,
+				keystoneFields: true,
+				sortOrder: true,
+				active: true,
+				ownerId: true,
+			},
+		});
 
 		const updates: Record<string, unknown> = { ...rest, updatedAt: new Date() };
 		if (defaultOwnerId !== undefined) updates.ownerId = defaultOwnerId;
 		await db.update(categories).set(updates).where(eq(categories.id, id));
+
+		// Audit the edit with before/after for each field that actually changed.
+		const ownerChanged = defaultOwnerId !== undefined && before?.ownerId !== defaultOwnerId;
+		const changed: Record<string, { from: unknown; to: unknown }> = {};
+		if (before) {
+			for (const [k, to] of Object.entries(rest)) {
+				const from = (before as Record<string, unknown>)[k];
+				if (to !== undefined && from !== to) changed[k] = { from, to };
+			}
+			if (ownerChanged) changed.ownerId = { from: before.ownerId, to: defaultOwnerId };
+		}
+		// Skip a no-op save (form re-submitted with nothing changed).
+		if (Object.keys(changed).length > 0) {
+			audit({
+				actorId: context.user.id,
+				action: ownerChanged ? "category.owner_changed" : "category.updated",
+				resourceType: "category",
+				resourceId: id,
+				details: { name: before?.name, changed },
+			});
+		}
 
 		// Fire-and-forget: notify a newly-assigned Owner (admin path, story 32).
 		if (defaultOwnerId && before && before.ownerId !== defaultOwnerId) {

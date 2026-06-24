@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/server/db";
 import { settings } from "#/server/db/schema";
@@ -16,6 +17,11 @@ export const updateSetting = createServerFn({ method: "POST" })
 	.middleware([adminMiddleware])
 	.inputValidator(z.object({ key: z.string(), value: z.string() }))
 	.handler(async ({ data, context }) => {
+		const before = await db.query.settings.findFirst({
+			where: eq(settings.key, data.key),
+			columns: { value: true },
+		});
+
 		await db
 			.insert(settings)
 			.values({ key: data.key, value: data.value, updatedAt: new Date() })
@@ -24,12 +30,14 @@ export const updateSetting = createServerFn({ method: "POST" })
 				set: { value: data.value, updatedAt: new Date() },
 			});
 
+		const preview = (v: string | undefined | null) =>
+			v == null ? null : v.length > 100 ? `${v.slice(0, 100)}...` : v;
 		audit({
 			actorId: context.user.id,
 			action: "settings.updated",
 			resourceType: "setting",
 			resourceId: data.key,
-			details: { value: data.value.length > 100 ? `${data.value.slice(0, 100)}...` : data.value },
+			details: { from: preview(before?.value), to: preview(data.value) },
 		});
 
 		return { success: true };
