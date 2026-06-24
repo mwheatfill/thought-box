@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, Eye, Lock, MessagesSquare, NotebookPen, Paperclip } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DualSlaProgress } from "#/components/dashboard/sla-progress";
 import { StatusBadge } from "#/components/dashboard/status-badge";
@@ -149,6 +150,26 @@ function IdeaDetailPage() {
 
 	const submitterFirstName = idea.submitter.displayName.split(" ")[0];
 
+	// Controlled tabs so a "Message" action on the submitter's card can jump
+	// straight to the composer and drop the cursor in it (keeps replies in the
+	// system). Gated to the assigned owner/admin via idea.canEdit downstream.
+	const [activeTab, setActiveTab] = useState("messages");
+	const messagesPanelRef = useRef<HTMLDivElement>(null);
+	const [pendingComposerFocus, setPendingComposerFocus] = useState(false);
+
+	useEffect(() => {
+		if (!pendingComposerFocus || activeTab !== "messages") return;
+		const textarea = messagesPanelRef.current?.querySelector("textarea");
+		textarea?.focus();
+		textarea?.scrollIntoView({ behavior: "smooth", block: "center" });
+		setPendingComposerFocus(false);
+	}, [pendingComposerFocus, activeTab]);
+
+	const focusComposer = () => {
+		setActiveTab("messages");
+		setPendingComposerFocus(true);
+	};
+
 	// Submitters only see the Messages tab, so they don't need a banner
 	// (no other thread to confuse it with). Owners/admins get both.
 	const messagesAudience = canSeeInternalNotes ? (
@@ -271,7 +292,10 @@ function IdeaDetailPage() {
 										</AvatarFallback>
 									</Avatar>
 									<div>
-										<UserCardPopover userId={idea.submitter.id}>
+										<UserCardPopover
+											userId={idea.submitter.id}
+											onMessage={idea.canEdit ? focusComposer : undefined}
+										>
 											<button
 												type="button"
 												className="font-medium hover:text-primary hover:underline"
@@ -327,7 +351,7 @@ function IdeaDetailPage() {
 
 						{/* Messages & Attachments */}
 						<Card>
-							<Tabs defaultValue="messages">
+							<Tabs value={activeTab} onValueChange={setActiveTab}>
 								<CardHeader className="pb-0">
 									<TabsList>
 										<TabsTrigger value="messages">
@@ -356,7 +380,7 @@ function IdeaDetailPage() {
 									</TabsList>
 								</CardHeader>
 								<CardContent className="pt-4">
-									<TabsContent value="messages" className="mt-0">
+									<TabsContent value="messages" className="mt-0" ref={messagesPanelRef}>
 										<MessageThread
 											messages={messages}
 											currentUserId={user.id}
