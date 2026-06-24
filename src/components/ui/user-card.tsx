@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Building, MapPin, MessageSquare, Users } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
 import { Skeleton } from "#/components/ui/skeleton";
@@ -64,6 +64,9 @@ interface UserCardPopoverProps {
 
 export function UserCardPopover({ userId, children, onMessage }: UserCardPopoverProps) {
 	const [open, setOpen] = useState(false);
+	// When the Message button closes the popover, stop Radix from returning
+	// focus to the trigger so the composer focus (onMessage) wins the race.
+	const messageRequestedRef = useRef(false);
 
 	const { data: user, isLoading } = useQuery({
 		queryKey: ["user-card", userId],
@@ -75,7 +78,17 @@ export function UserCardPopover({ userId, children, onMessage }: UserCardPopover
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>{children}</PopoverTrigger>
-			<PopoverContent className="w-80 p-0" align="start" onClick={(e) => e.stopPropagation()}>
+			<PopoverContent
+				className="w-80 p-0"
+				align="start"
+				onClick={(e) => e.stopPropagation()}
+				onCloseAutoFocus={(e) => {
+					if (messageRequestedRef.current) {
+						e.preventDefault();
+						messageRequestedRef.current = false;
+					}
+				}}
+			>
 				{isLoading || !user ? (
 					<div className="space-y-4 p-5">
 						<div className="flex items-center gap-4">
@@ -143,6 +156,7 @@ export function UserCardPopover({ userId, children, onMessage }: UserCardPopover
 							<button
 								type="button"
 								onClick={() => {
+									messageRequestedRef.current = true;
 									setOpen(false);
 									onMessage();
 								}}

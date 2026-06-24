@@ -17,6 +17,9 @@ import { adminMiddleware } from "#/server/middleware/auth";
 
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 
+/** Owner→submitter message notification subject (shared by real + test sends). */
+const OWNER_COMMENT_SUBJECT = "There has been a comment added about your idea";
+
 function ideaUrl(submissionId: string) {
 	return `${APP_URL}/ideas/${submissionId}`;
 }
@@ -116,7 +119,7 @@ export async function sendNewMessageEmail(params: {
 	isFromOwner: boolean;
 }) {
 	const subject = params.isFromOwner
-		? `There has been a comment added about your idea: ${params.ideaTitle}`
+		? `${OWNER_COMMENT_SUBJECT}: ${params.ideaTitle}`
 		: `The submitter responded on: ${params.ideaTitle}`;
 
 	await sendEmail({
@@ -418,7 +421,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 					}),
 				},
 				message_from_owner: {
-					subject: `[TEST] There has been a comment added about your idea: ${sample.ideaTitle}`,
+					subject: `[TEST] ${OWNER_COMMENT_SUBJECT}: ${sample.ideaTitle}`,
 					template: createElement(NewMessage, {
 						recipientFirstName: firstName,
 						senderName: "Michelle Murray",

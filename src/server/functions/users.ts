@@ -30,7 +30,6 @@ export const getUserCard = createServerFn()
 					id: true,
 					entraId: true,
 					displayName: true,
-					email: true,
 					role: true,
 					department: true,
 					jobTitle: true,
