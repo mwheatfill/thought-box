@@ -59,6 +59,10 @@ interface OwnerDashboardProps {
 	showKpis?: boolean;
 	/** Override the table card title. */
 	title?: string;
+	/** Initial KPI filter (e.g. deep-linked from the Dashboard). Defaults to "open" when filtering. */
+	initialKpiFilter?: QueueFilter;
+	/** Initial column filters for the table (e.g. a category deep-link). */
+	initialColumnFilters?: { id: string; value: string }[];
 }
 
 // ── Column definitions ────────────────────────────────────────────────────
@@ -181,13 +185,17 @@ export function OwnerDashboard({
 	enableKpiFilter,
 	showKpis = true,
 	title,
+	initialKpiFilter,
+	initialColumnFilters,
 }: OwnerDashboardProps) {
 	const navigate = useNavigate();
 	const openIdeas = useMemo(() => ideas.filter((i) => isOpenStatus(i.status)), [ideas]);
 	const closedIdeas = useMemo(() => ideas.filter((i) => !isOpenStatus(i.status)), [ideas]);
 	const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 	const [bulkStatus, setBulkStatus] = useState("under_review");
-	const [kpiFilter, setKpiFilter] = useState<QueueFilter>(enableKpiFilter ? "open" : null);
+	const [kpiFilter, setKpiFilter] = useState<QueueFilter>(
+		initialKpiFilter ?? (enableKpiFilter ? "open" : null),
+	);
 
 	const displayIdeas = useMemo(() => {
 		if (!kpiFilter) return ideas;
@@ -211,7 +219,7 @@ export function OwnerDashboard({
 					<FadeIn delay={0}>
 						<KpiCard
 							icon={Inbox}
-							label="My Open"
+							label="Open"
 							value={stats.openCount}
 							color="blue"
 							onClick={enableKpiFilter ? () => toggleKpi("open") : undefined}
@@ -242,7 +250,7 @@ export function OwnerDashboard({
 					<FadeIn delay={0.15}>
 						<KpiCard
 							icon={Clock}
-							label="Total Assigned"
+							label="Total"
 							value={stats.totalAssigned}
 							color="purple"
 							onClick={
@@ -288,6 +296,7 @@ export function OwnerDashboard({
 						<DataTable
 							columns={ownerColumns}
 							data={displayIdeas}
+							initialColumnFilters={initialColumnFilters}
 							searchPlaceholder="Search ideas..."
 							enableSelection={kpiFilter === "open" || kpiFilter === "overdue"}
 							rowSelection={kpiFilter === "open" || kpiFilter === "overdue" ? rowSelection : {}}

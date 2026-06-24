@@ -22,18 +22,26 @@ export function CategorySummary({ data }: { data: CategorySummaryData }) {
 
 	return (
 		<div className="space-y-6">
-			{/* Category-scoped KPIs */}
+			{/* Category-scoped KPIs — each deep-links to the matching All Ideas view. */}
 			<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-				<KpiCard icon={Inbox} label="Open" value={totals.openCount} color="blue" />
-				<KpiCard
-					icon={AlertTriangle}
-					label="Overdue"
-					value={totals.overdueCount}
-					color={totals.overdueCount > 0 ? "red" : undefined}
-					variant={totals.overdueCount > 0 ? "destructive" : undefined}
-				/>
-				<KpiCard icon={CheckCircle} label="Closed" value={totals.closedCount} color="emerald" />
-				<KpiCard icon={Clock} label="Total" value={totals.totalAssigned} color="purple" />
+				<Link to="/ideas" search={{ filter: "open" }} className="block">
+					<KpiCard icon={Inbox} label="Open" value={totals.openCount} color="blue" />
+				</Link>
+				<Link to="/ideas" search={{ filter: "overdue" }} className="block">
+					<KpiCard
+						icon={AlertTriangle}
+						label="Overdue"
+						value={totals.overdueCount}
+						color={totals.overdueCount > 0 ? "red" : undefined}
+						variant={totals.overdueCount > 0 ? "destructive" : undefined}
+					/>
+				</Link>
+				<Link to="/ideas" search={{ filter: "closed" }} className="block">
+					<KpiCard icon={CheckCircle} label="Closed" value={totals.closedCount} color="emerald" />
+				</Link>
+				<Link to="/ideas" search={{}} className="block">
+					<KpiCard icon={Clock} label="Total" value={totals.totalAssigned} color="purple" />
+				</Link>
 			</div>
 
 			{/* Per-category breakdown */}
@@ -52,33 +60,35 @@ export function CategorySummary({ data }: { data: CategorySummaryData }) {
 				) : (
 					<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 						{categories.map((c) => (
-							<Card key={c.id}>
-								<CardContent className="space-y-3 p-5">
-									<div className="flex items-start justify-between gap-2">
-										<p className="font-medium">{c.name}</p>
-										<Badge
-											variant="outline"
-											className={
-												c.role === "owner"
-													? "border-blue-300 text-blue-700 dark:text-blue-300"
-													: "border-amber-300 text-amber-700 dark:text-amber-300"
-											}
-										>
-											{c.role === "owner" ? "Owner" : "Contributor"}
-										</Badge>
-									</div>
-									<div className="flex gap-4 text-sm">
-										<span className="text-muted-foreground">
-											<span className="font-semibold text-foreground">{c.openCount}</span> open
-										</span>
-										{c.overdueCount > 0 && (
-											<span className="text-red-600 dark:text-red-400">
-												{c.overdueCount} overdue
+							<Link key={c.id} to="/ideas" search={{ category: c.name }} className="block">
+								<Card className="transition-colors hover:border-primary/30 hover:bg-muted/30">
+									<CardContent className="space-y-3 p-5">
+										<div className="flex items-start justify-between gap-2">
+											<p className="font-medium">{c.name}</p>
+											<Badge
+												variant="outline"
+												className={
+													c.role === "owner"
+														? "border-blue-300 text-blue-700 dark:text-blue-300"
+														: "border-amber-300 text-amber-700 dark:text-amber-300"
+												}
+											>
+												{c.role === "owner" ? "Owner" : "Contributor"}
+											</Badge>
+										</div>
+										<div className="flex gap-4 text-sm">
+											<span className="text-muted-foreground">
+												<span className="font-semibold text-foreground">{c.openCount}</span> open
 											</span>
-										)}
-									</div>
-								</CardContent>
-							</Card>
+											{c.overdueCount > 0 && (
+												<span className="text-red-600 dark:text-red-400">
+													{c.overdueCount} overdue
+												</span>
+											)}
+										</div>
+									</CardContent>
+								</Card>
+							</Link>
 						))}
 					</div>
 				)}

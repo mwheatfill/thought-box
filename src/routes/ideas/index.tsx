@@ -1,8 +1,15 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { z } from "zod";
 import { OwnerDashboard } from "#/components/dashboard/owner-dashboard";
-import { getCategoryIdeas } from "#/server/functions/dashboard";
+import { getCategoryIdeas, getCategoryStats } from "#/server/functions/dashboard";
+
+const searchSchema = z.object({
+	filter: z.enum(["open", "overdue", "closed"]).optional(),
+	category: z.string().optional(),
+});
 
 export const Route = createFileRoute("/ideas/")({
+	validateSearch: searchSchema,
 	beforeLoad: ({ context }) => {
 		// All Ideas is the category-scoped overview for owners/contributors.
 		// Submitters have no category scope → their own ideas instead.
@@ -10,12 +17,16 @@ export const Route = createFileRoute("/ideas/")({
 			throw redirect({ to: "/my-ideas" });
 		}
 	},
-	loader: () => getCategoryIdeas(),
+	loader: async () => {
+		const [ideas, stats] = await Promise.all([getCategoryIdeas(), getCategoryStats()]);
+		return { ideas, stats };
+	},
 	component: AllIdeasPage,
 });
 
 function AllIdeasPage() {
-	const ideas = Route.useLoaderData();
+	const { ideas, stats } = Route.useLoaderData();
+	const search = Route.useSearch();
 
 	return (
 		<main className="min-w-0 p-6">
@@ -27,9 +38,12 @@ function AllIdeasPage() {
 			</div>
 			<OwnerDashboard
 				ideas={ideas}
-				stats={{ openCount: 0, overdueCount: 0, totalAssigned: ideas.length }}
-				showKpis={false}
-				title={`All Ideas (${ideas.length})`}
+				stats={stats}
+				enableKpiFilter
+				initialKpiFilter={search.filter ?? null}
+				initialColumnFilters={
+					search.category ? [{ id: "categoryName", value: search.category }] : undefined
+				}
 			/>
 		</main>
 	);
