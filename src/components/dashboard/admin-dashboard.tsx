@@ -39,6 +39,7 @@ import { SortableHeader } from "#/components/ui/data-table";
 import { KpiCard } from "#/components/ui/kpi-card";
 import { UserCardPopover } from "#/components/ui/user-card";
 import { STATUS_LABELS } from "#/lib/constants";
+import { toCsv } from "#/lib/csv";
 import { cn, initials } from "#/lib/utils";
 import { SlaIndicator } from "./sla-indicator";
 import { StatusBadge } from "./status-badge";
@@ -495,7 +496,7 @@ export function exportIdeasCsv(ideas: AdminIdea[]) {
 	];
 	const rows = ideas.map((i) => [
 		i.submissionId,
-		`"${i.title.replace(/"/g, '""')}"`,
+		i.title,
 		i.submitterName,
 		i.assignedOwnerName ?? "",
 		i.categoryName,
@@ -504,8 +505,8 @@ export function exportIdeasCsv(ideas: AdminIdea[]) {
 		new Date(i.submittedAt).toLocaleDateString(),
 	]);
 
-	const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-	const blob = new Blob([csv], { type: "text/csv" });
+	const csv = toCsv([headers, ...rows]);
+	const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
 	const url = URL.createObjectURL(blob);
 	const a = document.createElement("a");
 	a.href = url;

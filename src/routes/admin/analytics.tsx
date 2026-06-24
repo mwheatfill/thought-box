@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Activity, AlertTriangle, Download, Eye, Users } from "lucide-react";
+import { Activity, AlertTriangle, Download, Eye, FileSpreadsheet, Users } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 import { Button } from "#/components/ui/button";
@@ -62,21 +62,11 @@ function AnalyticsPage() {
 
 	return (
 		<main className="flex-1 bg-background p-6">
-			<div className="mb-6 flex items-start justify-between gap-4">
-				<div>
-					<h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
-					<p className="text-muted-foreground">
-						{data.period} — application usage and health metrics.
-					</p>
-				</div>
-				<Button
-					variant="outline"
-					disabled={exportMutation.isPending}
-					onClick={() => exportMutation.mutate()}
-				>
-					<Download className="mr-2 size-4" />
-					{exportMutation.isPending ? "Exporting…" : "Export ideas report (CSV)"}
-				</Button>
+			<div className="mb-6">
+				<h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+				<p className="text-muted-foreground">
+					{data.period} — application usage and health metrics.
+				</p>
 			</div>
 
 			{!data.appInsightsConfigured && (
@@ -148,8 +138,43 @@ function AnalyticsPage() {
 				</CardContent>
 			</Card>
 
+			{/* Reports & exports — canned export options */}
+			<section className="mt-8">
+				<h2 className="mb-1 text-lg font-semibold tracking-tight">Reports &amp; exports</h2>
+				<p className="mb-4 text-sm text-muted-foreground">
+					Canned datasets for analysis. Connect PowerBI to the{" "}
+					<code className="rounded bg-muted px-1 py-0.5 text-xs">idea_report</code> view for the
+					same data live.
+				</p>
+				<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+					<Card className="flex flex-col">
+						<CardHeader className="flex-1">
+							<div className="mb-1 flex items-center gap-2">
+								<FileSpreadsheet className="size-5 text-primary" />
+								<CardTitle className="text-base">Idea performance report</CardTitle>
+							</div>
+							<CardDescription>
+								Every idea with cycle time, response time, SLA compliance, and reassignment accuracy
+								— in both calendar and business days.
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<Button
+								variant="outline"
+								className="w-full"
+								disabled={exportMutation.isPending}
+								onClick={() => exportMutation.mutate()}
+							>
+								<Download className="mr-2 size-4" />
+								{exportMutation.isPending ? "Exporting…" : "Export CSV"}
+							</Button>
+						</CardContent>
+					</Card>
+				</div>
+			</section>
+
 			{/* Link to Azure portal */}
-			<p className="mt-4 text-center text-xs text-muted-foreground">
+			<p className="mt-8 text-center text-xs text-muted-foreground">
 				For detailed diagnostics, visit{" "}
 				<a
 					href="https://portal.azure.com/#@desertfinancial.com/resource/subscriptions/7e479c8e-4e78-4cb7-a019-a8bf6d0dbfab/resourceGroups/rg-df-thoughtbox-prod/providers/microsoft.insights/components/appi-df-thoughtbox-prod/overview"
