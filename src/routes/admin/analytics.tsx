@@ -1,7 +1,18 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Activity, AlertTriangle, Download, Eye, FileSpreadsheet, Users } from "lucide-react";
+import {
+	Activity,
+	AlertTriangle,
+	Check,
+	Copy,
+	Database,
+	Download,
+	Eye,
+	FileSpreadsheet,
+	Users,
+} from "lucide-react";
+import { useState } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 import { Button } from "#/components/ui/button";
@@ -14,7 +25,7 @@ import {
 } from "#/components/ui/chart";
 import { RouteError } from "#/components/ui/route-error";
 import { getAnalytics } from "#/server/functions/analytics";
-import { getIdeaReportCsv } from "#/server/functions/reports";
+import { getIdeaReportCsv, getReportConnectionInfo } from "#/server/functions/reports";
 
 export const Route = createFileRoute("/admin/analytics")({
 	errorComponent: ({ error }) => <RouteError error={error} />,
@@ -38,6 +49,12 @@ function AnalyticsPage() {
 		queryKey: ["admin-analytics"],
 		queryFn: () => getAnalytics(),
 		initialData,
+	});
+
+	const { data: conn } = useQuery({
+		queryKey: ["report-connection"],
+		queryFn: () => getReportConnectionInfo(),
+		staleTime: Number.POSITIVE_INFINITY,
 	});
 
 	const exportFn = useServerFn(getIdeaReportCsv);
@@ -171,6 +188,62 @@ function AnalyticsPage() {
 						</CardContent>
 					</Card>
 				</div>
+
+				{/* PowerBI connection helper */}
+				<Card className="mt-4">
+					<CardHeader>
+						<div className="flex items-center gap-2">
+							<Database className="size-5 text-primary" />
+							<CardTitle className="text-base">Connect Power BI to the live data</CardTitle>
+						</div>
+						<CardDescription>
+							Point Power BI at the <code className="text-xs">idea_report</code> view for
+							always-current data you can join with your other sources — no export needed.
+						</CardDescription>
+					</CardHeader>
+					<CardContent className="space-y-5">
+						<dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+							<CopyField label="Server" value={conn?.host} />
+							<CopyField label="Database" value={conn?.database} />
+							<CopyField label="Schema" value={conn?.schema ?? "public"} />
+							<CopyField label="View" value={conn?.view ?? "idea_report"} />
+						</dl>
+
+						<ol className="list-decimal space-y-1.5 pl-5 text-sm">
+							<li>
+								In Power BI Desktop, choose <strong>Get data → PostgreSQL database</strong>.
+							</li>
+							<li>
+								Paste the <strong>Server</strong> and <strong>Database</strong> above. Pick{" "}
+								<strong>Import</strong> (this dataset is small) and, if prompted, leave encryption
+								on.
+							</li>
+							<li>
+								Sign in with a <strong>read-only reporting login</strong> (ask the DBA — don't reuse
+								the app's credentials).
+							</li>
+							<li>
+								In the Navigator, expand <code className="text-xs">public</code> and tick{" "}
+								<code className="text-xs">idea_report</code>, then <strong>Load</strong>.
+							</li>
+							<li>
+								Build visuals — e.g. average <code className="text-xs">business_days_to_close</code>{" "}
+								by <code className="text-xs">category_name</code>, SLA-met %, or reassignment
+								accuracy from <code className="text-xs">improper_assignment_count</code>.
+							</li>
+						</ol>
+
+						<p className="text-xs text-muted-foreground">
+							{conn?.sslRequired
+								? "The connection requires SSL/encryption (on by default in the Azure connector). "
+								: ""}
+							The database firewall must allow your machine's IP (Power BI Desktop) or the
+							on-premises data gateway (for scheduled refresh in the Power BI Service). Grant the
+							reporting login <code className="text-xs">SELECT</code> on{" "}
+							<code className="text-xs">idea_report</code> only.
+						</p>
+					</CardContent>
+				</Card>
 			</section>
 
 			{/* Link to Azure portal */}
@@ -186,6 +259,42 @@ function AnalyticsPage() {
 				</a>
 			</p>
 		</main>
+	);
+}
+
+function CopyField({ label, value }: { label: string; value?: string }) {
+	const [copied, setCopied] = useState(false);
+	const ready = !!value;
+
+	function copy() {
+		if (!value) return;
+		navigator.clipboard.writeText(value).then(() => {
+			setCopied(true);
+			setTimeout(() => setCopied(false), 1500);
+		});
+	}
+
+	return (
+		<div>
+			<dt className="mb-1 text-xs font-medium uppercase text-muted-foreground">{label}</dt>
+			<dd>
+				<button
+					type="button"
+					onClick={copy}
+					disabled={!ready}
+					className="flex w-full items-center justify-between gap-2 rounded-md border bg-muted/40 px-2.5 py-1.5 text-left font-mono text-xs hover:bg-muted disabled:cursor-default disabled:opacity-60"
+					title={ready ? "Copy" : undefined}
+				>
+					<span className="truncate">{value ?? "— ask your DBA —"}</span>
+					{ready &&
+						(copied ? (
+							<Check className="size-3.5 shrink-0 text-emerald-500" />
+						) : (
+							<Copy className="size-3.5 shrink-0 text-muted-foreground" />
+						))}
+				</button>
+			</dd>
+		</div>
 	);
 }
 

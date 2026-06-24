@@ -1,7 +1,30 @@
 import { createServerFn } from "@tanstack/react-start";
 import { toCsv } from "#/lib/csv";
 import { sql } from "#/server/db";
+import { env } from "#/server/lib/env";
 import { adminMiddleware } from "#/server/middleware/auth";
+
+/**
+ * The PostgreSQL connection target for the reporting view, so an admin can point
+ * PowerBI at it. Host/port/database only — never the username or password.
+ */
+export const getReportConnectionInfo = createServerFn()
+	.middleware([adminMiddleware])
+	.handler(async () => {
+		let host = "";
+		let port = "5432";
+		let database = "";
+		try {
+			const u = new URL(env.DATABASE_URL);
+			host = u.hostname;
+			if (u.port) port = u.port;
+			database = decodeURIComponent(u.pathname.replace(/^\//, ""));
+		} catch {
+			// Leave blanks — the UI falls back to "ask your DBA".
+		}
+		const sslRequired = /\.azure\.com$/i.test(host) || /sslmode=require/i.test(env.DATABASE_URL);
+		return { host, port, database, schema: "public", view: "idea_report", sslRequired };
+	});
 
 /**
  * Export the `idea_report` fact view as CSV (admin only). The same view PowerBI
