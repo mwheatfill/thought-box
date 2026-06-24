@@ -167,7 +167,7 @@ export const createIdea = createServerFn({ method: "POST" })
 
 		// Fire-and-forget: notify watcher DL (if configured)
 		const watcherSetting = await db.query.settings.findFirst({
-			where: eq(settings.key, "watcher_email"),
+			where: eq(settings.key, "intake_notification_email"),
 		});
 		sendWatcherAlert({
 			watcherEmail: watcherSetting?.value?.trim() || null,

@@ -39,7 +39,7 @@ const deactivatedUserMiddleware = createMiddleware().server(async ({ next, reque
 
 /**
  * Request access — called by deactivated users from the /deactivated page.
- * Sends an email to the watcher_email (system notifications) address and logs an audit event.
+ * Sends an email to the intake-notification (system notifications) address and logs an audit event.
  */
 export const requestAccess = createServerFn({ method: "POST" })
 	.middleware([deactivatedUserMiddleware])
@@ -53,7 +53,7 @@ export const requestAccess = createServerFn({ method: "POST" })
 
 		// Get the notifications email from settings
 		const watcherSetting = await db.query.settings.findFirst({
-			where: eq(settings.key, "watcher_email"),
+			where: eq(settings.key, "intake_notification_email"),
 		});
 
 		const notifyEmail = watcherSetting?.value;

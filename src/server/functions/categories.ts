@@ -1,8 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, count, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { z } from "zod";
+import { OPEN_STATUSES } from "#/lib/constants";
 import { db } from "#/server/db";
-import { categories } from "#/server/db/schema";
+import { categories, ideas, users } from "#/server/db/schema";
+import { sendCategoryRoleGrantedEmail } from "#/server/functions/email";
 import { audit } from "#/server/lib/audit";
 import { adminMiddleware } from "#/server/middleware/auth";
 
@@ -104,13 +106,48 @@ const UpdateCategorySchema = z.object({
 export const updateCategory = createServerFn({ method: "POST" })
 	.middleware([adminMiddleware])
 	.inputValidator(UpdateCategorySchema)
-	.handler(async ({ data }) => {
+	.handler(async ({ data, context }) => {
 		// The UI still speaks `defaultOwnerId`; map it onto the live `ownerId`
 		// column (ADR-0001 renamed `categories.defaultOwnerId` → `ownerId`).
 		const { id, defaultOwnerId, ...rest } = data;
+
+		// Detect a genuine ownership change so we can welcome the new Owner.
+		const before =
+			defaultOwnerId !== undefined
+				? await db.query.categories.findFirst({
+						where: eq(categories.id, id),
+						columns: { ownerId: true, name: true },
+					})
+				: null;
+
 		const updates: Record<string, unknown> = { ...rest, updatedAt: new Date() };
 		if (defaultOwnerId !== undefined) updates.ownerId = defaultOwnerId;
 		await db.update(categories).set(updates).where(eq(categories.id, id));
+
+		// Fire-and-forget: notify a newly-assigned Owner (admin path, story 32).
+		if (defaultOwnerId && before && before.ownerId !== defaultOwnerId) {
+			const [newOwner, openCount] = await Promise.all([
+				db.query.users.findFirst({
+					where: eq(users.id, defaultOwnerId),
+					columns: { email: true, displayName: true },
+				}),
+				db
+					.select({ n: count() })
+					.from(ideas)
+					.where(and(eq(ideas.categoryId, id), inArray(ideas.status, [...OPEN_STATUSES]))),
+			]);
+			if (newOwner) {
+				sendCategoryRoleGrantedEmail({
+					recipientEmail: newOwner.email,
+					recipientFirstName: newOwner.displayName.split(" ")[0],
+					categoryName: before.name,
+					kind: "owner",
+					openIdeaCount: Number(openCount[0]?.n ?? 0),
+					grantedByName: context.user.displayName,
+				}).catch(() => {});
+			}
+		}
+
 		return { success: true };
 	});
 

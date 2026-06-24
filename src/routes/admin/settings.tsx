@@ -57,11 +57,11 @@ function SettingsPage() {
 					queryClient={queryClient}
 				/>
 				<TextSetting
-					settingKey="watcher_email"
+					settingKey="intake_notification_email"
 					title="System Notifications"
 					description="Send new idea alerts to this email or distribution list. Leave blank to disable."
 					placeholder="thoughtbox-admins@desertfinancial.com"
-					value={settings.watcher_email ?? ""}
+					value={settings.intake_notification_email ?? ""}
 					queryClient={queryClient}
 				/>
 				<NumberSetting

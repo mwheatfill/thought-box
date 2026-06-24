@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { createElement } from "react";
 import { z } from "zod";
 import AccessRequested from "#/emails/AccessRequested";
+import CategoryRoleGranted from "#/emails/CategoryRoleGranted";
 import IdeaAssigned from "#/emails/IdeaAssigned";
 import IdeaReassigned from "#/emails/IdeaReassigned";
 import IdeaReassignedSubmitter from "#/emails/IdeaReassignedSubmitter";
@@ -193,28 +194,6 @@ export async function sendIdeaReassignedEmail(params: {
 	});
 }
 
-/** Notify the submitter that their idea has been reassigned (no owner name revealed). */
-export async function sendIdeaReassignedSubmitterEmail(params: {
-	submitterEmail: string;
-	submitterFirstName: string;
-	submissionId: string;
-	ideaTitle: string;
-	categoryName: string;
-}) {
-	await sendEmail({
-		to: params.submitterEmail,
-		subject: `Your idea ${params.submissionId} has a new reviewer`,
-		templateName: "IdeaReassignedSubmitter",
-		template: createElement(IdeaReassignedSubmitter, {
-			submitterFirstName: params.submitterFirstName,
-			submissionId: params.submissionId,
-			ideaTitle: params.ideaTitle,
-			categoryName: params.categoryName,
-			viewUrl: ideaUrl(params.submissionId),
-		}),
-	});
-}
-
 /**
  * Notify a per-idea Watcher of a submitter-facing update — a status change or a
  * new public message (ADR/CONTEXT: Watchers never get internal notes, SLA
@@ -245,6 +224,37 @@ export async function sendWatcherUpdateEmail(params: {
 			statusLabel: params.statusLabel ?? null,
 			messagePreview: params.messagePreview ?? null,
 			viewUrl: ideaUrl(params.submissionId),
+		}),
+	});
+}
+
+/**
+ * Notify a user that they've been made a Category Owner (accountable) or added
+ * as a Contributor (can be assigned its ideas). The two new-role notifications
+ * for the derived-ownership model (Pri 13 / stories 32–33).
+ */
+export async function sendCategoryRoleGrantedEmail(params: {
+	recipientEmail: string;
+	recipientFirstName: string;
+	categoryName: string;
+	kind: "owner" | "contributor";
+	openIdeaCount?: number | null;
+	grantedByName: string;
+}) {
+	await sendEmail({
+		to: params.recipientEmail,
+		subject:
+			params.kind === "owner"
+				? `You now own the ${params.categoryName} category`
+				: `You've been added to the ${params.categoryName} review team`,
+		templateName: "CategoryRoleGranted",
+		template: createElement(CategoryRoleGranted, {
+			recipientFirstName: params.recipientFirstName,
+			categoryName: params.categoryName,
+			kind: params.kind,
+			openIdeaCount: params.openIdeaCount ?? null,
+			grantedByName: params.grantedByName,
+			viewUrl: params.kind === "owner" ? `${APP_URL}/my-categories` : `${APP_URL}/queue`,
 		}),
 	});
 }
@@ -346,10 +356,13 @@ const TEST_TEMPLATES = [
 	"message_from_submitter",
 	"mention_alert",
 	"watcher_alert",
+	"watcher_update",
 	"sla_reminder",
 	"user_invite_owner",
 	"user_invite_admin",
 	"access_requested",
+	"category_owner_granted",
+	"category_contributor_granted",
 ] as const;
 
 export type TestEmailTemplate = (typeof TEST_TEMPLATES)[number];
@@ -545,6 +558,40 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 						requesterDepartment: "Retail Banking",
 						requesterJobTitle: "Branch Manager",
 						adminUsersUrl: `${APP_URL}/admin/users`,
+					}),
+				},
+				watcher_update: {
+					subject: `[TEST] Update on idea ${sample.submissionId}: Under Review`,
+					template: createElement(WatcherUpdate, {
+						watcherFirstName: firstName,
+						submissionId: sample.submissionId,
+						ideaTitle: sample.ideaTitle,
+						updateKind: "status",
+						statusLabel: "Under Review",
+						messagePreview: null,
+						viewUrl,
+					}),
+				},
+				category_owner_granted: {
+					subject: `[TEST] You now own the ${sample.categoryName} category`,
+					template: createElement(CategoryRoleGranted, {
+						recipientFirstName: firstName,
+						categoryName: sample.categoryName,
+						kind: "owner",
+						openIdeaCount: 4,
+						grantedByName: "Jordan Lee",
+						viewUrl: `${APP_URL}/my-categories`,
+					}),
+				},
+				category_contributor_granted: {
+					subject: `[TEST] You've joined the ${sample.categoryName} review team`,
+					template: createElement(CategoryRoleGranted, {
+						recipientFirstName: firstName,
+						categoryName: sample.categoryName,
+						kind: "contributor",
+						openIdeaCount: null,
+						grantedByName: "Jordan Lee",
+						viewUrl: `${APP_URL}/queue`,
 					}),
 				},
 			};

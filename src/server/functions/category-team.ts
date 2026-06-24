@@ -4,6 +4,7 @@ import { z } from "zod";
 import { OPEN_STATUSES } from "#/lib/constants";
 import { db } from "#/server/db";
 import { categories, categoryContributors, ideas, users } from "#/server/db/schema";
+import { sendCategoryRoleGrantedEmail } from "#/server/functions/email";
 import { audit } from "#/server/lib/audit";
 import { searchDirectory as searchDirectoryApi } from "#/server/lib/graph";
 import { upsertDirectoryUser } from "#/server/lib/user-upsert";
@@ -168,6 +169,15 @@ export const addRosterContributorFromDirectory = createServerFn({ method: "POST"
 			.values({ categoryId: data.categoryId, userId, addedById: context.user.id })
 			.onConflictDoNothing();
 
+		// Fire-and-forget: tell them they can now be assigned this category's ideas.
+		sendCategoryRoleGrantedEmail({
+			recipientEmail: data.email,
+			recipientFirstName: data.displayName.split(" ")[0],
+			categoryName: category.name,
+			kind: "contributor",
+			grantedByName: context.user.displayName,
+		}).catch(() => {});
+
 		audit({
 			actorId: context.user.id,
 			action: "category.contributor_added",
@@ -282,6 +292,20 @@ export const transferCategoryOwnership = createServerFn({ method: "POST" })
 					),
 				);
 		});
+
+		// Fire-and-forget: welcome the new Owner with their open-idea count.
+		const [openCount] = await db
+			.select({ n: count() })
+			.from(ideas)
+			.where(and(eq(ideas.categoryId, data.categoryId), inArray(ideas.status, [...OPEN_STATUSES])));
+		sendCategoryRoleGrantedEmail({
+			recipientEmail: data.email,
+			recipientFirstName: data.displayName.split(" ")[0],
+			categoryName: category.name,
+			kind: "owner",
+			openIdeaCount: Number(openCount?.n ?? 0),
+			grantedByName: context.user.displayName,
+		}).catch(() => {});
 
 		audit({
 			actorId: context.user.id,
