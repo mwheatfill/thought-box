@@ -355,7 +355,12 @@ function CategoriesPage() {
 											)}
 										</TableCell>
 										<TableCell className="text-muted-foreground">
-											{cat.defaultOwnerName ?? "—"}
+											{cat.routingType === "redirect" ? (
+												// Redirects route to an external form — no accountable owner.
+												<span className="text-xs italic">Not applicable</span>
+											) : (
+												(cat.defaultOwnerName ?? "—")
+											)}
 										</TableCell>
 										<TableCell>
 											<Button
