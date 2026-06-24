@@ -47,7 +47,11 @@ export const impactAreaEnum = pgEnum("impact_area", [
 export const eventTypeEnum = pgEnum("event_type", [
 	"created",
 	"status_changed",
+	// `reassigned` = the Change Category lever (idea moved between Categories);
+	// `assigned` = the Assignment lever (the single Active reviewer changed). Two
+	// distinct levers under the category-centric model (ADR-0001/0002).
 	"reassigned",
+	"assigned",
 	"note_added",
 	"message",
 	"internal_note",

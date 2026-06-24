@@ -112,13 +112,21 @@ function formatEventText(event: TimelineEvent): string {
 			return `changed status to ${newLabel}`;
 		}
 		case "reassigned": {
-			const target = event.newValue ?? "another owner";
+			// The Change Category lever (ADR-0001): newValue is the destination Category.
+			const target = event.newValue ?? "another category";
 			if (event.reason) {
 				const reasonLabel =
 					REASSIGNMENT_REASONS[event.reason as keyof typeof REASSIGNMENT_REASONS] ?? event.reason;
-				return `reassigned to ${target} — ${reasonLabel}`;
+				return `moved this idea to ${target} — ${reasonLabel}`;
 			}
-			return `reassigned to ${target}`;
+			return `moved this idea to ${target}`;
+		}
+		case "assigned": {
+			// The Assignment lever (ADR-0002): newValue is the reviewer, or null when
+			// the idea was handed back to the Category Owner.
+			return event.newValue
+				? `assigned this idea to ${event.newValue}`
+				: "returned this idea to its owner";
 		}
 		case "message":
 			return "sent a message";

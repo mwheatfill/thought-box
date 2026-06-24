@@ -8,7 +8,15 @@ import {
 	type ReassignmentReason,
 } from "#/lib/constants";
 import { db, sql } from "#/server/db";
-import { categories, conversations, ideaEvents, ideas, settings, users } from "#/server/db/schema";
+import {
+	categories,
+	conversations,
+	ideaEvents,
+	ideaWatchers,
+	ideas,
+	settings,
+	users,
+} from "#/server/db/schema";
 import type { ConversationMessage } from "#/server/db/schema";
 import {
 	sendIdeaAssignedEmail,
@@ -18,7 +26,9 @@ import {
 	sendStatusChangedEmail,
 	sendWatcherAlert,
 } from "#/server/functions/email";
+import { isScopedToCategory, planAssignment } from "#/server/lib/assignment";
 import { audit } from "#/server/lib/audit";
+import { planCategoryChange } from "#/server/lib/category-change";
 import {
 	anonymizeActorName,
 	resolveIdeaAccess,
@@ -261,9 +271,11 @@ export const getIdeaDetail = createServerFn()
 			throw new Error("Not found");
 		}
 
-		// Load activity events. Internal notes are owner/admin-only — never
-		// returned to submitters in either the timeline or any other shape.
+		// Load activity events. Internal notes and reviewer assignment are
+		// owner/admin-only — internal delegation the submitter never sees in the
+		// timeline or any other shape.
 		const isSubmitter = viewerRole === "submitter";
+		const SUBMITTER_HIDDEN_EVENTS = new Set(["internal_note", "assigned"]);
 		const allEvents = await db.query.ideaEvents.findMany({
 			where: eq(ideaEvents.ideaId, idea.id),
 			orderBy: (e, { asc }) => [asc(e.createdAt)],
@@ -272,7 +284,7 @@ export const getIdeaDetail = createServerFn()
 			},
 		});
 		const events = isSubmitter
-			? allEvents.filter((e) => e.eventType !== "internal_note")
+			? allEvents.filter((e) => !SUBMITTER_HIDDEN_EVENTS.has(e.eventType))
 			: allEvents;
 
 		const daysRemaining = businessDaysRemaining(idea.slaDueDate);
@@ -711,4 +723,373 @@ export const getActiveOwnersAndAdmins = createServerFn()
 			},
 			orderBy: (u, { asc }) => [asc(u.displayName)],
 		});
+	});
+
+// ── Change Category (the accountability lever, ADR-0001) ──────────────────
+
+/**
+ * Move an Idea to a different Category — the accountability lever. Changing the
+ * Category changes the Idea's *derived* Owner, so this is how an Idea is "reassigned"
+ * under the category-centric model. It clears any assigned reviewer (they aren't
+ * scoped to the new Category), resets the SLA (a new team starts its own clock),
+ * rolls the status back to New, records a reason, and notifies the new Owner only
+ * — the move is administrative, so the submitter is not pinged (mirrors the
+ * Watcher event filter, which excludes administrative events).
+ */
+export const changeIdeaCategory = createServerFn({ method: "POST" })
+	.middleware([ownerMiddleware])
+	.inputValidator(
+		z.object({
+			ideaId: z.string(),
+			newCategoryId: z.string(),
+			reason: z.enum(REASSIGN_REASON_KEYS),
+		}),
+	)
+	.handler(async ({ context, data }) => {
+		const idea = await db.query.ideas.findFirst({
+			where: eq(ideas.id, data.ideaId),
+			columns: {
+				id: true,
+				submissionId: true,
+				title: true,
+				status: true,
+				categoryId: true,
+				submitterId: true,
+			},
+			with: {
+				category: { columns: { name: true, ownerId: true } },
+				submitter: { columns: { displayName: true } },
+			},
+		});
+
+		if (!idea) throw new Error("Idea not found");
+
+		// Change Category is reserved to owner/admin (ADR-0002 canChangeCategory):
+		// the CURRENT Category's Owner, or an Admin. A delegated Contributor does
+		// the legwork, not the accountability lever.
+		const isOwnerLike = context.user.role === "admin" || idea.category.ownerId === context.user.id;
+		if (!isOwnerLike) throw new Error("Forbidden");
+
+		// Closed ideas are locked; Reopen (Phase 7) is the only path back and may
+		// recategorize in the same step.
+		if ((CLOSED_STATUSES as readonly string[]).includes(idea.status)) {
+			throw new Error("This idea is closed and locked. Reopen it to move it.");
+		}
+
+		if (data.newCategoryId === idea.categoryId) {
+			throw new Error("This idea is already in that category.");
+		}
+
+		// The target must be a live destination: an active, ThoughtBox-routing
+		// Category with an Owner. (Redirect categories don't hold ideas; an unowned
+		// Category would leave the idea without an accountable Owner.)
+		const newCategory = await db.query.categories.findFirst({
+			where: eq(categories.id, data.newCategoryId),
+			columns: { id: true, name: true, active: true, routingType: true, ownerId: true },
+		});
+		if (!newCategory || !newCategory.active || newCategory.routingType !== "thoughtbox") {
+			throw new Error("That category can't receive ideas.");
+		}
+		if (!newCategory.ownerId) {
+			throw new Error("That category has no owner yet. Pick a category with an owner.");
+		}
+
+		const plan = planCategoryChange({
+			newCategoryId: newCategory.id,
+			newCategoryOwnerId: newCategory.ownerId,
+			reason: data.reason,
+		});
+
+		const now = new Date();
+		// Status returns to New so the idea lands fresh in the new Owner's queue.
+		const statusResets = idea.status !== "new";
+
+		await db
+			.update(ideas)
+			.set({
+				categoryId: plan.newCategoryId,
+				assignedReviewerId: null, // plan.clearsAssignment
+				slaDueDate: calculateSlaDueDate(now, 15), // plan.resetsSla
+				closureSlaDueDate: calculateSlaDueDate(now, 30),
+				slaStartedAt: now,
+				updatedAt: now,
+				...(statusResets ? { status: "new" as const } : {}),
+			})
+			.where(eq(ideas.id, data.ideaId));
+
+		// Drop pending reminders so the fresh SLA clock starts clean.
+		await db
+			.delete(ideaEvents)
+			.where(and(eq(ideaEvents.ideaId, data.ideaId), eq(ideaEvents.eventType, "reminder_sent")));
+
+		// Log the move (administrative — not watcher-facing). old/new = Category names.
+		await db.insert(ideaEvents).values({
+			ideaId: data.ideaId,
+			eventType: "reassigned",
+			actorId: context.user.id,
+			oldValue: idea.category.name,
+			newValue: newCategory.name,
+			reason: data.reason,
+		});
+		if (statusResets) {
+			await db.insert(ideaEvents).values({
+				ideaId: data.ideaId,
+				eventType: "status_changed",
+				actorId: context.user.id,
+				oldValue: idea.status,
+				newValue: "new",
+			});
+		}
+
+		// Notify the new accountable Owner only. (plan.notifyOwnerId is guaranteed
+		// non-null here — we rejected unowned targets above.)
+		const newOwner = await db.query.users.findFirst({
+			where: eq(users.id, newCategory.ownerId),
+			columns: { displayName: true, email: true },
+		});
+		if (newOwner) {
+			sendIdeaReassignedEmail({
+				ownerEmail: newOwner.email,
+				ownerFirstName: newOwner.displayName.split(" ")[0],
+				submissionId: idea.submissionId,
+				ideaTitle: idea.title,
+				categoryName: newCategory.name,
+				submitterName: idea.submitter.displayName,
+				reassignedByName: context.user.displayName,
+				reasonLabel: REASSIGNMENT_REASONS[data.reason],
+				note: null,
+			});
+		}
+
+		trackEvent("IdeaCategoryChanged", {
+			ideaId: data.ideaId,
+			submissionId: idea.submissionId,
+			fromCategoryId: idea.categoryId,
+			toCategoryId: newCategory.id,
+		});
+
+		audit({
+			actorId: context.user.id,
+			action: "idea.reassigned",
+			resourceType: "idea",
+			resourceId: idea.submissionId,
+			details: {
+				lever: "change_category",
+				from: idea.category.name,
+				to: newCategory.name,
+				reason: data.reason,
+			},
+		});
+
+		return {
+			success: true,
+			newCategoryName: newCategory.name,
+			newOwnerName: newOwner?.displayName ?? null,
+		};
+	});
+
+// ── Assignment (the person lever, ADR-0002) ───────────────────────────────
+
+/**
+ * Set an Idea's single Active reviewer — the person lever. The candidate must be
+ * scoped to the Idea's Category (its Owner, a roster Contributor, or an Admin);
+ * `reviewerId: null` (or assigning back to the Owner) reverts the Active reviewer
+ * to the derived Owner. Unlike Change Category, assignment is pure delegation: it
+ * never touches the SLA or ownership. The assignee is auto-subscribed as a
+ * Watcher and emailed.
+ */
+export const assignReviewer = createServerFn({ method: "POST" })
+	.middleware([ownerMiddleware])
+	.inputValidator(
+		z.object({
+			ideaId: z.string(),
+			reviewerId: z.string().nullable(),
+		}),
+	)
+	.handler(async ({ context, data }) => {
+		const idea = await db.query.ideas.findFirst({
+			where: eq(ideas.id, data.ideaId),
+			columns: {
+				id: true,
+				submissionId: true,
+				title: true,
+				status: true,
+				assignedReviewerId: true,
+				submitterId: true,
+			},
+			with: {
+				category: {
+					columns: { name: true, ownerId: true },
+					with: { contributors: { columns: { userId: true } } },
+				},
+				submitter: { columns: { displayName: true, department: true } },
+			},
+		});
+
+		if (!idea) throw new Error("Idea not found");
+
+		// Assignment is reserved to owner/admin (ADR-0002 canAssignReviewer).
+		const isOwnerLike = context.user.role === "admin" || idea.category.ownerId === context.user.id;
+		if (!isOwnerLike) throw new Error("Forbidden");
+
+		if ((CLOSED_STATUSES as readonly string[]).includes(idea.status)) {
+			throw new Error("This idea is closed and locked. Reopen it to assign a reviewer.");
+		}
+
+		// Validate the candidate is scoped to the Category (unless unassigning).
+		let candidate: { id: string; displayName: string; email: string } | null = null;
+		if (data.reviewerId) {
+			const target = await db.query.users.findFirst({
+				where: eq(users.id, data.reviewerId),
+				columns: { id: true, displayName: true, email: true, role: true, active: true },
+			});
+			if (!target || !target.active) {
+				throw new Error("That person can't be assigned.");
+			}
+			const onRoster = idea.category.contributors.some((c) => c.userId === target.id);
+			const scoped = isScopedToCategory({
+				isAdmin: target.role === "admin",
+				isCategoryOwner: target.id === idea.category.ownerId,
+				isCategoryContributor: onRoster,
+			});
+			if (!scoped) {
+				throw new Error("That person isn't on this category's team.");
+			}
+			candidate = { id: target.id, displayName: target.displayName, email: target.email };
+		}
+
+		const plan = planAssignment({
+			reviewerId: data.reviewerId,
+			categoryOwnerId: idea.category.ownerId,
+		});
+
+		// No-op guard: nothing to do if the assignment is unchanged.
+		if (plan.assignedReviewerId === (idea.assignedReviewerId ?? null)) {
+			return { success: true, assignedReviewerName: candidate?.displayName ?? null };
+		}
+
+		const now = new Date();
+		// Assignment never resets the SLA (slaResetsOnAction: assign_reviewer → false).
+		await db
+			.update(ideas)
+			.set({ assignedReviewerId: plan.assignedReviewerId, updatedAt: now })
+			.where(eq(ideas.id, data.ideaId));
+
+		// Auto-subscribe the assignee as a Watcher (idempotent).
+		if (plan.addsWatcher && plan.assignedReviewerId) {
+			await db
+				.insert(ideaWatchers)
+				.values({
+					ideaId: data.ideaId,
+					userId: plan.assignedReviewerId,
+					source: "assignment",
+					addedById: context.user.id,
+				})
+				.onConflictDoNothing();
+		}
+
+		// Name the prior reviewer for the event trail.
+		const prior = idea.assignedReviewerId
+			? await db.query.users.findFirst({
+					where: eq(users.id, idea.assignedReviewerId),
+					columns: { displayName: true },
+				})
+			: null;
+
+		await db.insert(ideaEvents).values({
+			ideaId: data.ideaId,
+			eventType: "assigned",
+			actorId: context.user.id,
+			oldValue: prior?.displayName ?? null,
+			// Null newValue = reverted to the derived Category Owner.
+			newValue: candidate?.displayName ?? null,
+		});
+
+		// Notify the assignee (skipped on unassign / assign-to-Owner).
+		if (plan.notifiesAssignee && candidate) {
+			sendIdeaAssignedEmail({
+				ownerEmail: candidate.email,
+				ownerFirstName: candidate.displayName.split(" ")[0],
+				submissionId: idea.submissionId,
+				ideaTitle: idea.title,
+				categoryName: idea.category.name,
+				submitterName: idea.submitter.displayName,
+				submitterDepartment: idea.submitter.department,
+			});
+		}
+
+		trackEvent("IdeaAssigned", {
+			ideaId: data.ideaId,
+			submissionId: idea.submissionId,
+			reviewerId: plan.assignedReviewerId ?? "owner",
+		});
+
+		audit({
+			actorId: context.user.id,
+			action: "idea.assigned",
+			resourceType: "idea",
+			resourceId: idea.submissionId,
+			details: { to: candidate?.displayName ?? "Category Owner" },
+		});
+
+		return { success: true, assignedReviewerName: candidate?.displayName ?? null };
+	});
+
+// ── Assignable reviewers (scoped to a Category) ───────────────────────────
+
+/**
+ * The people scoped to a Category and therefore assignable to its Ideas: the
+ * Category Owner, its roster Contributors, and all Admins (who can act anywhere).
+ * Each is labeled by their *scoped* role for the picker — a roster Contributor
+ * whose global role is still `submitter` shows as "contributor" here.
+ */
+export const getAssignableReviewers = createServerFn()
+	.middleware([ownerMiddleware])
+	.inputValidator(z.object({ categoryId: z.string() }))
+	.handler(async ({ data }) => {
+		const category = await db.query.categories.findFirst({
+			where: eq(categories.id, data.categoryId),
+			columns: { ownerId: true },
+			with: { contributors: { columns: { userId: true } } },
+		});
+		if (!category) throw new Error("Category not found");
+
+		const contributorIds = new Set(category.contributors.map((c) => c.userId));
+		const scopedIds = new Set<string>(contributorIds);
+		if (category.ownerId) scopedIds.add(category.ownerId);
+
+		const admins = await db.query.users.findMany({
+			where: (u, { eq: e, and }) => and(e(u.role, "admin"), e(u.active, true)),
+			columns: { id: true },
+		});
+		for (const a of admins) scopedIds.add(a.id);
+
+		if (scopedIds.size === 0) return [];
+
+		const people = await db.query.users.findMany({
+			where: (u, { inArray: ia, eq: e, and }) => and(ia(u.id, [...scopedIds]), e(u.active, true)),
+			columns: {
+				id: true,
+				displayName: true,
+				email: true,
+				role: true,
+				jobTitle: true,
+				department: true,
+				photoUrl: true,
+			},
+			orderBy: (u, { asc }) => [asc(u.displayName)],
+		});
+
+		return people.map((p) => ({
+			id: p.id,
+			displayName: p.displayName,
+			email: p.email,
+			jobTitle: p.jobTitle,
+			department: p.department,
+			photoUrl: p.photoUrl,
+			// Scoped role label: Owner of THIS category, else roster Contributor,
+			// else their global role (an Admin reaching in).
+			scopedRole:
+				p.id === category.ownerId ? "owner" : contributorIds.has(p.id) ? "contributor" : p.role,
+		}));
 	});
