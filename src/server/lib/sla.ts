@@ -74,6 +74,24 @@ export function calculateSlaStatus(ideaStatus: string, daysRemaining: number | n
 	return "on_track";
 }
 
+export type SlaAction = "change_category" | "assign_reviewer" | "category_owner_change" | "reopen";
+
+/**
+ * Whether an action restarts an idea's SLA clock under the category-centric
+ * model (ADR-0001 and the grilled rules):
+ *
+ * - **Change Category** → YES. The work has been re-scoped to a different team;
+ *   the new Owner's clock starts when they receive it.
+ * - **Reopen** → YES. A closed idea returning to New is a fresh review.
+ * - **Assignment** → NO. Delegating to a reviewer doesn't change who is
+ *   accountable, so the clock keeps running.
+ * - **Category-owner change** → NO. Same work, new hands — resetting here would
+ *   restart the SLA on every idea in a Category whenever it changes ownership.
+ */
+export function slaResetsOnAction(action: SlaAction): boolean {
+	return action === "change_category" || action === "reopen";
+}
+
 /**
  * Calculate business days remaining until the SLA due date.
  * Returns negative values if overdue.
