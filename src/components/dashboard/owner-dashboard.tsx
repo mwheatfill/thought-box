@@ -31,6 +31,10 @@ interface OwnerIdea {
 	submitterId: string;
 	submitterName: string;
 	submitterPhotoUrl: string | null;
+	activeReviewerId: string | null;
+	activeReviewerName: string;
+	activeReviewerPhotoUrl: string | null;
+	isDelegated: boolean;
 	submittedAt: string;
 	slaDueDate: string | null;
 	slaDaysRemaining: number | null;
@@ -99,6 +103,38 @@ const ownerColumns: ColumnDef<OwnerIdea, unknown>[] = [
 		accessorKey: "categoryName",
 		header: ({ column }) => <SortableHeader column={column}>Category</SortableHeader>,
 		cell: ({ row }) => <span className="text-muted-foreground">{row.original.categoryName}</span>,
+		filterFn: "equals",
+	},
+	{
+		accessorKey: "activeReviewerName",
+		header: ({ column }) => <SortableHeader column={column}>Reviewer</SortableHeader>,
+		cell: ({ row }) => {
+			const r = row.original;
+			const inner = (
+				<span className="flex items-center gap-2">
+					<Avatar className="size-6">
+						{r.activeReviewerPhotoUrl && (
+							<AvatarImage src={r.activeReviewerPhotoUrl} alt={r.activeReviewerName} />
+						)}
+						<AvatarFallback className="text-[10px]">
+							{initials(r.activeReviewerName)}
+						</AvatarFallback>
+					</Avatar>
+					<span className={cn(r.isDelegated ? "text-foreground" : "text-muted-foreground")}>
+						{r.activeReviewerName}
+					</span>
+				</span>
+			);
+			return r.activeReviewerId ? (
+				<UserCardPopover userId={r.activeReviewerId}>
+					<button type="button" className="hover:text-primary">
+						{inner}
+					</button>
+				</UserCardPopover>
+			) : (
+				inner
+			);
+		},
 		filterFn: "equals",
 	},
 	{
@@ -267,6 +303,16 @@ export function OwnerDashboard({
 										.map((c) => ({
 											value: c,
 											label: c,
+										})),
+								},
+								{
+									columnId: "activeReviewerName",
+									label: "Reviewer",
+									options: [...new Set(displayIdeas.map((i) => i.activeReviewerName))]
+										.sort()
+										.map((r) => ({
+											value: r,
+											label: r,
 										})),
 								},
 							]}

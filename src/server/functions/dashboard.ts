@@ -54,13 +54,21 @@ export const getAssignedIdeas = createServerFn()
 			where: responsibleForIdeas(context.user.id),
 			orderBy: (i, { asc }) => [asc(i.slaDueDate)],
 			with: {
-				category: { columns: { name: true } },
+				// The accountable Owner derives from the Category (ADR-0001); the
+				// active reviewer is the assigned reviewer when set, else the Owner.
+				category: {
+					columns: { name: true },
+					with: { owner: { columns: { id: true, displayName: true, photoUrl: true } } },
+				},
 				submitter: { columns: { id: true, displayName: true, photoUrl: true } },
+				assignedReviewer: { columns: { id: true, displayName: true, photoUrl: true } },
 			},
 		});
 
 		return result.map((idea) => {
 			const daysRemaining = businessDaysRemaining(idea.slaDueDate);
+			// Who's actually working it: the assigned reviewer, else the Category Owner.
+			const reviewer = idea.assignedReviewer ?? idea.category.owner;
 			return {
 				id: idea.id,
 				submissionId: idea.submissionId,
@@ -70,6 +78,11 @@ export const getAssignedIdeas = createServerFn()
 				submitterId: idea.submitter.id,
 				submitterName: idea.submitter.displayName,
 				submitterPhotoUrl: idea.submitter.photoUrl,
+				activeReviewerId: reviewer?.id ?? null,
+				activeReviewerName: reviewer?.displayName ?? "Unassigned",
+				activeReviewerPhotoUrl: reviewer?.photoUrl ?? null,
+				// Whether a contributor (not the accountable Owner) is the reviewer.
+				isDelegated: !!idea.assignedReviewerId,
 				impactArea: idea.impactArea,
 				submittedAt: idea.submittedAt.toISOString(),
 				slaDueDate: idea.slaDueDate?.toISOString() ?? null,
