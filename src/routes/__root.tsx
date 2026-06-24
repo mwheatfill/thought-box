@@ -148,7 +148,7 @@ function RootComponent() {
 	return (
 		<QueryClientProvider client={queryClient}>
 			<TooltipProvider>
-				<SidebarProvider defaultOpen={false} persistState={!isLandingPage}>
+				<SidebarProvider defaultOpen={!isLandingPage} persistState={!isLandingPage}>
 					<AppSidebar user={user} />
 					<SidebarInset>
 						<header
