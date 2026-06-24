@@ -72,7 +72,7 @@ function parseEasyAuthHeaders(request: Request): EasyAuthClaims | null {
 	// Development: use mock user
 	if (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") {
 		const devEntraId = process.env.DEV_USER_ENTRA_ID;
-		if (devEntraId) return { entraId: devEntraId, email: "dev@localhost", displayName: "Dev User" };
+		if (devEntraId) return { entraId: devEntraId, email: "dev@localhost", displayName: "Michael" };
 	}
 
 	return null;
