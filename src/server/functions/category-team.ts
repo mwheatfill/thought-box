@@ -322,16 +322,46 @@ export const transferCategoryOwnership = createServerFn({ method: "POST" })
 		return { success: true, newOwnerName: newOwner.displayName };
 	});
 
-// ── Directory search (owner-accessible) ───────────────────────────────────
+// ── People search for the roster/transfer pickers (owner-accessible) ──────
 
 /**
- * Entra directory search for the roster/transfer pickers. Gated to owners/admins
- * (ownerMiddleware) — the deliberately-widened add-people gate from CONTEXT, so
- * Owners can pull in a colleague who has never used ThoughtBox.
+ * Search for people to add as Contributors / new Owners. Defaults to existing
+ * ThoughtBox Users and extends to an Entra directory search (CONTEXT) — so
+ * someone already in the system surfaces immediately, while a colleague who has
+ * never used ThoughtBox can still be pulled in (and inline-created on select).
+ * Gated to owners/admins — the deliberately-widened add-people gate.
  */
 export const searchRosterDirectory = createServerFn()
 	.middleware([ownerMiddleware])
 	.inputValidator(z.object({ query: z.string() }))
 	.handler(async ({ data }) => {
-		return searchDirectoryApi(data.query);
+		const query = data.query.trim();
+		if (query.length < 2) return [];
+
+		const [dbUsers, dirResults] = await Promise.all([
+			db.query.users.findMany({
+				where: (u, { and: a, or, ilike, eq: e }) =>
+					a(
+						e(u.active, true),
+						or(ilike(u.displayName, `%${query}%`), ilike(u.email, `%${query}%`)),
+					),
+				columns: {
+					entraId: true,
+					displayName: true,
+					email: true,
+					jobTitle: true,
+					department: true,
+					officeLocation: true,
+				},
+				orderBy: (u, { asc }) => [asc(u.displayName)],
+				limit: 10,
+			}),
+			// The directory may be unavailable in dev (mock) or on a Graph hiccup —
+			// don't let it sink the existing-user results.
+			searchDirectoryApi(query).catch(() => []),
+		]);
+
+		// Existing Users first; then directory people not already in the system.
+		const seen = new Set(dbUsers.map((u) => u.entraId));
+		return [...dbUsers, ...dirResults.filter((d) => !seen.has(d.entraId))];
 	});
