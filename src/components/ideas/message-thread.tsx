@@ -6,6 +6,7 @@ import {
 	FileText,
 	FileUp,
 	Loader2,
+	Lock,
 	Paperclip,
 	Presentation,
 	Send,
@@ -128,6 +129,11 @@ interface MessageThreadProps {
 	 * action is "save" rather than "send".
 	 */
 	sendIcon?: ReactNode;
+	/**
+	 * When set, the composer is replaced by this read-only notice — e.g. a
+	 * Contributor who can view the thread but isn't the reviewer, so can't post.
+	 */
+	disabledNotice?: ReactNode;
 }
 
 interface AudienceBannerProps {
@@ -338,6 +344,7 @@ export function MessageThread({
 	audience,
 	sendLabel,
 	sendIcon = <Send className="size-4" />,
+	disabledNotice,
 }: MessageThreadProps) {
 	const [draft, setDraft] = useState("");
 	const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -482,17 +489,17 @@ export function MessageThread({
 
 	return (
 		<div
-			onDragEnter={handleDragEnter}
-			onDragLeave={handleDragLeave}
-			onDragOver={handleDragOver}
-			onDrop={handleDrop}
-			onPaste={handlePaste}
+			onDragEnter={disabledNotice ? undefined : handleDragEnter}
+			onDragLeave={disabledNotice ? undefined : handleDragLeave}
+			onDragOver={disabledNotice ? undefined : handleDragOver}
+			onDrop={disabledNotice ? undefined : handleDrop}
+			onPaste={disabledNotice ? undefined : handlePaste}
 			className="relative space-y-4"
 			// biome-ignore lint/a11y/noNoninteractiveTabindex: needed for paste
 			tabIndex={0}
 		>
 			{/* Full-viewport drag overlay */}
-			{isDragging && (
+			{!disabledNotice && isDragging && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-6">
 					<div className="flex h-full w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-primary bg-primary/5">
 						<div className="rounded-full bg-primary/10 p-5">
@@ -532,122 +539,129 @@ export function MessageThread({
 				</div>
 			)}
 
-			<div className="flex gap-2">
-				<input
-					ref={fileInputRef}
-					type="file"
-					className="hidden"
-					multiple
-					onChange={(e) => {
-						if (e.target.files) addFiles(e.target.files);
-						e.target.value = "";
-					}}
-				/>
-				<Button
-					variant="ghost"
-					size="icon"
-					className="shrink-0 self-end"
-					onClick={() => fileInputRef.current?.click()}
-					disabled={sending}
-				>
-					<Paperclip className="size-4" />
-				</Button>
-				<div className="flex min-w-0 flex-1 flex-col gap-2">
-					{audience}
-
-					{pendingFiles.length > 0 && (
-						<div className="flex flex-wrap gap-2">
-							{pendingFiles.map((file, i) => (
-								<div
-									key={`${file.name}-${i}`}
-									className="flex items-center gap-1.5 rounded-md border bg-muted/50 px-2 py-1 text-xs"
-								>
-									<FileTypeIcon
-										contentType={file.type}
-										className="size-3.5 text-muted-foreground"
-									/>
-									<span className="max-w-[120px] truncate">{file.name}</span>
-									<span className="text-muted-foreground">{formatFileSize(file.size)}</span>
-									<button
-										type="button"
-										onClick={() => removePendingFile(i)}
-										className="ml-0.5 rounded p-0.5 hover:bg-foreground/10"
-									>
-										<X className="size-3" />
-									</button>
-								</div>
-							))}
-						</div>
-					)}
-
-					{resolvedMentions.length > 0 && (
-						<div className="flex flex-wrap items-center gap-1.5">
-							<span className="text-xs text-muted-foreground">Mentions:</span>
-							{resolvedMentions.map((user) => (
-								<span
-									key={user.id}
-									className="flex items-center gap-1 rounded-full border bg-primary/10 py-0.5 pl-1 pr-0.5 text-xs"
-								>
-									<UserCardPopover userId={user.id}>
-										<button type="button" className="flex items-center gap-1.5 hover:underline">
-											<Avatar className="size-4">
-												{user.photoUrl && (
-													<AvatarImage src={user.photoUrl} alt={user.displayName} />
-												)}
-												<AvatarFallback className="text-[8px]">
-													{initials(user.displayName)}
-												</AvatarFallback>
-											</Avatar>
-											<span className="font-medium text-primary">@{user.displayName}</span>
-										</button>
-									</UserCardPopover>
-									<button
-										type="button"
-										onClick={() => removeMention(user.displayName)}
-										className="ml-0.5 rounded-full p-0.5 hover:bg-foreground/10"
-										title={`Remove mention of ${user.displayName}`}
-									>
-										<X className="size-3" />
-									</button>
-								</span>
-							))}
-						</div>
-					)}
-
-					{mentionable ? (
-						<MentionTextarea
-							value={draft}
-							onChange={setDraft}
-							onSubmit={handleSend}
-							directory={mentionable}
-							placeholder={placeholder}
-							className="min-h-[60px] resize-none"
-						/>
-					) : (
-						<Textarea
-							value={draft}
-							onChange={(e) => setDraft(e.target.value)}
-							placeholder={placeholder}
-							className="min-h-[60px] resize-none"
-							onKeyDown={(e) => {
-								if (isSendShortcut(e)) {
-									e.preventDefault();
-									handleSend();
-								}
-							}}
-						/>
-					)}
+			{disabledNotice ? (
+				<div className="flex items-center gap-2.5 rounded-lg border border-dashed bg-muted/40 px-3.5 py-3 text-sm text-muted-foreground">
+					<Lock className="size-4 shrink-0" />
+					<span>{disabledNotice}</span>
 				</div>
-				<Button
-					size={sendLabel ? "default" : "icon"}
-					onClick={handleSend}
-					disabled={(!draft.trim() && pendingFiles.length === 0) || sending}
-					className="shrink-0 self-end"
-				>
-					{sending ? <Loader2 className="size-4 animate-spin" /> : sendIcon}
-					{sendLabel && <span className="ml-1.5">{sendLabel}</span>}
-				</Button>
-			</div>
+			) : (
+				<div className="flex gap-2">
+					<input
+						ref={fileInputRef}
+						type="file"
+						className="hidden"
+						multiple
+						onChange={(e) => {
+							if (e.target.files) addFiles(e.target.files);
+							e.target.value = "";
+						}}
+					/>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="shrink-0 self-end"
+						onClick={() => fileInputRef.current?.click()}
+						disabled={sending}
+					>
+						<Paperclip className="size-4" />
+					</Button>
+					<div className="flex min-w-0 flex-1 flex-col gap-2">
+						{audience}
+
+						{pendingFiles.length > 0 && (
+							<div className="flex flex-wrap gap-2">
+								{pendingFiles.map((file, i) => (
+									<div
+										key={`${file.name}-${i}`}
+										className="flex items-center gap-1.5 rounded-md border bg-muted/50 px-2 py-1 text-xs"
+									>
+										<FileTypeIcon
+											contentType={file.type}
+											className="size-3.5 text-muted-foreground"
+										/>
+										<span className="max-w-[120px] truncate">{file.name}</span>
+										<span className="text-muted-foreground">{formatFileSize(file.size)}</span>
+										<button
+											type="button"
+											onClick={() => removePendingFile(i)}
+											className="ml-0.5 rounded p-0.5 hover:bg-foreground/10"
+										>
+											<X className="size-3" />
+										</button>
+									</div>
+								))}
+							</div>
+						)}
+
+						{resolvedMentions.length > 0 && (
+							<div className="flex flex-wrap items-center gap-1.5">
+								<span className="text-xs text-muted-foreground">Mentions:</span>
+								{resolvedMentions.map((user) => (
+									<span
+										key={user.id}
+										className="flex items-center gap-1 rounded-full border bg-primary/10 py-0.5 pl-1 pr-0.5 text-xs"
+									>
+										<UserCardPopover userId={user.id}>
+											<button type="button" className="flex items-center gap-1.5 hover:underline">
+												<Avatar className="size-4">
+													{user.photoUrl && (
+														<AvatarImage src={user.photoUrl} alt={user.displayName} />
+													)}
+													<AvatarFallback className="text-[8px]">
+														{initials(user.displayName)}
+													</AvatarFallback>
+												</Avatar>
+												<span className="font-medium text-primary">@{user.displayName}</span>
+											</button>
+										</UserCardPopover>
+										<button
+											type="button"
+											onClick={() => removeMention(user.displayName)}
+											className="ml-0.5 rounded-full p-0.5 hover:bg-foreground/10"
+											title={`Remove mention of ${user.displayName}`}
+										>
+											<X className="size-3" />
+										</button>
+									</span>
+								))}
+							</div>
+						)}
+
+						{mentionable ? (
+							<MentionTextarea
+								value={draft}
+								onChange={setDraft}
+								onSubmit={handleSend}
+								directory={mentionable}
+								placeholder={placeholder}
+								className="min-h-[60px] resize-none"
+							/>
+						) : (
+							<Textarea
+								value={draft}
+								onChange={(e) => setDraft(e.target.value)}
+								placeholder={placeholder}
+								className="min-h-[60px] resize-none"
+								onKeyDown={(e) => {
+									if (isSendShortcut(e)) {
+										e.preventDefault();
+										handleSend();
+									}
+								}}
+							/>
+						)}
+					</div>
+					<Button
+						size={sendLabel ? "default" : "icon"}
+						onClick={handleSend}
+						disabled={(!draft.trim() && pendingFiles.length === 0) || sending}
+						className="shrink-0 self-end"
+					>
+						{sending ? <Loader2 className="size-4 animate-spin" /> : sendIcon}
+						{sendLabel && <span className="ml-1.5">{sendLabel}</span>}
+					</Button>
+				</div>
+			)}
 		</div>
 	);
 }

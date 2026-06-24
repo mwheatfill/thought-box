@@ -380,9 +380,18 @@ function IdeaDetailPage() {
 												});
 											}}
 											isSending={messageMutation.isPending}
-											audience={messagesAudience}
+											audience={idea.canMessage ? messagesAudience : undefined}
 											emptyMessage={messagesEmpty}
 											sendLabel={canSeeInternalNotes ? `Send to ${submitterFirstName}` : undefined}
+											disabledNotice={
+												idea.canMessage ? undefined : (
+													<>
+														Only the assigned reviewer can reply to {submitterFirstName}. You have
+														view access to this idea, but sending messages is limited to its
+														reviewer.
+													</>
+												)
+											}
 										/>
 									</TabsContent>
 									{canSeeInternalNotes && (

@@ -383,6 +383,10 @@ export const getIdeaDetail = createServerFn()
 				};
 			}),
 			canEdit,
+			// Who may post to the submitter-facing thread — mirrors addMessage's gate
+			// (submitter, Category Owner, assigned reviewer, or admin). A roster
+			// Contributor who isn't the reviewer, or a Watcher, can read but not send.
+			canMessage: isSubmitter || isOwnerLikeViewer || isAdminViewer,
 		};
 	});
 
