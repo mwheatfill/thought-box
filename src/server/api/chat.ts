@@ -202,7 +202,9 @@ ${categoryTaxonomy}${userContext}`;
 							impactArea: impactArea ?? null,
 							status: "new",
 							submitterId: userId,
-							assignedOwnerId: category.defaultOwnerId,
+							// ADR-0001: do not snapshot the Category Owner onto the idea.
+							// Leave the assigned reviewer unset — the active reviewer
+							// derives to the Category Owner until one is assigned.
 							slaDueDate,
 							closureSlaDueDate,
 							slaStartedAt: now,
@@ -247,9 +249,11 @@ ${categoryTaxonomy}${userContext}`;
 						columns: { email: true, displayName: true, department: true },
 					});
 
-					if (category.defaultOwnerId) {
+					// Notify the idea's accountable Owner — derived from the Category
+					// (ADR-0001), not stored on the idea.
+					if (category.ownerId) {
 						const owner = await db.query.users.findFirst({
-							where: eq(users.id, category.defaultOwnerId),
+							where: eq(users.id, category.ownerId),
 							columns: { displayName: true, email: true },
 						});
 

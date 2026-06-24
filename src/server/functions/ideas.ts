@@ -24,6 +24,7 @@ import {
 	resolveIdeaAccess,
 	shouldShowOwner,
 } from "#/server/lib/owner-visibility";
+import { resolveIdeaOwnership } from "#/server/lib/ownership";
 import { businessDaysRemaining, calculateSlaDueDate, calculateSlaStatus } from "#/server/lib/sla";
 import { nextSubmissionId } from "#/server/lib/submission-id";
 import { trackEvent } from "#/server/lib/telemetry";
@@ -56,7 +57,7 @@ export const createIdea = createServerFn({ method: "POST" })
 	.handler(async ({ context, data }) => {
 		const now = new Date();
 
-		// Look up the category to get the default owner
+		// Look up the category to get its accountable Owner (ADR-0001).
 		const category = await db.query.categories.findFirst({
 			where: eq(categories.id, data.categoryId),
 		});
@@ -82,7 +83,8 @@ export const createIdea = createServerFn({ method: "POST" })
 				impactArea: data.impactArea ?? null,
 				status: "new",
 				submitterId: context.user.id,
-				assignedOwnerId: category.defaultOwnerId,
+				// ADR-0001: don't snapshot the Category Owner onto the idea. The
+				// active reviewer derives to the Category Owner until one is assigned.
 				slaDueDate,
 				closureSlaDueDate: calculateSlaDueDate(now, 30),
 				slaStartedAt: now,
@@ -109,16 +111,17 @@ export const createIdea = createServerFn({ method: "POST" })
 			});
 		}
 
-		// Look up owner + count submitter's ideas for emails
-		let assignedOwnerName: string | null = null;
+		// Look up the Category Owner (the accountable owner, ADR-0001) + count
+		// submitter's ideas for emails.
+		let ownerName: string | null = null;
 		let owner: { displayName: string; email: string } | null = null;
-		if (category.defaultOwnerId) {
+		if (category.ownerId) {
 			const found = await db.query.users.findFirst({
-				where: eq(users.id, category.defaultOwnerId),
+				where: eq(users.id, category.ownerId),
 				columns: { displayName: true, email: true },
 			});
 			owner = found ?? null;
-			assignedOwnerName = owner?.displayName ?? null;
+			ownerName = owner?.displayName ?? null;
 		}
 
 		const submitterIdeas = await db.query.ideas.findMany({
@@ -161,7 +164,7 @@ export const createIdea = createServerFn({ method: "POST" })
 			categoryName: category.name,
 			submitterName: context.user.displayName,
 			submitterDepartment: context.user.department,
-			assignedOwnerName,
+			assignedOwnerName: ownerName,
 		});
 
 		trackEvent("IdeaSubmitted", {
@@ -176,7 +179,7 @@ export const createIdea = createServerFn({ method: "POST" })
 			action: "idea.created",
 			resourceType: "idea",
 			resourceId: idea.submissionId,
-			details: { title: data.title, category: category.name, assignedTo: assignedOwnerName },
+			details: { title: data.title, category: category.name, assignedTo: ownerName },
 		});
 
 		return {
@@ -185,7 +188,7 @@ export const createIdea = createServerFn({ method: "POST" })
 				submissionId: idea.submissionId,
 				title: idea.title,
 				categoryName: category.name,
-				assignedOwnerName,
+				assignedOwnerName: ownerName,
 			},
 		};
 	});
@@ -199,7 +202,15 @@ export const getIdeaDetail = createServerFn()
 		const idea = await db.query.ideas.findFirst({
 			where: eq(ideas.submissionId, data.submissionId),
 			with: {
-				category: { columns: { name: true } },
+				category: {
+					columns: { name: true },
+					with: {
+						// The accountable Owner is derived from the Category (ADR-0001).
+						owner: {
+							columns: { id: true, displayName: true, email: true, photoUrl: true },
+						},
+					},
+				},
 				submitter: {
 					columns: {
 						id: true,
@@ -212,7 +223,8 @@ export const getIdeaDetail = createServerFn()
 						photoUrl: true,
 					},
 				},
-				assignedOwner: {
+				// The optionally-assigned reviewer (a delegation, not ownership).
+				assignedReviewer: {
 					columns: { id: true, displayName: true, email: true, photoUrl: true },
 				},
 			},
@@ -222,15 +234,28 @@ export const getIdeaDetail = createServerFn()
 			throw new Error("Idea not found");
 		}
 
+		// Derive ownership (ADR-0001): the accountable Owner is the Category Owner;
+		// the active reviewer is the assigned reviewer when set, else the Owner.
+		const categoryOwner = idea.category.owner;
+		const { activeReviewerId } = resolveIdeaOwnership({
+			categoryOwnerId: categoryOwner?.id ?? null,
+			assignedReviewerId: idea.assignedReviewerId,
+		});
+		// The active reviewer's full record — the assigned reviewer if one is set,
+		// otherwise the Category Owner. This is who the UI shows as "Reviewer".
+		const activeReviewer =
+			idea.assignedReviewerId && idea.assignedReviewer ? idea.assignedReviewer : categoryOwner;
+
 		// Access & perspective are based on the viewer's relationship to THIS
 		// idea, not their global role. A user with the "owner" role who submitted
-		// an idea assigned to a different owner still views it — as its submitter
+		// an idea whose Category someone else owns still views it — as its submitter
 		// (sees the message thread, not internal notes).
 		const { canView, viewerRole, canEdit } = resolveIdeaAccess({
 			userId: context.user.id,
 			userRole: context.user.role,
 			submitterId: idea.submitterId,
-			assignedOwnerId: idea.assignedOwnerId,
+			categoryOwnerId: categoryOwner?.id ?? null,
+			assignedReviewerId: idea.assignedReviewerId,
 		});
 		if (!canView) {
 			throw new Error("Not found");
@@ -273,9 +298,15 @@ export const getIdeaDetail = createServerFn()
 			closureSlaDueDate: idea.closureSlaDueDate?.toISOString() ?? null,
 			closureSlaDaysRemaining: businessDaysRemaining(idea.closureSlaDueDate),
 			submitter: idea.submitter,
-			assignedOwner: showOwner ? idea.assignedOwner : null,
+			// The active reviewer (assigned reviewer, else the derived Category
+			// Owner) — shown to the submitter only once the idea has been reviewed.
+			assignedOwner: showOwner ? activeReviewer : null,
 			events: events.map((e) => {
 				const redactReassign = e.eventType === "reassigned" && !showOwner;
+				// Anonymize the owner/reviewer's identity (Category Owner or the
+				// active reviewer) from a not-yet-reviewed submitter's view.
+				const isOwnerLikeActor =
+					e.actorId === (categoryOwner?.id ?? null) || e.actorId === activeReviewerId;
 				return {
 					id: e.id,
 					eventType: e.eventType,
@@ -283,11 +314,12 @@ export const getIdeaDetail = createServerFn()
 					actorName: anonymizeActorName(
 						e.actor.displayName,
 						e.actorId,
-						idea.assignedOwnerId,
+						categoryOwner?.id ?? null,
+						activeReviewerId,
 						viewerRole,
 						idea.hasBeenReviewed,
 					),
-					actorPhotoUrl: showOwner || e.actorId !== idea.assignedOwnerId ? e.actor.photoUrl : null,
+					actorPhotoUrl: showOwner || !isOwnerLikeActor ? e.actor.photoUrl : null,
 					oldValue: redactReassign ? null : e.oldValue,
 					newValue: redactReassign ? null : e.newValue,
 					reason: redactReassign ? null : e.reason,
@@ -324,18 +356,22 @@ export const updateIdea = createServerFn({ method: "POST" })
 				status: true,
 				hasBeenReviewed: true,
 				submitterId: true,
-				assignedOwnerId: true,
+				assignedReviewerId: true,
 				messageToSubmitter: true,
 			},
 			with: {
+				category: { columns: { ownerId: true } },
 				submitter: { columns: { email: true, displayName: true } },
 			},
 		});
 
 		if (!idea) throw new Error("Idea not found");
 
-		// Owners can only update their own assigned ideas (admins can update any)
-		if (context.user.role === "owner" && idea.assignedOwnerId !== context.user.id) {
+		// Owners can only update ideas they're responsible for: ones whose Category
+		// they own (ADR-0001) or that are assigned to them as reviewer. Admins any.
+		const isResponsible =
+			idea.category.ownerId === context.user.id || idea.assignedReviewerId === context.user.id;
+		if (context.user.role === "owner" && !isResponsible) {
 			throw new Error("Forbidden");
 		}
 
@@ -437,11 +473,15 @@ export const bulkUpdateStatus = createServerFn({ method: "POST" })
 	.handler(async ({ context, data }) => {
 		const candidates = await db.query.ideas.findMany({
 			where: inArray(ideas.id, data.ideaIds),
-			columns: { id: true, status: true, assignedOwnerId: true },
+			columns: { id: true, status: true, assignedReviewerId: true },
+			with: { category: { columns: { ownerId: true } } },
 		});
 
 		const targets = candidates.filter((idea) => {
-			if (context.user.role === "owner" && idea.assignedOwnerId !== context.user.id) return false;
+			// Owners act only on ideas they own (via Category) or are assigned.
+			const isResponsible =
+				idea.category.ownerId === context.user.id || idea.assignedReviewerId === context.user.id;
+			if (context.user.role === "owner" && !isResponsible) return false;
 			if (idea.status === data.status) return false;
 			if ((CLOSED_STATUSES as readonly string[]).includes(idea.status)) return false;
 			return true;
@@ -500,19 +540,22 @@ export const reassignIdea = createServerFn({ method: "POST" })
 				submissionId: true,
 				title: true,
 				status: true,
-				assignedOwnerId: true,
+				assignedReviewerId: true,
 				submitterId: true,
 			},
 			with: {
-				category: { columns: { name: true } },
+				category: { columns: { name: true, ownerId: true } },
 				submitter: { columns: { displayName: true, email: true, department: true } },
 			},
 		});
 
 		if (!idea) throw new Error("Idea not found");
 
-		// Owners can only reassign their own ideas (admins can reassign any)
-		if (context.user.role === "owner" && idea.assignedOwnerId !== context.user.id) {
+		// Owners can only reassign ideas they're responsible for: ones whose
+		// Category they own (ADR-0001) or that are assigned to them. Admins any.
+		const isResponsible =
+			idea.category.ownerId === context.user.id || idea.assignedReviewerId === context.user.id;
+		if (context.user.role === "owner" && !isResponsible) {
 			throw new Error("Forbidden");
 		}
 
@@ -523,9 +566,9 @@ export const reassignIdea = createServerFn({ method: "POST" })
 		}
 
 		const [oldOwner, newOwner] = await Promise.all([
-			idea.assignedOwnerId
+			idea.assignedReviewerId
 				? db.query.users.findFirst({
-						where: eq(users.id, idea.assignedOwnerId),
+						where: eq(users.id, idea.assignedReviewerId),
 						columns: { displayName: true },
 					})
 				: Promise.resolve(null),
@@ -537,9 +580,9 @@ export const reassignIdea = createServerFn({ method: "POST" })
 
 		if (!newOwner) throw new Error("Owner not found");
 
-		// First-time assignment skips reason/note — there's no prior owner to
-		// describe a reassignment from.
-		const isReassignment = !!idea.assignedOwnerId;
+		// First-time assignment skips reason/note — there's no prior assigned
+		// reviewer to describe a reassignment from.
+		const isReassignment = !!idea.assignedReviewerId;
 		const note = data.note?.trim() || null;
 		let reason: ReassignmentReason | null = null;
 
@@ -561,7 +604,7 @@ export const reassignIdea = createServerFn({ method: "POST" })
 		await db
 			.update(ideas)
 			.set({
-				assignedOwnerId: data.newOwnerId,
+				assignedReviewerId: data.newOwnerId,
 				slaDueDate: newSlaDueDate,
 				closureSlaDueDate: newClosureSlaDueDate,
 				slaStartedAt: now,

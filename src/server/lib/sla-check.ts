@@ -2,6 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "#/server/db";
 import { ideaEvents, ideas, settings } from "#/server/db/schema";
 import { sendSlaReminderEmail } from "#/server/functions/email";
+import { resolveIdeaOwnership } from "#/server/lib/ownership";
 import { businessDaysBetween } from "#/server/lib/sla";
 
 /**
@@ -37,15 +38,29 @@ export async function checkSlaReminders(): Promise<{ sent: number; checked: numb
 		where: inArray(ideas.status, ["new", "under_review"]),
 		with: {
 			submitter: { columns: { displayName: true } },
-			assignedOwner: { columns: { id: true, email: true, displayName: true } },
-			category: { columns: { name: true } },
+			// SLA accountability follows the Category Owner (ADR-0001); reminders
+			// reach whoever is actively working the idea — the assigned reviewer if
+			// set, else the Owner.
+			assignedReviewer: { columns: { id: true, email: true, displayName: true } },
+			category: {
+				columns: { name: true },
+				with: { owner: { columns: { id: true, email: true, displayName: true } } },
+			},
 		},
 	});
 
 	let sent = 0;
 
 	for (const idea of openIdeas) {
-		if (!idea.assignedOwner) continue;
+		// The active reviewer (assignment if present, else the Category Owner) is
+		// the reminder recipient. Skip ideas in an unowned Category with no reviewer.
+		const { activeReviewerId } = resolveIdeaOwnership({
+			categoryOwnerId: idea.category.owner?.id ?? null,
+			assignedReviewerId: idea.assignedReviewer?.id ?? null,
+		});
+		const reviewer =
+			idea.assignedReviewer?.id === activeReviewerId ? idea.assignedReviewer : idea.category.owner;
+		if (!reviewer) continue;
 
 		const referenceDate = idea.slaStartedAt ?? idea.submittedAt;
 		const businessDaysSince = businessDaysBetween(new Date(referenceDate), now);
@@ -68,8 +83,8 @@ export async function checkSlaReminders(): Promise<{ sent: number; checked: numb
 			if (existing) continue;
 
 			await sendSlaReminderEmail({
-				ownerEmail: idea.assignedOwner.email,
-				ownerFirstName: idea.assignedOwner.displayName.split(" ")[0],
+				ownerEmail: reviewer.email,
+				ownerFirstName: reviewer.displayName.split(" ")[0],
 				submissionId: idea.submissionId,
 				ideaTitle: idea.title,
 				submitterName: idea.submitter.displayName,
@@ -82,7 +97,7 @@ export async function checkSlaReminders(): Promise<{ sent: number; checked: numb
 			await db.insert(ideaEvents).values({
 				ideaId: idea.id,
 				eventType: "reminder_sent",
-				actorId: idea.assignedOwner.id,
+				actorId: reviewer.id,
 				newValue: String(threshold),
 				note: `SLA reminder sent at ${threshold}-business-day threshold`,
 			});

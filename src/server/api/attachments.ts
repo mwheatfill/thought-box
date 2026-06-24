@@ -58,8 +58,9 @@ export async function handleAttachmentUpload(request: Request): Promise<Response
 				submissionId: true,
 				status: true,
 				submitterId: true,
-				assignedOwnerId: true,
+				assignedReviewerId: true,
 			},
+			with: { category: { columns: { ownerId: true } } },
 		});
 		if (!idea) {
 			return new Response(JSON.stringify({ error: "Idea not found" }), {
@@ -69,11 +70,14 @@ export async function handleAttachmentUpload(request: Request): Promise<Response
 		}
 		// Access & perspective by relationship to this idea, not global role —
 		// an "owner"-role user who submitted this idea acts on it as its submitter.
+		// Owner perspective derives from the Category Owner (ADR-0001) or the
+		// assigned reviewer.
 		const { canView, viewerRole } = resolveIdeaAccess({
 			userId: user.id,
 			userRole: user.role,
 			submitterId: idea.submitterId,
-			assignedOwnerId: idea.assignedOwnerId,
+			categoryOwnerId: idea.category.ownerId,
+			assignedReviewerId: idea.assignedReviewerId,
 		});
 		const viewerIsSubmitter = viewerRole === "submitter";
 		if (!canView) {
@@ -233,16 +237,19 @@ export async function handleAttachmentDownload(request: Request): Promise<Respon
 		// their own ideas; owners only on ideas assigned to them; admins on any.
 		const idea = await db.query.ideas.findFirst({
 			where: eq(ideas.id, attachment.ideaId),
-			columns: { submitterId: true, assignedOwnerId: true },
+			columns: { submitterId: true, assignedReviewerId: true },
+			with: { category: { columns: { ownerId: true } } },
 		});
 		if (!idea) return new Response("Not found", { status: 404 });
 		// Access & perspective by relationship to this idea, not global role —
 		// an "owner"-role user who submitted this idea views it as its submitter.
+		// Owner perspective derives from the Category Owner (ADR-0001) or reviewer.
 		const { canView, viewerRole } = resolveIdeaAccess({
 			userId: user.id,
 			userRole: user.role,
 			submitterId: idea.submitterId,
-			assignedOwnerId: idea.assignedOwnerId,
+			categoryOwnerId: idea.category.ownerId,
+			assignedReviewerId: idea.assignedReviewerId,
 		});
 		const viewerIsSubmitter = viewerRole === "submitter";
 		if (!canView) return new Response("Not found", { status: 404 });
@@ -306,16 +313,19 @@ export async function handleAttachmentDelete(request: Request): Promise<Response
 		// Idea-level access check + role-based visibility on internal_note attachments
 		const idea = await db.query.ideas.findFirst({
 			where: eq(ideas.id, attachment.ideaId),
-			columns: { submissionId: true, submitterId: true, assignedOwnerId: true },
+			columns: { submissionId: true, submitterId: true, assignedReviewerId: true },
+			with: { category: { columns: { ownerId: true } } },
 		});
 		if (!idea) return new Response("Not found", { status: 404 });
 		// Access & perspective by relationship to this idea, not global role —
 		// an "owner"-role user who submitted this idea acts on it as its submitter.
+		// Owner perspective derives from the Category Owner (ADR-0001) or reviewer.
 		const { canView, viewerRole } = resolveIdeaAccess({
 			userId: user.id,
 			userRole: user.role,
 			submitterId: idea.submitterId,
-			assignedOwnerId: idea.assignedOwnerId,
+			categoryOwnerId: idea.category.ownerId,
+			assignedReviewerId: idea.assignedReviewerId,
 		});
 		const viewerIsSubmitter = viewerRole === "submitter";
 		if (!canView) return new Response("Not found", { status: 404 });

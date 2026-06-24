@@ -32,13 +32,17 @@ export const addInternalNote = createServerFn({ method: "POST" })
 				id: true,
 				submissionId: true,
 				title: true,
-				assignedOwnerId: true,
+				assignedReviewerId: true,
 			},
+			with: { category: { columns: { ownerId: true } } },
 		});
 
 		if (!idea) throw new Error("Idea not found");
 
-		if (context.user.role === "owner" && idea.assignedOwnerId !== context.user.id) {
+		// Owners act only on ideas they own (via Category) or are assigned (ADR-0001).
+		const noteResponsible =
+			idea.category.ownerId === context.user.id || idea.assignedReviewerId === context.user.id;
+		if (context.user.role === "owner" && !noteResponsible) {
 			throw new Error("Forbidden");
 		}
 
@@ -88,11 +92,15 @@ export const getIdeaInternalNotes = createServerFn()
 	.handler(async ({ context, data }) => {
 		const idea = await db.query.ideas.findFirst({
 			where: eq(ideas.id, data.ideaId),
-			columns: { id: true, assignedOwnerId: true },
+			columns: { id: true, assignedReviewerId: true },
+			with: { category: { columns: { ownerId: true } } },
 		});
 
 		if (!idea) throw new Error("Idea not found");
-		if (context.user.role === "owner" && idea.assignedOwnerId !== context.user.id) {
+		// Owners act only on ideas they own (via Category) or are assigned (ADR-0001).
+		const isResponsible =
+			idea.category.ownerId === context.user.id || idea.assignedReviewerId === context.user.id;
+		if (context.user.role === "owner" && !isResponsible) {
 			throw new Error("Forbidden");
 		}
 

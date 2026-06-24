@@ -19,28 +19,38 @@ export interface IdeaAccess {
 
 /**
  * Resolve a user's access to and perspective on a specific idea from their
- * relationship to it (admin / assigned owner / submitter) rather than their
- * global role alone. This is the single source of truth for "can this user open
- * this idea, and as whom?" — used by getIdeaDetail and the attachment handlers.
+ * relationship to it rather than their global role alone. This is the single
+ * source of truth for "can this user open this idea, and as whom?" — used by
+ * getIdeaDetail and the attachment handlers.
+ *
+ * Under the category-centric model (ADR-0001) an idea's accountable Owner is
+ * derived from its Category (`categoryOwnerId`), and an optional assigned
+ * reviewer (`assignedReviewerId`) may be delegated the work. Either of those
+ * people gets the owner/reviewer perspective on the idea; both ids are passed so
+ * neither has to be flattened to a single stored field.
  *
  * Owners submit ideas too, so an owner-role user can legitimately be the
- * submitter of an idea assigned to a different owner; they must still be able to
- * view and respond to it as its submitter.
+ * submitter of an idea whose Category someone else owns; they must still be able
+ * to view and respond to it as its submitter.
  */
 export function resolveIdeaAccess(params: {
 	userId: string;
 	userRole: string;
 	submitterId: string;
-	assignedOwnerId: string | null;
+	categoryOwnerId: string | null;
+	assignedReviewerId: string | null;
 }): IdeaAccess {
 	const isAdmin = params.userRole === "admin";
-	const isAssignedOwner = params.assignedOwnerId === params.userId;
+	// Owner-like = the Category Owner (accountable) OR the assigned reviewer
+	// (delegated the work); both view/edit the idea as an owner-perspective.
+	const isOwnerLike =
+		params.categoryOwnerId === params.userId || params.assignedReviewerId === params.userId;
 	const isSubmitter = params.submitterId === params.userId;
 
 	return {
-		canView: isAdmin || isAssignedOwner || isSubmitter,
-		viewerRole: isAdmin ? "admin" : isAssignedOwner ? "owner" : "submitter",
-		canEdit: isAdmin || isAssignedOwner,
+		canView: isAdmin || isOwnerLike || isSubmitter,
+		viewerRole: isAdmin ? "admin" : isOwnerLike ? "owner" : "submitter",
+		canEdit: isAdmin || isOwnerLike,
 	};
 }
 
@@ -57,16 +67,22 @@ export function shouldShowOwner(role: string, hasBeenReviewed: boolean): boolean
 	return hasBeenReviewed;
 }
 
-/** Replace actor name in events/timeline when the actor is the assigned owner */
+/**
+ * Replace an actor's name in events/timeline when the actor is the idea's owner
+ * or assigned reviewer. Under ADR-0001 the accountable owner is the Category
+ * Owner; the work may be delegated to an assigned reviewer. Either identity is
+ * anonymized from a submitter's view before the idea has been reviewed; other
+ * actors (e.g. the submitter themselves) are never anonymized.
+ */
 export function anonymizeActorName(
 	actorName: string,
 	actorId: string,
-	assignedOwnerId: string | null,
+	categoryOwnerId: string | null,
+	assignedReviewerId: string | null,
 	role: string,
 	hasBeenReviewed: boolean,
 ): string {
 	if (shouldShowOwner(role, hasBeenReviewed)) return actorName;
-	// Only anonymize the assigned owner, not other actors (e.g., the submitter themselves)
-	if (actorId === assignedOwnerId) return "A reviewer";
+	if (actorId === categoryOwnerId || actorId === assignedReviewerId) return "A reviewer";
 	return actorName;
 }

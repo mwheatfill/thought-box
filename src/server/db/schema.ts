@@ -1,12 +1,14 @@
 import { relations } from "drizzle-orm";
 import {
 	boolean,
+	index,
 	integer,
 	jsonb,
 	pgEnum,
 	pgTable,
 	text,
 	timestamp,
+	uniqueIndex,
 	varchar,
 } from "drizzle-orm/pg-core";
 import { createId } from "./utils";
@@ -92,7 +94,7 @@ export const categories = pgTable("categories", {
 	routingType: routingTypeEnum("routing_type").notNull(),
 	redirectUrl: varchar("redirect_url", { length: 500 }),
 	redirectLabel: varchar("redirect_label", { length: 255 }),
-	defaultOwnerId: varchar("default_owner_id", { length: 128 }),
+	ownerId: varchar("owner_id", { length: 128 }),
 	keystoneFields: boolean("keystone_fields").notNull().default(false),
 	sortOrder: integer("sort_order").notNull().default(0),
 	active: boolean("active").notNull().default(true),
@@ -113,7 +115,7 @@ export const ideas = pgTable("ideas", {
 	status: ideaStatusEnum("status").notNull().default("new"),
 	declineReason: declineReasonEnum("decline_reason"),
 	submitterId: varchar("submitter_id", { length: 128 }).notNull(),
-	assignedOwnerId: varchar("assigned_owner_id", { length: 128 }),
+	assignedReviewerId: varchar("assigned_reviewer_id", { length: 128 }),
 	messageToSubmitter: text("message_to_submitter"),
 	slaDueDate: timestamp("sla_due_date", { withTimezone: true }),
 	closureSlaDueDate: timestamp("closure_sla_due_date", { withTimezone: true }),
@@ -202,6 +204,43 @@ export const settings = pgTable("settings", {
 	updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ── Category Teams: Contributor roster + Idea Watchers ─────────────────────
+
+export const watcherSourceEnum = pgEnum("watcher_source", ["self", "owner_added", "assignment"]);
+
+/** The Contributor roster for a Category (ADR-0002). Roster membership grants the contributor role. */
+export const categoryContributors = pgTable(
+	"category_contributors",
+	{
+		id: varchar("id", { length: 128 }).$defaultFn(createId).primaryKey(),
+		categoryId: varchar("category_id", { length: 128 }).notNull(),
+		userId: varchar("user_id", { length: 128 }).notNull(),
+		addedById: varchar("added_by_id", { length: 128 }),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		uniqueIndex("category_contributors_category_user_uniq").on(t.categoryId, t.userId),
+		index("category_contributors_user_idx").on(t.userId),
+	],
+);
+
+/** Per-Idea Watcher subscriptions. `source` records how the subscription was created. */
+export const ideaWatchers = pgTable(
+	"idea_watchers",
+	{
+		id: varchar("id", { length: 128 }).$defaultFn(createId).primaryKey(),
+		ideaId: varchar("idea_id", { length: 128 }).notNull(),
+		userId: varchar("user_id", { length: 128 }).notNull(),
+		source: watcherSourceEnum("source").notNull().default("self"),
+		addedById: varchar("added_by_id", { length: 128 }),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		uniqueIndex("idea_watchers_idea_user_uniq").on(t.ideaId, t.userId),
+		index("idea_watchers_user_idx").on(t.userId),
+	],
+);
+
 // ── Relations ──────────────────────────────────────────────────────────────
 
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -211,16 +250,21 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 		relationName: "managerRelation",
 	}),
 	submittedIdeas: many(ideas, { relationName: "submitterRelation" }),
-	assignedIdeas: many(ideas, { relationName: "ownerRelation" }),
+	reviewingIdeas: many(ideas, { relationName: "reviewerRelation" }),
+	ownedCategories: many(categories, { relationName: "categoryOwner" }),
+	contributorRosters: many(categoryContributors),
+	watchedIdeas: many(ideaWatchers),
 	events: many(ideaEvents),
 	conversations: many(conversations),
 }));
 
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
-	defaultOwner: one(users, {
-		fields: [categories.defaultOwnerId],
+	owner: one(users, {
+		fields: [categories.ownerId],
 		references: [users.id],
+		relationName: "categoryOwner",
 	}),
+	contributors: many(categoryContributors),
 	ideas: many(ideas),
 }));
 
@@ -234,15 +278,38 @@ export const ideasRelations = relations(ideas, ({ one, many }) => ({
 		references: [users.id],
 		relationName: "submitterRelation",
 	}),
-	assignedOwner: one(users, {
-		fields: [ideas.assignedOwnerId],
+	assignedReviewer: one(users, {
+		fields: [ideas.assignedReviewerId],
 		references: [users.id],
-		relationName: "ownerRelation",
+		relationName: "reviewerRelation",
 	}),
+	watchers: many(ideaWatchers),
 	events: many(ideaEvents),
 	conversations: many(conversations),
 	keystoneDetails: one(keystoneDetails),
 	attachments: many(attachments),
+}));
+
+export const categoryContributorsRelations = relations(categoryContributors, ({ one }) => ({
+	category: one(categories, {
+		fields: [categoryContributors.categoryId],
+		references: [categories.id],
+	}),
+	user: one(users, {
+		fields: [categoryContributors.userId],
+		references: [users.id],
+	}),
+}));
+
+export const ideaWatchersRelations = relations(ideaWatchers, ({ one }) => ({
+	idea: one(ideas, {
+		fields: [ideaWatchers.ideaId],
+		references: [ideas.id],
+	}),
+	user: one(users, {
+		fields: [ideaWatchers.userId],
+		references: [users.id],
+	}),
 }));
 
 export const attachmentsRelations = relations(attachments, ({ one }) => ({

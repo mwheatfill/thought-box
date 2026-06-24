@@ -698,7 +698,9 @@ async function applyPlan(plan: Plan): Promise<void> {
 				status: row.status,
 				declineReason: row.declineReason,
 				submitterId,
-				assignedOwnerId: ownerId,
+				// ADR-0001: the idea→person column is now the assigned reviewer.
+				// Preserve the legacy handler as this idea's assigned reviewer.
+				assignedReviewerId: ownerId,
 				messageToSubmitter,
 				slaDueDate,
 				slaStartedAt,

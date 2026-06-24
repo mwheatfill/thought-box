@@ -13,7 +13,7 @@ export const getCategories = createServerFn()
 			where: isNull(categories.deletedAt),
 			orderBy: (c, { asc }) => [asc(c.sortOrder)],
 			with: {
-				defaultOwner: { columns: { id: true, displayName: true } },
+				owner: { columns: { id: true, displayName: true } },
 			},
 		});
 
@@ -24,8 +24,8 @@ export const getCategories = createServerFn()
 			routingType: c.routingType,
 			redirectUrl: c.redirectUrl,
 			redirectLabel: c.redirectLabel,
-			defaultOwnerId: c.defaultOwnerId,
-			defaultOwnerName: c.defaultOwner?.displayName ?? null,
+			defaultOwnerId: c.ownerId,
+			defaultOwnerName: c.owner?.displayName ?? null,
 			keystoneFields: c.keystoneFields,
 			sortOrder: c.sortOrder,
 			active: c.active,
@@ -71,7 +71,7 @@ export const createCategory = createServerFn({ method: "POST" })
 				routingType: data.routingType,
 				redirectUrl: data.redirectUrl ?? null,
 				redirectLabel: data.redirectLabel ?? null,
-				defaultOwnerId: data.defaultOwnerId ?? null,
+				ownerId: data.defaultOwnerId ?? null,
 				keystoneFields: data.keystoneFields ?? false,
 				sortOrder: data.sortOrder ?? 0,
 			})
@@ -105,11 +105,12 @@ export const updateCategory = createServerFn({ method: "POST" })
 	.middleware([adminMiddleware])
 	.inputValidator(UpdateCategorySchema)
 	.handler(async ({ data }) => {
-		const { id, ...updates } = data;
-		await db
-			.update(categories)
-			.set({ ...updates, updatedAt: new Date() })
-			.where(eq(categories.id, id));
+		// The UI still speaks `defaultOwnerId`; map it onto the live `ownerId`
+		// column (ADR-0001 renamed `categories.defaultOwnerId` → `ownerId`).
+		const { id, defaultOwnerId, ...rest } = data;
+		const updates: Record<string, unknown> = { ...rest, updatedAt: new Date() };
+		if (defaultOwnerId !== undefined) updates.ownerId = defaultOwnerId;
+		await db.update(categories).set(updates).where(eq(categories.id, id));
 		return { success: true };
 	});
 

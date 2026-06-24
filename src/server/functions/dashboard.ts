@@ -1,9 +1,24 @@
 import { createServerFn } from "@tanstack/react-start";
-import { count, eq, gte, sql } from "drizzle-orm";
+import { count, eq, gte, inArray, or, sql } from "drizzle-orm";
 import { db } from "#/server/db";
 import { categories, ideaEvents, ideas, users } from "#/server/db/schema";
 import { businessDaysRemaining, calculateSlaStatus } from "#/server/lib/sla";
 import { adminMiddleware, authMiddleware, ownerMiddleware } from "#/server/middleware/auth";
+
+/**
+ * The set of ideas a user is responsible for under the category-centric model
+ * (ADR-0001): ideas whose Category they own, OR ideas explicitly assigned to
+ * them as reviewer. Replaces the old `assignedOwnerId = me` "my queue" filter.
+ */
+function responsibleForIdeas(userId: string) {
+	return or(
+		inArray(
+			ideas.categoryId,
+			db.select({ id: categories.id }).from(categories).where(eq(categories.ownerId, userId)),
+		),
+		eq(ideas.assignedReviewerId, userId),
+	);
+}
 
 // ── Submitter: My Ideas ───────────────────────────────────────────────────
 
@@ -36,7 +51,7 @@ export const getAssignedIdeas = createServerFn()
 	.middleware([ownerMiddleware])
 	.handler(async ({ context }) => {
 		const result = await db.query.ideas.findMany({
-			where: eq(ideas.assignedOwnerId, context.user.id),
+			where: responsibleForIdeas(context.user.id),
 			orderBy: (i, { asc }) => [asc(i.slaDueDate)],
 			with: {
 				category: { columns: { name: true } },
@@ -70,7 +85,7 @@ export const getOwnerStats = createServerFn()
 	.middleware([ownerMiddleware])
 	.handler(async ({ context }) => {
 		const myIdeas = await db.query.ideas.findMany({
-			where: eq(ideas.assignedOwnerId, context.user.id),
+			where: responsibleForIdeas(context.user.id),
 			columns: { status: true, slaDueDate: true },
 		});
 
@@ -158,14 +173,22 @@ export const getAllIdeas = createServerFn()
 		const result = await db.query.ideas.findMany({
 			orderBy: (i, { desc }) => [desc(i.submittedAt)],
 			with: {
-				category: { columns: { name: true } },
+				category: {
+					columns: { name: true },
+					// Accountable Owner derives from the Category (ADR-0001).
+					with: { owner: { columns: { id: true, displayName: true } } },
+				},
 				submitter: { columns: { id: true, displayName: true, photoUrl: true } },
-				assignedOwner: { columns: { id: true, displayName: true } },
+				// Optional assigned reviewer — the active reviewer when present.
+				assignedReviewer: { columns: { id: true, displayName: true } },
 			},
 		});
 
 		return result.map((idea) => {
 			const daysRemaining = businessDaysRemaining(idea.slaDueDate);
+			// The active reviewer (assignment if present, else the Category Owner)
+			// is what the "owner" column shows.
+			const activeReviewer = idea.assignedReviewer ?? idea.category.owner;
 			return {
 				id: idea.id,
 				submissionId: idea.submissionId,
@@ -176,8 +199,8 @@ export const getAllIdeas = createServerFn()
 				submitterId: idea.submitter.id,
 				submitterName: idea.submitter.displayName,
 				submitterPhotoUrl: idea.submitter.photoUrl,
-				assignedOwnerId: idea.assignedOwner?.id ?? null,
-				assignedOwnerName: idea.assignedOwner?.displayName ?? null,
+				assignedOwnerId: activeReviewer?.id ?? null,
+				assignedOwnerName: activeReviewer?.displayName ?? null,
 				impactArea: idea.impactArea,
 				submittedAt: idea.submittedAt.toISOString(),
 				slaDueDate: idea.slaDueDate?.toISOString() ?? null,
