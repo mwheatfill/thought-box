@@ -503,7 +503,8 @@ export const updateIdea = createServerFn({ method: "POST" })
 				declineReason: data.declineReason ?? null,
 			});
 
-			// Fire-and-forget: notify Watchers (submitter-facing event).
+			// Fire-and-forget: notify Watchers + the active reviewer (so an assigned
+			// Contributor learns the owner's verdict on their idea).
 			notifyIdeaWatchers({
 				ideaId: data.ideaId,
 				submissionId: idea.submissionId,
@@ -511,6 +512,7 @@ export const updateIdea = createServerFn({ method: "POST" })
 				eventType: "status_changed",
 				actorId: context.user.id,
 				submitterId: idea.submitterId,
+				alsoNotifyId: idea.assignedReviewerId ?? idea.category.ownerId,
 				update: { kind: "status", statusLabel: STATUS_LABELS[data.status] ?? data.status },
 			});
 		}
@@ -896,26 +898,15 @@ export const assignReviewer = createServerFn({ method: "POST" })
 				})
 			: null;
 
-		// Atomic: set the reviewer + auto-watch + log the event together.
+		// Atomic: set the reviewer + log the event together. No watcher row — the
+		// active reviewer *implicitly* follows the idea (they get replies + status
+		// updates by being the reviewer), so there's nothing to subscribe or toggle.
 		// Assignment never resets the SLA (slaResetsOnAction: assign_reviewer → false).
 		await db.transaction(async (tx) => {
 			await tx
 				.update(ideas)
 				.set({ assignedReviewerId: plan.assignedReviewerId, updatedAt: now })
 				.where(eq(ideas.id, data.ideaId));
-
-			// Auto-subscribe the assignee as a Watcher (idempotent).
-			if (plan.addsWatcher && plan.assignedReviewerId) {
-				await tx
-					.insert(ideaWatchers)
-					.values({
-						ideaId: data.ideaId,
-						userId: plan.assignedReviewerId,
-						source: "assignment",
-						addedById: context.user.id,
-					})
-					.onConflictDoNothing();
-			}
 
 			await tx.insert(ideaEvents).values({
 				ideaId: data.ideaId,

@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "#/server/db";
-import { ideaWatchers } from "#/server/db/schema";
+import { ideaWatchers, users } from "#/server/db/schema";
 import { sendWatcherUpdateEmail } from "#/server/functions/email";
 import { notifiesWatchers } from "#/server/lib/watcher-events";
 
@@ -9,10 +9,15 @@ type WatcherUpdate =
 	| { kind: "message"; messagePreview: string };
 
 /**
- * Notify a per-idea's Watchers of an event — but only the submitter-facing ones
- * (status changes, public messages), enforced through `notifiesWatchers`. The
- * actor who triggered the event and the submitter (notified through their own
- * emails) are excluded. Fire-and-forget: never blocks the primary action.
+ * Notify the people following an idea of a submitter-facing event (status change
+ * or public message — enforced through `notifiesWatchers`).
+ *
+ * Recipients = the **explicit Watchers** (self opt-in + owner-added; legacy
+ * `assignment` rows are ignored — the reviewer follows implicitly) PLUS an
+ * optional implicit follower (`alsoNotifyId`, the active reviewer, passed for
+ * status changes so a Contributor learns the owner's verdict). The actor and the
+ * submitter are always excluded — they're notified through their own emails.
+ * Fire-and-forget: never blocks the primary action.
  */
 export async function notifyIdeaWatchers(params: {
 	ideaId: string;
@@ -21,20 +26,32 @@ export async function notifyIdeaWatchers(params: {
 	eventType: string;
 	actorId: string;
 	submitterId: string;
+	/** Active reviewer to also notify (status events only — they get a reply email otherwise). */
+	alsoNotifyId?: string | null;
 	update: WatcherUpdate;
 }): Promise<void> {
 	if (!notifiesWatchers(params.eventType)) return;
 
 	const rows = await db.query.ideaWatchers.findMany({
-		where: eq(ideaWatchers.ideaId, params.ideaId),
+		where: and(
+			eq(ideaWatchers.ideaId, params.ideaId),
+			inArray(ideaWatchers.source, ["self", "owner_added"]),
+		),
 		with: { user: { columns: { id: true, email: true, displayName: true } } },
 	});
 
-	for (const row of rows) {
-		const u = row.user;
-		// Don't echo the event back to whoever caused it, and never to the
-		// submitter — they're already notified through the submitter-facing emails.
-		if (!u || u.id === params.actorId || u.id === params.submitterId) continue;
+	const recipientIds = new Set<string>(rows.flatMap((r) => (r.user ? [r.user.id] : [])));
+	if (params.alsoNotifyId) recipientIds.add(params.alsoNotifyId);
+	recipientIds.delete(params.actorId);
+	recipientIds.delete(params.submitterId);
+	if (recipientIds.size === 0) return;
+
+	const recipients = await db.query.users.findMany({
+		where: inArray(users.id, [...recipientIds]),
+		columns: { email: true, displayName: true },
+	});
+
+	for (const u of recipients) {
 		sendWatcherUpdateEmail({
 			watcherEmail: u.email,
 			watcherFirstName: u.displayName.split(" ")[0],

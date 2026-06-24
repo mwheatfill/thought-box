@@ -16,10 +16,9 @@ import {
 	watchIdea,
 } from "#/server/functions/watchers";
 
-const SOURCE_LABEL: Record<string, string> = {
-	self: "Following",
-	owner_added: "Added",
-	assignment: "Assigned",
+const EXPLICIT_LABEL: Record<string, string> = {
+	self: "Watching",
+	owner_added: "Added as watcher",
 };
 
 export function WatchersCard({ ideaId }: { ideaId: string }) {
@@ -75,8 +74,11 @@ export function WatchersCard({ ideaId }: { ideaId: string }) {
 	});
 
 	if (!data) return null;
-	// Nothing to show a pure submitter (implicitly watching, can't manage).
-	if (!data.canWatch && !data.canManage) return null;
+	const isImplicit = data.myFollow === "reviewer" || data.myFollow === "submitter";
+	// Nothing to surface to a viewer who's neither following nor able to manage.
+	if (!isImplicit && !data.canWatch && !data.canManage) return null;
+
+	const followAs = data.myFollow === "reviewer" ? "the reviewer" : "the submitter";
 
 	return (
 		<Card>
@@ -84,77 +86,132 @@ export function WatchersCard({ ideaId }: { ideaId: string }) {
 				<CardTitle className="flex items-center gap-2 text-sm font-medium">
 					<Eye className="size-4" /> Watchers
 				</CardTitle>
-				{data.canWatch && (
-					<Button
-						variant={data.isWatching ? "secondary" : "outline"}
-						size="sm"
-						disabled={toggleMutation.isPending}
-						onClick={() => toggleMutation.mutate(data.isWatching)}
-					>
-						{data.isWatching ? (
-							<>
-								<BellOff className="mr-1.5 size-3.5" /> Unwatch
-							</>
-						) : (
-							<>
-								<Bell className="mr-1.5 size-3.5" /> Watch
-							</>
-						)}
-					</Button>
+				{isImplicit ? (
+					<span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+						<Bell className="size-3.5" /> Following
+					</span>
+				) : (
+					data.canWatch && (
+						<Button
+							variant={data.myFollow === "watching" ? "secondary" : "outline"}
+							size="sm"
+							disabled={toggleMutation.isPending}
+							onClick={() => toggleMutation.mutate(data.myFollow === "watching")}
+						>
+							{data.myFollow === "watching" ? (
+								<>
+									<BellOff className="mr-1.5 size-3.5" /> Unwatch
+								</>
+							) : (
+								<>
+									<Bell className="mr-1.5 size-3.5" /> Watch
+								</>
+							)}
+						</Button>
+					)
 				)}
 			</CardHeader>
 
-			{data.canManage && (
-				<CardContent className="space-y-3">
-					{data.watchers.length === 0 ? (
-						<p className="text-sm text-muted-foreground">No one is watching yet.</p>
-					) : (
-						<ul className="space-y-1">
-							{data.watchers.map((w) => (
-								<li key={w.id} className="flex items-center gap-2.5 rounded-md px-1 py-1">
-									<Avatar className="size-7">
-										{w.photoUrl && <AvatarImage src={w.photoUrl} alt={w.displayName} />}
-										<AvatarFallback className="text-[10px]">
-											{initials(w.displayName)}
-										</AvatarFallback>
-									</Avatar>
-									<div className="min-w-0 flex-1">
-										<p className="truncate text-sm font-medium">{w.displayName}</p>
-										<p className="truncate text-xs text-muted-foreground">
-											{SOURCE_LABEL[w.source] ?? w.source}
-										</p>
-									</div>
-									<Button
-										variant="ghost"
-										size="icon"
-										className="size-7"
-										disabled={removeMutation.isPending}
-										onClick={() => removeMutation.mutate(w.id)}
-										title="Remove watcher"
-									>
-										<UserMinus className="size-4" />
-									</Button>
-								</li>
-							))}
-						</ul>
-					)}
+			<CardContent className="space-y-3">
+				{/* Implicit followers get a reassurance, not a toggle. */}
+				{isImplicit && (
+					<p className="text-sm text-muted-foreground">
+						You're automatically notified of replies and status changes because you're {followAs}
+						{data.canManage ? "." : " — no need to watch."}
+					</p>
+				)}
 
-					{showAdd ? (
-						<DirectoryPicker
-							placeholder="Add someone to watch…"
-							onSelect={(u) => addMutation.mutate(u)}
-						/>
-					) : (
-						<button
-							type="button"
-							onClick={() => setShowAdd(true)}
-							className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-						>
-							<UserPlus className="size-3.5" /> Add a watcher
-						</button>
-					)}
-				</CardContent>
-			)}
+				{data.canManage && (
+					<>
+						{data.autoFollowers.length > 0 && (
+							<div className="space-y-1">
+								<p className="text-xs font-semibold uppercase text-muted-foreground">
+									Following automatically
+								</p>
+								{data.autoFollowers.map((f) => (
+									<Person
+										key={`${f.id}-${f.kind}`}
+										name={f.displayName}
+										photoUrl={f.photoUrl}
+										sub={f.kind === "reviewer" ? "Active reviewer" : "Submitter"}
+									/>
+								))}
+							</div>
+						)}
+
+						<div className="space-y-1">
+							<p className="text-xs font-semibold uppercase text-muted-foreground">
+								Watchers ({data.watchers.length})
+							</p>
+							{data.watchers.length === 0 ? (
+								<p className="text-sm text-muted-foreground">No extra watchers.</p>
+							) : (
+								data.watchers.map((w) => (
+									<Person
+										key={w.id}
+										name={w.displayName}
+										photoUrl={w.photoUrl}
+										sub={EXPLICIT_LABEL[w.source] ?? "Watching"}
+										action={
+											<Button
+												variant="ghost"
+												size="icon"
+												className="size-7"
+												disabled={removeMutation.isPending}
+												onClick={() => removeMutation.mutate(w.id)}
+												title="Remove watcher"
+											>
+												<UserMinus className="size-4" />
+											</Button>
+										}
+									/>
+								))
+							)}
+						</div>
+
+						{showAdd ? (
+							<DirectoryPicker
+								placeholder="Add a stakeholder to watch…"
+								onSelect={(u) => addMutation.mutate(u)}
+							/>
+						) : (
+							<button
+								type="button"
+								onClick={() => setShowAdd(true)}
+								className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+							>
+								<UserPlus className="size-3.5" /> Add a watcher
+							</button>
+						)}
+					</>
+				)}
+			</CardContent>
 		</Card>
+	);
+}
+
+function Person({
+	name,
+	photoUrl,
+	sub,
+	action,
+}: {
+	name: string;
+	photoUrl: string | null;
+	sub: string;
+	action?: React.ReactNode;
+}) {
+	return (
+		<div className="flex items-center gap-2.5 rounded-md px-1 py-1">
+			<Avatar className="size-7">
+				{photoUrl && <AvatarImage src={photoUrl} alt={name} />}
+				<AvatarFallback className="text-[10px]">{initials(name)}</AvatarFallback>
+			</Avatar>
+			<div className="min-w-0 flex-1">
+				<p className="truncate text-sm font-medium">{name}</p>
+				<p className="truncate text-xs text-muted-foreground">{sub}</p>
+			</div>
+			{action}
+		</div>
 	);
 }

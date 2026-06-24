@@ -1,8 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/server/db";
-import { ideaWatchers, ideas } from "#/server/db/schema";
+import { ideaWatchers, ideas, users } from "#/server/db/schema";
 import { audit } from "#/server/lib/audit";
 import { loadIdeaCapabilities } from "#/server/lib/idea-authz";
 import { upsertDirectoryUser } from "#/server/lib/user-upsert";
@@ -34,9 +34,10 @@ function canManageWatchers(
 }
 
 /**
- * The Watcher panel for an idea. Anyone who can view the idea sees whether
- * they're watching; only owner/admin (who can manage) get the full roster of
- * Watchers — so the list never leaks a reviewer's identity to a submitter.
+ * The Watcher panel for an idea, distinguishing **implicit following** (the
+ * submitter and the active reviewer — automatic, no toggle) from **explicit
+ * watching** (self opt-in + owner-added stakeholders — the only toggle-able
+ * subscriptions). Owner/admin (who can manage) also get the lists.
  */
 export const getIdeaWatchers = createServerFn()
 	.middleware([authMiddleware])
@@ -53,39 +54,93 @@ export const getIdeaWatchers = createServerFn()
 		});
 		if (!caps.canView) throw new Error("Forbidden");
 
-		const isSubmitter = idea.submitterId === context.user.id;
+		const me = context.user.id;
+		// The active reviewer is the assigned reviewer, else the Category Owner.
+		const activeReviewerId = idea.assignedReviewerId ?? idea.category.ownerId;
+		const isSubmitter = idea.submitterId === me;
+		const isActiveReviewer = activeReviewerId === me;
 		const canManage = canManageWatchers(context.user, idea);
 
+		// Explicit subscriptions only (legacy `assignment` rows are ignored).
 		const rows = await db.query.ideaWatchers.findMany({
-			where: eq(ideaWatchers.ideaId, data.ideaId),
+			where: and(
+				eq(ideaWatchers.ideaId, data.ideaId),
+				inArray(ideaWatchers.source, ["self", "owner_added"]),
+			),
 			with: {
 				user: { columns: { id: true, displayName: true, email: true, photoUrl: true } },
 			},
 		});
+		const hasExplicitRow = rows.some((r) => r.userId === me);
 
-		// The submitter is implicitly watching even though they hold no row.
-		const isWatching = isSubmitter || rows.some((r) => r.userId === context.user.id);
+		// The viewer's own relationship — drives whether the card shows a passive
+		// "following" note or an actual Watch/Unwatch toggle.
+		const myFollow: "submitter" | "reviewer" | "watching" | "none" = isSubmitter
+			? "submitter"
+			: isActiveReviewer
+				? "reviewer"
+				: hasExplicitRow
+					? "watching"
+					: "none";
+
+		let watchers: {
+			id: string;
+			displayName: string;
+			email: string;
+			photoUrl: string | null;
+			source: string;
+		}[] = [];
+		const autoFollowers: {
+			id: string;
+			displayName: string;
+			photoUrl: string | null;
+			kind: "reviewer" | "submitter";
+		}[] = [];
+
+		if (canManage) {
+			watchers = rows.flatMap((r) =>
+				r.user
+					? [
+							{
+								id: r.user.id,
+								displayName: r.user.displayName,
+								email: r.user.email,
+								photoUrl: r.user.photoUrl,
+								source: r.source,
+							},
+						]
+					: [],
+			);
+
+			// The implicit followers (active reviewer + submitter), read-only.
+			const autoIds = [activeReviewerId, idea.submitterId].filter(
+				(id): id is string => id !== null,
+			);
+			const autoUsers = await db.query.users.findMany({
+				where: inArray(users.id, autoIds),
+				columns: { id: true, displayName: true, photoUrl: true },
+			});
+			const byId = new Map(autoUsers.map((u) => [u.id, u]));
+			const seen = new Set<string>();
+			for (const [id, kind] of [
+				[activeReviewerId, "reviewer"] as const,
+				[idea.submitterId, "submitter"] as const,
+			]) {
+				const u = id ? byId.get(id) : undefined;
+				if (u && !seen.has(u.id)) {
+					seen.add(u.id);
+					autoFollowers.push({ id: u.id, displayName: u.displayName, photoUrl: u.photoUrl, kind });
+				}
+			}
+		}
 
 		return {
-			isWatching,
-			// The submitter is implicitly watching their own idea and can't toggle it.
-			canWatch: !isSubmitter,
+			myFollow,
+			// Only a non-implicit follower can toggle an explicit watch.
+			canWatch: myFollow === "none" || myFollow === "watching",
 			canManage,
-			watchers: canManage
-				? rows.flatMap((r) =>
-						r.user
-							? [
-									{
-										id: r.user.id,
-										displayName: r.user.displayName,
-										email: r.user.email,
-										photoUrl: r.user.photoUrl,
-										source: r.source,
-									},
-								]
-							: [],
-					)
-				: [],
+			watchers,
+			autoFollowers,
 		};
 	});
 
@@ -96,10 +151,11 @@ export const watchIdea = createServerFn({ method: "POST" })
 	.handler(async ({ context, data }) => {
 		const idea = await loadIdeaForWatch(data.ideaId);
 
-		// Self-watch requires existing view access (relationship-based). A looped-in
-		// stakeholder without prior access is added by an owner/admin instead.
-		if (idea.submitterId === context.user.id) {
-			return { success: true, isWatching: true }; // implicit; no row needed
+		// The submitter and the active reviewer already follow implicitly — no row,
+		// nothing to toggle.
+		const activeReviewerId = idea.assignedReviewerId ?? idea.category.ownerId;
+		if (idea.submitterId === context.user.id || activeReviewerId === context.user.id) {
+			return { success: true, isWatching: true };
 		}
 		const caps = await loadIdeaCapabilities(context.user, {
 			id: idea.id,
