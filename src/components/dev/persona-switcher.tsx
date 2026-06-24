@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Check, RotateCcw, UserCog } from "lucide-react";
 import { useState } from "react";
+import { cn } from "#/lib/utils";
 import { getDevPersonas } from "#/server/functions/dev";
 
 interface ActingAs {
@@ -36,9 +37,11 @@ function switchTo(entraId: string | null) {
 export function PersonaSwitcher({
 	currentEntraId,
 	actingAs,
+	className,
 }: {
 	currentEntraId?: string;
 	actingAs?: ActingAs | null;
+	className?: string;
 }) {
 	const [open, setOpen] = useState(false);
 	const { data: personas = [] } = useQuery({
@@ -51,9 +54,23 @@ export function PersonaSwitcher({
 	const current = personas.find((p) => p.entraId === currentEntraId);
 
 	return (
-		<div className="fixed bottom-4 left-4 z-50 text-sm">
+		<div className={cn("relative text-sm", className)}>
+			<button
+				type="button"
+				onClick={() => setOpen((o) => !o)}
+				className={cn(
+					"flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium hover:bg-muted",
+					actingAs ? "border-amber-400/60 bg-amber-500/10" : "bg-background",
+				)}
+				title="Switch persona (test only)"
+			>
+				<UserCog className={`size-3.5 ${current ? INTENT_COLOR[current.intent] : ""}`} />
+				<span className="max-w-[140px] truncate">
+					{current ? `${current.displayName} · ${current.intent}` : "Switch persona"}
+				</span>
+			</button>
 			{open && (
-				<div className="mb-2 w-72 overflow-hidden rounded-lg border bg-popover shadow-lg">
+				<div className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-lg border bg-popover shadow-lg">
 					<div className="border-b px-3 py-2 text-xs font-semibold text-muted-foreground">
 						Switch persona (test only)
 					</div>
@@ -104,15 +121,6 @@ export function PersonaSwitcher({
 					</ul>
 				</div>
 			)}
-			<button
-				type="button"
-				onClick={() => setOpen((o) => !o)}
-				className="flex items-center gap-2 rounded-full border bg-background px-3 py-1.5 font-medium shadow-md hover:bg-muted"
-				title="Dev persona switcher"
-			>
-				<UserCog className={`size-4 ${current ? INTENT_COLOR[current.intent] : ""}`} />
-				{current ? `${current.displayName} · ${current.intent}` : "Switch persona"}
-			</button>
 		</div>
 	);
 }

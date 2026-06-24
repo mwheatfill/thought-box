@@ -177,23 +177,29 @@ function RootComponent() {
 						>
 							<SidebarTrigger className="text-foreground" />
 							<span className="text-base font-semibold text-foreground">ThoughtBox</span>
+							{user?.canSwitchPersona && (
+								<PersonaSwitcher
+									currentEntraId={user.entraId}
+									actingAs={user.actingAs}
+									className="ml-auto"
+								/>
+							)}
 						</header>
 						<Outlet />
 					</SidebarInset>
 				</SidebarProvider>
 				<Toaster position="bottom-right" richColors />
-				{user?.canSwitchPersona && (
-					<PersonaSwitcher currentEntraId={user.entraId} actingAs={user.actingAs} />
+				{import.meta.env.DEV && (
+					<TanStackDevtools
+						config={{ position: "bottom-right" }}
+						plugins={[
+							{
+								name: "TanStack Router",
+								render: <TanStackRouterDevtoolsPanel />,
+							},
+						]}
+					/>
 				)}
-				<TanStackDevtools
-					config={{ position: "bottom-right" }}
-					plugins={[
-						{
-							name: "TanStack Router",
-							render: <TanStackRouterDevtoolsPanel />,
-						},
-					]}
-				/>
 			</TooltipProvider>
 		</QueryClientProvider>
 	);
