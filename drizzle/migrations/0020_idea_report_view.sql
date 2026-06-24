@@ -45,7 +45,7 @@ SELECT
   sub_u.department                              AS submitter_department,
   i.impact_area,
   i.status,
-  CASE WHEN i.status IN ('accepted','declined','redirected') THEN i.status ELSE 'open' END AS outcome,
+  CASE WHEN i.status IN ('accepted','declined','redirected') THEN i.status::text ELSE 'open' END AS outcome,
   i.decline_reason,
   -- Lifecycle timestamps
   i.submitted_at,
