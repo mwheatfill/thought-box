@@ -3,6 +3,12 @@ import { CLOSED_STATUSES } from "#/lib/constants";
 export interface IdeaCapabilities {
 	/** May open the idea at all (owner, any assigned/roster reviewer, or submitter). */
 	canView: boolean;
+	/**
+	 * May read the internal (Owner) notes thread — owner/admin or the assigned
+	 * reviewer, on an idea of any status (history stays readable after close).
+	 * An unassigned roster Contributor and the submitter never see it.
+	 */
+	canReadInternalNotes: boolean;
 	/** May edit Owner Notes — owner/admin, or a Contributor assigned to this idea. */
 	canEditOwnerNotes: boolean;
 	/** May message the submitter — owner/admin, or a Contributor assigned to this idea. */
@@ -51,6 +57,9 @@ export function resolveIdeaCapabilities(params: {
 	return {
 		canView:
 			ownerLike || params.isAssignedReviewer || params.isCategoryContributor || params.isSubmitter,
+		// Reading internal notes is closed-independent (the thread stays readable
+		// for history) but never extends to an unassigned Contributor or submitter.
+		canReadInternalNotes: assignedActor,
 		canEditOwnerNotes: assignedActor && !closed,
 		canMessageSubmitter: assignedActor && !closed,
 		canAdvanceToUnderReview: assignedActor && params.status === "new",

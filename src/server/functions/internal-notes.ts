@@ -1,11 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, ne, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/server/db";
 import { ideaEvents, ideas, users } from "#/server/db/schema";
 import { sendMentionAlertEmail } from "#/server/functions/email";
 import { loadAttachmentsByEvent } from "#/server/lib/attachments-by-event";
-import { ownerMiddleware } from "#/server/middleware/auth";
+import { loadIdeaCapabilities } from "#/server/lib/idea-authz";
+import { authMiddleware } from "#/server/middleware/auth";
 
 /**
  * Add an internal note to an idea. Owners/admins only — submitters never
@@ -14,7 +15,7 @@ import { ownerMiddleware } from "#/server/middleware/auth";
  * don't have to re-parse the note text.
  */
 export const addInternalNote = createServerFn({ method: "POST" })
-	.middleware([ownerMiddleware])
+	.middleware([authMiddleware])
 	.inputValidator(
 		z.object({
 			ideaId: z.string(),
@@ -32,6 +33,9 @@ export const addInternalNote = createServerFn({ method: "POST" })
 				id: true,
 				submissionId: true,
 				title: true,
+				status: true,
+				categoryId: true,
+				submitterId: true,
 				assignedReviewerId: true,
 			},
 			with: { category: { columns: { ownerId: true } } },
@@ -39,10 +43,16 @@ export const addInternalNote = createServerFn({ method: "POST" })
 
 		if (!idea) throw new Error("Idea not found");
 
-		// Owners act only on ideas they own (via Category) or are assigned (ADR-0001).
-		const noteResponsible =
-			idea.category.ownerId === context.user.id || idea.assignedReviewerId === context.user.id;
-		if (context.user.role === "owner" && !noteResponsible) {
+		// Editing Owner Notes is assignment-gated (ADR-0002): owner/admin always, a
+		// Contributor only on ideas assigned to them. Gated on the relationship.
+		const caps = await loadIdeaCapabilities(context.user, {
+			status: idea.status,
+			submitterId: idea.submitterId,
+			assignedReviewerId: idea.assignedReviewerId,
+			categoryId: idea.categoryId,
+			categoryOwnerId: idea.category.ownerId,
+		});
+		if (!caps.canEditOwnerNotes) {
 			throw new Error("Forbidden");
 		}
 
@@ -57,15 +67,15 @@ export const addInternalNote = createServerFn({ method: "POST" })
 			})
 			.returning({ id: ideaEvents.id });
 
-		// Fire-and-forget: notify each mentioned user. Skip self-mentions and
-		// filter to owner/admin (submitters can't read internal notes anyway).
+		// Fire-and-forget: notify each mentioned user. Skip self-mentions and only
+		// notify those who can actually read internal notes — owner/admin, or this
+		// idea's assigned reviewer (who may be a Contributor with the submitter role).
 		if (data.mentions && data.mentions.length > 0) {
+			const canReadNotes = idea.assignedReviewerId
+				? or(inArray(users.role, ["owner", "admin"]), eq(users.id, idea.assignedReviewerId))
+				: inArray(users.role, ["owner", "admin"]);
 			const recipients = await db.query.users.findMany({
-				where: and(
-					inArray(users.id, data.mentions),
-					inArray(users.role, ["owner", "admin"]),
-					ne(users.id, context.user.id),
-				),
+				where: and(inArray(users.id, data.mentions), ne(users.id, context.user.id), canReadNotes),
 				columns: { email: true, displayName: true },
 			});
 
@@ -87,20 +97,32 @@ export const addInternalNote = createServerFn({ method: "POST" })
 	});
 
 export const getIdeaInternalNotes = createServerFn()
-	.middleware([ownerMiddleware])
+	.middleware([authMiddleware])
 	.inputValidator(z.object({ ideaId: z.string() }))
 	.handler(async ({ context, data }) => {
 		const idea = await db.query.ideas.findFirst({
 			where: eq(ideas.id, data.ideaId),
-			columns: { id: true, assignedReviewerId: true },
+			columns: {
+				id: true,
+				status: true,
+				categoryId: true,
+				submitterId: true,
+				assignedReviewerId: true,
+			},
 			with: { category: { columns: { ownerId: true } } },
 		});
 
 		if (!idea) throw new Error("Idea not found");
-		// Owners act only on ideas they own (via Category) or are assigned (ADR-0001).
-		const isResponsible =
-			idea.category.ownerId === context.user.id || idea.assignedReviewerId === context.user.id;
-		if (context.user.role === "owner" && !isResponsible) {
+		// Internal notes are owner/admin + assigned-reviewer only (ADR-0002): never
+		// the submitter, never an unassigned Contributor.
+		const caps = await loadIdeaCapabilities(context.user, {
+			status: idea.status,
+			submitterId: idea.submitterId,
+			assignedReviewerId: idea.assignedReviewerId,
+			categoryId: idea.categoryId,
+			categoryOwnerId: idea.category.ownerId,
+		});
+		if (!caps.canReadInternalNotes) {
 			throw new Error("Forbidden");
 		}
 

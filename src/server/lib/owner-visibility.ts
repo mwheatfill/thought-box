@@ -39,6 +39,12 @@ export function resolveIdeaAccess(params: {
 	submitterId: string;
 	categoryOwnerId: string | null;
 	assignedReviewerId: string | null;
+	/**
+	 * Whether the viewer is on the idea's Category Contributor roster. A roster
+	 * Contributor may view (and watch) the Category's ideas even when unassigned
+	 * (ADR-0002), but does not edit unless they are the assigned reviewer.
+	 */
+	isCategoryContributor?: boolean;
 }): IdeaAccess {
 	const isAdmin = params.userRole === "admin";
 	// Owner-like = the Category Owner (accountable) OR the assigned reviewer
@@ -46,10 +52,13 @@ export function resolveIdeaAccess(params: {
 	const isOwnerLike =
 		params.categoryOwnerId === params.userId || params.assignedReviewerId === params.userId;
 	const isSubmitter = params.submitterId === params.userId;
+	const isContributor = params.isCategoryContributor ?? false;
 
 	return {
-		canView: isAdmin || isOwnerLike || isSubmitter,
-		viewerRole: isAdmin ? "admin" : isOwnerLike ? "owner" : "submitter",
+		canView: isAdmin || isOwnerLike || isContributor || isSubmitter,
+		// A roster Contributor views from the reviewer side (sees the real owner,
+		// is internal staff) but cannot edit unless they hold the assignment.
+		viewerRole: isAdmin ? "admin" : isOwnerLike || isContributor ? "owner" : "submitter",
 		canEdit: isAdmin || isOwnerLike,
 	};
 }

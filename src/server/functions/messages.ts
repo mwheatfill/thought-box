@@ -5,6 +5,7 @@ import { db } from "#/server/db";
 import { ideaEvents, ideas, users } from "#/server/db/schema";
 import { sendNewMessageEmail } from "#/server/functions/email";
 import { loadAttachmentsByEvent } from "#/server/lib/attachments-by-event";
+import { loadIdeaCapabilities } from "#/server/lib/idea-authz";
 import { resolveIdeaOwnership } from "#/server/lib/ownership";
 import { authMiddleware } from "#/server/middleware/auth";
 
@@ -92,20 +93,29 @@ export const getIdeaMessages = createServerFn()
 	.handler(async ({ context, data }) => {
 		const idea = await db.query.ideas.findFirst({
 			where: eq(ideas.id, data.ideaId),
-			columns: { id: true, submitterId: true, assignedReviewerId: true },
+			columns: {
+				id: true,
+				status: true,
+				categoryId: true,
+				submitterId: true,
+				assignedReviewerId: true,
+			},
 			with: { category: { columns: { ownerId: true } } },
 		});
 
 		if (!idea) throw new Error("Idea not found");
 
-		// Access check: submitter, the Category Owner or assigned reviewer
-		// (ADR-0001), or any admin.
-		const isSubmitter = idea.submitterId === context.user.id;
-		const isOwnerSide =
-			idea.category.ownerId === context.user.id || idea.assignedReviewerId === context.user.id;
-		const isAdmin = context.user.role === "admin";
-
-		if (!isSubmitter && !isOwnerSide && !isAdmin) {
+		// Anyone who can view the idea can read its submitter↔reviewer thread: the
+		// submitter, owner/admin, the assigned reviewer, or a roster Contributor on
+		// the Category (ADR-0002 view-and-watch).
+		const caps = await loadIdeaCapabilities(context.user, {
+			status: idea.status,
+			submitterId: idea.submitterId,
+			assignedReviewerId: idea.assignedReviewerId,
+			categoryId: idea.categoryId,
+			categoryOwnerId: idea.category.ownerId,
+		});
+		if (!caps.canView) {
 			throw new Error("Forbidden");
 		}
 

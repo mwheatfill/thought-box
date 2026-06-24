@@ -31,6 +31,7 @@ describe("resolveIdeaCapabilities", () => {
 	it("lets an assigned Contributor do legwork but never the verdict", () => {
 		const c = resolveIdeaCapabilities({ ...NONE, isAssignedReviewer: true, status: "new" });
 		expect(c.canEditOwnerNotes).toBe(true);
+		expect(c.canReadInternalNotes).toBe(true);
 		expect(c.canMessageSubmitter).toBe(true);
 		expect(c.canAdvanceToUnderReview).toBe(true);
 		expect(c.canDecide).toBe(false);
@@ -38,12 +39,24 @@ describe("resolveIdeaCapabilities", () => {
 		expect(c.canAssignReviewer).toBe(false);
 	});
 
-	it("gives an unassigned roster Contributor view-and-watch only", () => {
+	it("gives an unassigned roster Contributor view-and-watch only — no internal notes", () => {
 		const c = resolveIdeaCapabilities({ ...NONE, isCategoryContributor: true, status: "new" });
 		expect(c.canView).toBe(true);
+		expect(c.canReadInternalNotes).toBe(false);
 		expect(c.canEditOwnerNotes).toBe(false);
 		expect(c.canMessageSubmitter).toBe(false);
 		expect(c.canAdvanceToUnderReview).toBe(false);
+	});
+
+	it("keeps internal notes readable to the assigned reviewer after the idea closes", () => {
+		const c = resolveIdeaCapabilities({ ...NONE, isAssignedReviewer: true, status: "declined" });
+		expect(c.canReadInternalNotes).toBe(true);
+		expect(c.canEditOwnerNotes).toBe(false);
+	});
+
+	it("never shows internal notes to the submitter", () => {
+		const c = resolveIdeaCapabilities({ ...NONE, isSubmitter: true, status: "under_review" });
+		expect(c.canReadInternalNotes).toBe(false);
 	});
 
 	it("lets the submitter view but not act", () => {

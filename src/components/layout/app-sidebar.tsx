@@ -1,6 +1,7 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import {
 	BarChart3,
+	Boxes,
 	ClipboardList,
 	FileText,
 	Inbox,
@@ -46,10 +47,12 @@ function getMainNav(role: string): NavItem[] {
 		items.push({ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard });
 		items.push({ label: "All Ideas", href: "/admin/ideas", icon: FileText });
 		items.push({ label: "My Queue", href: "/queue", icon: Inbox });
+		items.push({ label: "My Categories", href: "/my-categories", icon: Boxes });
 		items.push({ label: "My Ideas", href: "/my-ideas", icon: Lightbulb });
 	} else if (role === "owner") {
 		items.push({ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard });
 		items.push({ label: "My Queue", href: "/queue", icon: Inbox });
+		items.push({ label: "My Categories", href: "/my-categories", icon: Boxes });
 	} else {
 		items.push({ label: "My Ideas", href: "/my-ideas", icon: Lightbulb });
 	}

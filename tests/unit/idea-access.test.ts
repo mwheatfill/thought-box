@@ -26,6 +26,30 @@ describe("resolveIdeaAccess", () => {
 		expect(access).toEqual({ canView: true, viewerRole: "submitter", canEdit: false });
 	});
 
+	it("lets an unassigned roster Contributor view (not edit) as a reviewer", () => {
+		const access = resolveIdeaAccess({
+			userId: OTHER,
+			userRole: "submitter", // Contributor capability comes from the roster, not the stored role
+			submitterId: SUBMITTER,
+			categoryOwnerId: CATEGORY_OWNER,
+			assignedReviewerId: null,
+			isCategoryContributor: true,
+		});
+		expect(access).toEqual({ canView: true, viewerRole: "owner", canEdit: false });
+	});
+
+	it("denies a non-roster, non-owner, non-submitter user", () => {
+		const access = resolveIdeaAccess({
+			userId: OTHER,
+			userRole: "submitter",
+			submitterId: SUBMITTER,
+			categoryOwnerId: CATEGORY_OWNER,
+			assignedReviewerId: null,
+			isCategoryContributor: false,
+		});
+		expect(access.canView).toBe(false);
+	});
+
 	it("lets the Category Owner view and edit the idea as an owner", () => {
 		const access = resolveIdeaAccess({
 			userId: CATEGORY_OWNER,

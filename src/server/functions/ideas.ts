@@ -10,6 +10,7 @@ import {
 import { db, sql } from "#/server/db";
 import {
 	categories,
+	categoryContributors,
 	conversations,
 	ideaEvents,
 	ideaWatchers,
@@ -29,6 +30,7 @@ import {
 import { isScopedToCategory, planAssignment } from "#/server/lib/assignment";
 import { audit } from "#/server/lib/audit";
 import { planCategoryChange } from "#/server/lib/category-change";
+import { loadIdeaCapabilities } from "#/server/lib/idea-authz";
 import {
 	anonymizeActorName,
 	resolveIdeaAccess,
@@ -260,22 +262,40 @@ export const getIdeaDetail = createServerFn()
 		// idea, not their global role. A user with the "owner" role who submitted
 		// an idea whose Category someone else owns still views it — as its submitter
 		// (sees the message thread, not internal notes).
+		const isAdminViewer = context.user.role === "admin";
+		const isOwnerLikeViewer =
+			categoryOwner?.id === context.user.id || idea.assignedReviewerId === context.user.id;
+		// A roster Contributor may view (and watch) their Category's ideas even when
+		// unassigned (ADR-0002). Only look it up when it could change the answer.
+		let isCategoryContributor = false;
+		if (!isAdminViewer && !isOwnerLikeViewer && idea.submitterId !== context.user.id) {
+			const onRoster = await db.query.categoryContributors.findFirst({
+				where: and(
+					eq(categoryContributors.categoryId, idea.categoryId),
+					eq(categoryContributors.userId, context.user.id),
+				),
+				columns: { id: true },
+			});
+			isCategoryContributor = !!onRoster;
+		}
+
 		const { canView, viewerRole, canEdit } = resolveIdeaAccess({
 			userId: context.user.id,
 			userRole: context.user.role,
 			submitterId: idea.submitterId,
 			categoryOwnerId: categoryOwner?.id ?? null,
 			assignedReviewerId: idea.assignedReviewerId,
+			isCategoryContributor,
 		});
 		if (!canView) {
 			throw new Error("Not found");
 		}
 
-		// Load activity events. Internal notes and reviewer assignment are
-		// owner/admin-only — internal delegation the submitter never sees in the
-		// timeline or any other shape.
+		// Load activity events. Internal notes are owner/admin + assigned-reviewer
+		// only (never the submitter or an unassigned Contributor); the `assigned`
+		// delegation event is hidden from the submitter.
+		const canReadInternal = isAdminViewer || isOwnerLikeViewer;
 		const isSubmitter = viewerRole === "submitter";
-		const SUBMITTER_HIDDEN_EVENTS = new Set(["internal_note", "assigned"]);
 		const allEvents = await db.query.ideaEvents.findMany({
 			where: eq(ideaEvents.ideaId, idea.id),
 			orderBy: (e, { asc }) => [asc(e.createdAt)],
@@ -283,9 +303,11 @@ export const getIdeaDetail = createServerFn()
 				actor: { columns: { displayName: true, photoUrl: true } },
 			},
 		});
-		const events = isSubmitter
-			? allEvents.filter((e) => !SUBMITTER_HIDDEN_EVENTS.has(e.eventType))
-			: allEvents;
+		const events = allEvents.filter((e) => {
+			if (e.eventType === "internal_note") return canReadInternal;
+			if (e.eventType === "assigned") return !isSubmitter;
+			return true;
+		});
 
 		const daysRemaining = businessDaysRemaining(idea.slaDueDate);
 		const showOwner = shouldShowOwner(viewerRole, idea.hasBeenReviewed);
@@ -356,7 +378,7 @@ const UpdateIdeaSchema = z.object({
 });
 
 export const updateIdea = createServerFn({ method: "POST" })
-	.middleware([ownerMiddleware])
+	.middleware([authMiddleware])
 	.inputValidator(UpdateIdeaSchema)
 	.handler(async ({ context, data }) => {
 		const idea = await db.query.ideas.findFirst({
@@ -366,6 +388,7 @@ export const updateIdea = createServerFn({ method: "POST" })
 				submissionId: true,
 				title: true,
 				status: true,
+				categoryId: true,
 				hasBeenReviewed: true,
 				submitterId: true,
 				assignedReviewerId: true,
@@ -379,18 +402,31 @@ export const updateIdea = createServerFn({ method: "POST" })
 
 		if (!idea) throw new Error("Idea not found");
 
-		// Owners can only update ideas they're responsible for: ones whose Category
-		// they own (ADR-0001) or that are assigned to them as reviewer. Admins any.
-		const isResponsible =
-			idea.category.ownerId === context.user.id || idea.assignedReviewerId === context.user.id;
-		if (context.user.role === "owner" && !isResponsible) {
-			throw new Error("Forbidden");
-		}
-
 		// Closed ideas are locked. UI hides the edit form, but enforce server-side
 		// too so direct API calls can't bypass the lock.
 		if ((CLOSED_STATUSES as readonly string[]).includes(idea.status)) {
 			throw new Error("This idea is closed and locked. No further edits are allowed.");
+		}
+
+		// Capability-gated (ADR-0002): the verdict (Accept/Decline) is reserved to
+		// owner/admin; advancing to Under Review and editing notes/messages extend
+		// to a Contributor assigned to this idea. Gated on the actual relationship,
+		// not the stored role — a Contributor carries the `submitter` role.
+		const caps = await loadIdeaCapabilities(context.user, {
+			status: idea.status,
+			submitterId: idea.submitterId,
+			assignedReviewerId: idea.assignedReviewerId,
+			categoryId: idea.categoryId,
+			categoryOwnerId: idea.category.ownerId,
+		});
+		const allowed =
+			data.status === "accepted" || data.status === "declined"
+				? caps.canDecide
+				: data.status === "under_review"
+					? caps.canAdvanceToUnderReview
+					: caps.canEditOwnerNotes;
+		if (!allowed) {
+			throw new Error("Forbidden");
 		}
 
 		// Required-field enforcement for terminal statuses. Accepted/Declined both
@@ -475,7 +511,7 @@ export const updateIdea = createServerFn({ method: "POST" })
 // bulk action cannot collect. Those transitions must happen one idea at a time
 // via updateIdea.
 export const bulkUpdateStatus = createServerFn({ method: "POST" })
-	.middleware([ownerMiddleware])
+	.middleware([authMiddleware])
 	.inputValidator(
 		z.object({
 			ideaIds: z.array(z.string()).min(1),
@@ -489,14 +525,17 @@ export const bulkUpdateStatus = createServerFn({ method: "POST" })
 			with: { category: { columns: { ownerId: true } } },
 		});
 
+		const isAdmin = context.user.role === "admin";
 		const targets = candidates.filter((idea) => {
-			// Owners act only on ideas they own (via Category) or are assigned.
-			const isResponsible =
-				idea.category.ownerId === context.user.id || idea.assignedReviewerId === context.user.id;
-			if (context.user.role === "owner" && !isResponsible) return false;
-			if (idea.status === data.status) return false;
-			if ((CLOSED_STATUSES as readonly string[]).includes(idea.status)) return false;
-			return true;
+			// Advancing to Under Review is the assigned actor's to do (owner/admin or
+			// the assigned reviewer, ADR-0002) and only valid from New — which also
+			// excludes closed ideas. An unassigned roster Contributor can't, so no
+			// roster lookup is needed here.
+			const assignedActor =
+				isAdmin ||
+				idea.category.ownerId === context.user.id ||
+				idea.assignedReviewerId === context.user.id;
+			return assignedActor && idea.status === "new";
 		});
 
 		if (targets.length === 0) {
@@ -737,7 +776,10 @@ export const getActiveOwnersAndAdmins = createServerFn()
  * Watcher event filter, which excludes administrative events).
  */
 export const changeIdeaCategory = createServerFn({ method: "POST" })
-	.middleware([ownerMiddleware])
+	// authMiddleware (not ownerMiddleware): a Category Owner is gated by the
+	// `isOwnerLike` relationship check below, not their stored role (which may
+	// still be `submitter` until Phase 8 derives it).
+	.middleware([authMiddleware])
 	.inputValidator(
 		z.object({
 			ideaId: z.string(),
@@ -899,7 +941,9 @@ export const changeIdeaCategory = createServerFn({ method: "POST" })
  * Watcher and emailed.
  */
 export const assignReviewer = createServerFn({ method: "POST" })
-	.middleware([ownerMiddleware])
+	// authMiddleware (not ownerMiddleware): the Category Owner is gated by the
+	// `isOwnerLike` relationship check below, independent of stored role.
+	.middleware([authMiddleware])
 	.inputValidator(
 		z.object({
 			ideaId: z.string(),
