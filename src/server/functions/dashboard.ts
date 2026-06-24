@@ -3,7 +3,7 @@ import { count, eq, gte, inArray, or, sql } from "drizzle-orm";
 import { db } from "#/server/db";
 import { categories, ideaEvents, ideas, users } from "#/server/db/schema";
 import { businessDaysRemaining, calculateSlaStatus } from "#/server/lib/sla";
-import { adminMiddleware, authMiddleware, ownerMiddleware } from "#/server/middleware/auth";
+import { adminMiddleware, authMiddleware } from "#/server/middleware/auth";
 
 /**
  * The set of ideas a user is responsible for under the category-centric model
@@ -48,7 +48,7 @@ export const getMyIdeas = createServerFn()
 // ── Owner: Assigned Ideas ────────────────────────────────────────────────
 
 export const getAssignedIdeas = createServerFn()
-	.middleware([ownerMiddleware])
+	.middleware([authMiddleware])
 	.handler(async ({ context }) => {
 		const result = await db.query.ideas.findMany({
 			where: responsibleForIdeas(context.user.id),
@@ -82,7 +82,7 @@ export const getAssignedIdeas = createServerFn()
 // ── Owner: KPI stats ─────────────────────────────────────────────────────
 
 export const getOwnerStats = createServerFn()
-	.middleware([ownerMiddleware])
+	.middleware([authMiddleware])
 	.handler(async ({ context }) => {
 		const myIdeas = await db.query.ideas.findMany({
 			where: responsibleForIdeas(context.user.id),

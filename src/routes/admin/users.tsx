@@ -27,6 +27,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "#/components/ui/select";
+import { ROLE_LABELS } from "#/lib/constants";
 import { initials } from "#/lib/utils";
 import {
 	getUsers,
@@ -36,6 +37,14 @@ import {
 	updateUserRole,
 	upsertUser,
 } from "#/server/functions/admin-users";
+
+/** Derived-role badge colors (mirrors the UserCard role pills). */
+const ROLE_BADGE_CLASS: Record<string, string> = {
+	admin: "border-purple-300 text-purple-700 dark:text-purple-300",
+	owner: "border-blue-300 text-blue-700 dark:text-blue-300",
+	contributor: "border-amber-300 text-amber-700 dark:text-amber-300",
+	submitter: "text-muted-foreground",
+};
 
 export const Route = createFileRoute("/admin/users")({
 	errorComponent: ({ error }) => <RouteError error={error} />,
@@ -102,7 +111,7 @@ function UsersPage() {
 
 	const [pendingPromotion, setPendingPromotion] = useState<{
 		userId: string;
-		role: "owner" | "admin";
+		role: "admin";
 		displayName: string;
 	} | null>(null);
 	const [pendingInvite, setPendingInvite] = useState<{
@@ -159,35 +168,30 @@ function UsersPage() {
 			header: ({ column }) => <SortableHeader column={column}>Role</SortableHeader>,
 			cell: ({ row }) => {
 				const u = row.original;
+				const isAdmin = u.role === "admin";
+				// Roles are derived (ADR-0003): Owner = owns a category, Contributor =
+				// on a roster. The only manual control is the explicit admin grant.
 				return (
-					<Select
-						value={u.role}
-						onValueChange={(newRole) => {
-							const isPromotion =
-								(newRole === "owner" || newRole === "admin") && u.role === "submitter";
-							if (isPromotion) {
-								setPendingPromotion({
-									userId: u.id,
-									role: newRole as "owner" | "admin",
-									displayName: u.displayName,
-								});
-							} else {
-								roleMutation.mutate({
-									userId: u.id,
-									role: newRole as "submitter" | "owner" | "admin",
-								});
-							}
-						}}
-					>
-						<SelectTrigger className="h-8 w-[130px]" onClick={(e) => e.stopPropagation()}>
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="submitter">Submitter</SelectItem>
-							<SelectItem value="owner">Owner</SelectItem>
-							<SelectItem value="admin">Admin</SelectItem>
-						</SelectContent>
-					</Select>
+					<div className="flex items-center gap-2">
+						<Badge variant="outline" className={ROLE_BADGE_CLASS[u.role] ?? ""}>
+							{ROLE_LABELS[u.role as keyof typeof ROLE_LABELS] ?? u.role}
+						</Badge>
+						<Button
+							variant="ghost"
+							size="sm"
+							className="h-7 text-xs text-muted-foreground"
+							onClick={(e) => {
+								e.stopPropagation();
+								if (isAdmin) {
+									roleMutation.mutate({ userId: u.id, role: "submitter" });
+								} else {
+									setPendingPromotion({ userId: u.id, role: "admin", displayName: u.displayName });
+								}
+							}}
+						>
+							{isAdmin ? "Remove admin" : "Make admin"}
+						</Button>
+					</div>
 				);
 			},
 			filterFn: "equals",
@@ -279,6 +283,7 @@ function UsersPage() {
 								options: [
 									{ value: "admin", label: "Admin" },
 									{ value: "owner", label: "Owner" },
+									{ value: "contributor", label: "Contributor" },
 									{ value: "submitter", label: "Submitter" },
 								],
 							},
@@ -346,12 +351,11 @@ function UsersPage() {
 			>
 				<DialogContent className="max-w-sm">
 					<DialogHeader>
-						<DialogTitle>
-							Promote to {pendingPromotion?.role === "admin" ? "Admin" : "Owner"}
-						</DialogTitle>
+						<DialogTitle>Make administrator</DialogTitle>
 						<DialogDescription>
-							{pendingPromotion?.displayName} will be promoted to{" "}
-							{pendingPromotion?.role === "admin" ? "administrator" : "idea reviewer"}.
+							{pendingPromotion?.displayName} will become a ThoughtBox administrator with full
+							access. (Owner and Contributor roles are granted by assigning a category or adding
+							someone to a roster — not here.)
 						</DialogDescription>
 					</DialogHeader>
 					<PromotionActions
@@ -433,7 +437,7 @@ function AddUserDialog({
 	const [results, setResults] = useState<DirectoryResult[]>([]);
 	const [searching, setSearching] = useState(false);
 	const [selectedUser, setSelectedUser] = useState<DirectoryResult | null>(null);
-	const [role, setRole] = useState<"submitter" | "owner" | "admin">("owner");
+	const [role, setRole] = useState<"submitter" | "owner" | "admin">("submitter");
 	const [sendInvite, setSendInvite] = useState(true);
 
 	const searchFn = useServerFn(searchDirectory);
@@ -478,7 +482,7 @@ function AddUserDialog({
 			setQuery("");
 			setResults([]);
 			setSelectedUser(null);
-			setRole("owner");
+			setRole("submitter");
 			setSendInvite(true);
 			toast.success(result?.created ? "User added from directory" : "User updated");
 		},
@@ -501,7 +505,7 @@ function AddUserDialog({
 					setQuery("");
 					setResults([]);
 					setSelectedUser(null);
-					setRole("owner");
+					setRole("submitter");
 					setSendInvite(true);
 				}
 			}}
@@ -603,7 +607,6 @@ function AddUserDialog({
 									</SelectTrigger>
 									<SelectContent>
 										<SelectItem value="submitter">Submitter</SelectItem>
-										<SelectItem value="owner">Owner</SelectItem>
 										<SelectItem value="admin">Admin</SelectItem>
 									</SelectContent>
 								</Select>

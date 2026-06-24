@@ -1,8 +1,9 @@
 import { createMiddleware } from "@tanstack/react-start";
-import { eq } from "drizzle-orm";
+import { and, count, eq, isNull } from "drizzle-orm";
 import { db } from "#/server/db";
-import { users } from "#/server/db/schema";
+import { categories, categoryContributors, users } from "#/server/db/schema";
 import { enrichUserProfile } from "#/server/lib/enrichment";
+import { type EffectiveRole, deriveUserRole } from "#/server/lib/roles";
 
 // Skip enrichment DB query if checked within the last 60 seconds
 const enrichmentCache = new Map<string, number>();
@@ -19,8 +20,43 @@ export interface AuthUser {
 	officeLocation: string | null;
 	photoUrl: string | null;
 	managerDisplayName: string | null;
-	role: "submitter" | "owner" | "admin";
+	/**
+	 * The viewer's **effective** role, derived from relationships (ADR-0003), not
+	 * the stored column: `admin` is the only explicit role; `owner` = owns ≥1
+	 * Category; `contributor` = on ≥1 roster; else `submitter`.
+	 */
+	role: EffectiveRole;
 	active: boolean;
+}
+
+/**
+ * Compute a user's effective role (ADR-0003). `admin` short-circuits — no need
+ * to touch the join tables. Everyone else is owner/contributor/submitter by
+ * their live Category ownership and roster memberships.
+ */
+async function resolveEffectiveRole(userId: string, isAdmin: boolean): Promise<EffectiveRole> {
+	if (isAdmin) return "admin";
+	const [owned, roster] = await Promise.all([
+		db
+			.select({ n: count() })
+			.from(categories)
+			.where(
+				and(
+					eq(categories.ownerId, userId),
+					eq(categories.active, true),
+					isNull(categories.deletedAt),
+				),
+			),
+		db
+			.select({ n: count() })
+			.from(categoryContributors)
+			.where(eq(categoryContributors.userId, userId)),
+	]);
+	return deriveUserRole({
+		isAdmin: false,
+		ownedCategoryCount: Number(owned[0]?.n ?? 0),
+		rosterMembershipCount: Number(roster[0]?.n ?? 0),
+	});
 }
 
 // ── Header parsing ─────────────────────────────────────────────────────────
@@ -138,6 +174,10 @@ export const authMiddleware = createMiddleware().server(async ({ next, request }
 		);
 	}
 
+	// Effective role is derived from relationships, not the stored column — so
+	// granting a Category or roster seat is what makes someone an Owner/Contributor.
+	const effectiveRole = await resolveEffectiveRole(user.id, user.role === "admin");
+
 	const authUser: AuthUser = {
 		id: user.id,
 		entraId: user.entraId,
@@ -148,7 +188,7 @@ export const authMiddleware = createMiddleware().server(async ({ next, request }
 		officeLocation: user.officeLocation,
 		photoUrl: user.photoUrl,
 		managerDisplayName: user.managerDisplayName,
-		role: user.role,
+		role: effectiveRole,
 		active: user.active,
 	};
 

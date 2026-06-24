@@ -10,6 +10,7 @@ export type IdeaStatus = keyof typeof STATUS_LABELS;
 
 export const ROLE_LABELS = {
 	submitter: "Submitter",
+	contributor: "Contributor",
 	owner: "Owner",
 	admin: "Admin",
 } as const;

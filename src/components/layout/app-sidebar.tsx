@@ -53,6 +53,10 @@ function getMainNav(role: string): NavItem[] {
 		items.push({ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard });
 		items.push({ label: "My Queue", href: "/queue", icon: Inbox });
 		items.push({ label: "My Categories", href: "/my-categories", icon: Boxes });
+	} else if (role === "contributor") {
+		// Contributors work ideas assigned to them — their queue, plus their own ideas.
+		items.push({ label: "My Queue", href: "/queue", icon: Inbox });
+		items.push({ label: "My Ideas", href: "/my-ideas", icon: Lightbulb });
 	} else {
 		items.push({ label: "My Ideas", href: "/my-ideas", icon: Lightbulb });
 	}

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { OwnerDashboard } from "#/components/dashboard/owner-dashboard";
 import { getAssignedIdeas, getOwnerStats } from "#/server/functions/dashboard";
@@ -7,8 +7,9 @@ import { bulkUpdateStatus } from "#/server/functions/ideas";
 
 export const Route = createFileRoute("/queue")({
 	beforeLoad: ({ context }) => {
-		if (context.user.role !== "owner" && context.user.role !== "admin") {
-			throw new Error("Forbidden");
+		// Owners, admins, and Contributors (assigned ideas) have a queue; submitters don't.
+		if (context.user.role === "submitter") {
+			throw redirect({ to: "/my-ideas" });
 		}
 	},
 	loader: async () => {

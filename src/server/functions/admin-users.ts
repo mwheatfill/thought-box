@@ -2,37 +2,65 @@ import { createServerFn } from "@tanstack/react-start";
 import { and, count, eq, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/server/db";
-import { categories, users } from "#/server/db/schema";
+import { categories, categoryContributors, users } from "#/server/db/schema";
 import { sendUserInviteEmail } from "#/server/functions/email";
 import { audit } from "#/server/lib/audit";
 import { enrichUserProfile } from "#/server/lib/enrichment";
 import { searchDirectory as searchDirectoryApi } from "#/server/lib/graph";
 import { resolveDeactivation } from "#/server/lib/owner-departure";
+import { deriveUserRole } from "#/server/lib/roles";
 import { trackEvent } from "#/server/lib/telemetry";
 import { adminMiddleware } from "#/server/middleware/auth";
 
 export const getUsers = createServerFn()
 	.middleware([adminMiddleware])
 	.handler(async () => {
-		const result = await db.query.users.findMany({
-			orderBy: (u, { asc }) => [asc(u.displayName)],
-			columns: {
-				id: true,
-				displayName: true,
-				email: true,
-				department: true,
-				jobTitle: true,
-				officeLocation: true,
-				photoUrl: true,
-				managerDisplayName: true,
-				role: true,
-				active: true,
-				firstSeen: true,
-				createdAt: true,
-			},
-		});
+		// Roles are derived from relationships (ADR-0003): the stored column only
+		// tells us who is an explicit admin. Owner/Contributor come from live
+		// Category ownership and roster membership, counted once and joined in.
+		const [result, ownedCounts, rosterCounts] = await Promise.all([
+			db.query.users.findMany({
+				orderBy: (u, { asc }) => [asc(u.displayName)],
+				columns: {
+					id: true,
+					displayName: true,
+					email: true,
+					department: true,
+					jobTitle: true,
+					officeLocation: true,
+					photoUrl: true,
+					managerDisplayName: true,
+					role: true,
+					active: true,
+					firstSeen: true,
+					createdAt: true,
+				},
+			}),
+			db
+				.select({ ownerId: categories.ownerId, n: count() })
+				.from(categories)
+				.where(and(eq(categories.active, true), isNull(categories.deletedAt)))
+				.groupBy(categories.ownerId),
+			db
+				.select({ userId: categoryContributors.userId, n: count() })
+				.from(categoryContributors)
+				.groupBy(categoryContributors.userId),
+		]);
+
+		const ownedByUser = new Map(
+			ownedCounts.filter((r) => r.ownerId).map((r) => [r.ownerId as string, Number(r.n)]),
+		);
+		const rosterByUser = new Map(rosterCounts.map((r) => [r.userId, Number(r.n)]));
+
 		return result.map((u) => ({
 			...u,
+			// Effective role for display; `storedRole` exposes the explicit-admin bit.
+			storedRole: u.role,
+			role: deriveUserRole({
+				isAdmin: u.role === "admin",
+				ownedCategoryCount: ownedByUser.get(u.id) ?? 0,
+				rosterMembershipCount: rosterByUser.get(u.id) ?? 0,
+			}),
 			firstSeen: u.firstSeen?.toISOString() ?? null,
 			createdAt: u.createdAt.toISOString(),
 		}));

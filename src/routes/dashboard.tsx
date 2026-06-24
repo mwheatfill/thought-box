@@ -21,8 +21,13 @@ export const Route = createFileRoute("/dashboard")({
 	errorComponent: ({ error }) => <RouteError error={error} />,
 	pendingComponent: DashboardSkeleton,
 	beforeLoad: ({ context }) => {
+		// The summary dashboard is for owners/admins. Submitters → their ideas;
+		// Contributors → their assigned queue.
 		if (context.user.role === "submitter") {
 			throw redirect({ to: "/my-ideas" });
+		}
+		if (context.user.role === "contributor") {
+			throw redirect({ to: "/queue" });
 		}
 	},
 	loader: async ({ context }) => {

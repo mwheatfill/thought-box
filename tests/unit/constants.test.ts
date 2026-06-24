@@ -19,9 +19,10 @@ describe("STATUS_LABELS", () => {
 });
 
 describe("ROLE_LABELS", () => {
-	it("has all three roles", () => {
-		expect(Object.keys(ROLE_LABELS)).toHaveLength(3);
+	it("has all four derived roles", () => {
+		expect(Object.keys(ROLE_LABELS)).toHaveLength(4);
 		expect(ROLE_LABELS.submitter).toBe("Submitter");
+		expect(ROLE_LABELS.contributor).toBe("Contributor");
 		expect(ROLE_LABELS.owner).toBe("Owner");
 		expect(ROLE_LABELS.admin).toBe("Admin");
 	});

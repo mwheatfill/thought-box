@@ -42,8 +42,12 @@ export const getIdeaAttachments = createServerFn()
 			isInternal: a.isInternal || !!(a.messageId && internalEventIds.has(a.messageId)),
 		}));
 
-		const visible =
-			context.user.role === "submitter" ? enriched.filter((e) => !e.isInternal) : enriched;
+		// Internal attachments are owner/admin-only. Gate on owner-perspective, not
+		// "not a submitter" — under the derived model a Contributor/Watcher is also
+		// non-submitter but must not see internal files. (Per-idea assignment-aware
+		// visibility is the Phase 9 attachment-access unification.)
+		const ownerView = context.user.role === "owner" || context.user.role === "admin";
+		const visible = ownerView ? enriched : enriched.filter((e) => !e.isInternal);
 
 		return visible.map((e) => ({
 			id: e.row.id,
