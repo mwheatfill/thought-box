@@ -292,7 +292,6 @@ export function OwnerDashboard({
 										<SelectContent>
 											<SelectItem value="under_review">Under Review</SelectItem>
 											<SelectItem value="accepted">Accepted</SelectItem>
-											<SelectItem value="declined">Declined</SelectItem>
 										</SelectContent>
 									</Select>
 									<Button
