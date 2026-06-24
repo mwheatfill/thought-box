@@ -791,6 +791,28 @@ export const getActiveOwnersAndAdmins = createServerFn()
 // ── Change Category (the accountability lever, ADR-0001) ──────────────────
 
 /**
+ * Resolve a Change-Category / Reopen target and assert it can receive ideas: an
+ * active, ThoughtBox-routing Category with a live Owner. (Redirect categories
+ * don't hold ideas; an unowned Category would leave the idea unaccountable.)
+ * Returns the category with a guaranteed non-null `ownerId`.
+ */
+async function loadValidCategoryTarget(
+	categoryId: string,
+): Promise<{ id: string; name: string; ownerId: string }> {
+	const category = await db.query.categories.findFirst({
+		where: eq(categories.id, categoryId),
+		columns: { id: true, name: true, active: true, routingType: true, ownerId: true },
+	});
+	if (!category || !category.active || category.routingType !== "thoughtbox") {
+		throw new Error("That category can't receive ideas.");
+	}
+	if (!category.ownerId) {
+		throw new Error("That category has no owner yet. Pick a category with an owner.");
+	}
+	return { id: category.id, name: category.name, ownerId: category.ownerId };
+}
+
+/**
  * Move an Idea to a different Category — the accountability lever. Changing the
  * Category changes the Idea's *derived* Owner, so this is how an Idea is "reassigned"
  * under the category-centric model. It clears any assigned reviewer (they aren't
@@ -846,19 +868,7 @@ export const changeIdeaCategory = createServerFn({ method: "POST" })
 			throw new Error("This idea is already in that category.");
 		}
 
-		// The target must be a live destination: an active, ThoughtBox-routing
-		// Category with an Owner. (Redirect categories don't hold ideas; an unowned
-		// Category would leave the idea without an accountable Owner.)
-		const newCategory = await db.query.categories.findFirst({
-			where: eq(categories.id, data.newCategoryId),
-			columns: { id: true, name: true, active: true, routingType: true, ownerId: true },
-		});
-		if (!newCategory || !newCategory.active || newCategory.routingType !== "thoughtbox") {
-			throw new Error("That category can't receive ideas.");
-		}
-		if (!newCategory.ownerId) {
-			throw new Error("That category has no owner yet. Pick a category with an owner.");
-		}
+		const newCategory = await loadValidCategoryTarget(data.newCategoryId);
 
 		const plan = planCategoryChange({
 			newCategoryId: newCategory.id,
@@ -1160,4 +1170,265 @@ export const getAssignableReviewers = createServerFn()
 			scopedRole:
 				p.id === category.ownerId ? "owner" : contributorIds.has(p.id) ? "contributor" : p.role,
 		}));
+	});
+
+// ── Reopen (closed idea → New, explicit and audited) ──────────────────────
+
+/**
+ * Reopen a closed (Accepted/Declined) idea — an explicit owner/admin action that
+ * returns it to New, resets the SLA, clears the assignment for a fresh review,
+ * and may recategorize in the same step (CONTEXT: Reopen). Distinct from a
+ * Change Category on a closed idea, which is disallowed — reopening is always
+ * deliberate.
+ */
+export const reopenIdea = createServerFn({ method: "POST" })
+	.middleware([authMiddleware])
+	.inputValidator(z.object({ ideaId: z.string(), newCategoryId: z.string().optional() }))
+	.handler(async ({ context, data }) => {
+		const idea = await db.query.ideas.findFirst({
+			where: eq(ideas.id, data.ideaId),
+			columns: {
+				id: true,
+				submissionId: true,
+				title: true,
+				status: true,
+				categoryId: true,
+				submitterId: true,
+				assignedReviewerId: true,
+			},
+			with: {
+				category: { columns: { name: true, ownerId: true } },
+				submitter: { columns: { displayName: true } },
+			},
+		});
+		if (!idea) throw new Error("Idea not found");
+
+		// canReopen = owner/admin AND the idea is closed (ADR-0002).
+		const caps = await loadIdeaCapabilities(context.user, {
+			id: idea.id,
+			status: idea.status,
+			submitterId: idea.submitterId,
+			assignedReviewerId: idea.assignedReviewerId,
+			categoryId: idea.categoryId,
+			categoryOwnerId: idea.category.ownerId,
+		});
+		if (!caps.canReopen) {
+			throw new Error("Only an owner or admin can reopen a closed idea.");
+		}
+
+		// Optional recategorize in the same step.
+		const target =
+			data.newCategoryId && data.newCategoryId !== idea.categoryId
+				? await loadValidCategoryTarget(data.newCategoryId)
+				: null;
+
+		const now = new Date();
+		await db
+			.update(ideas)
+			.set({
+				status: "new",
+				categoryId: target ? target.id : idea.categoryId,
+				assignedReviewerId: null, // fresh review
+				declineReason: null, // no longer declined
+				closedAt: null,
+				slaDueDate: calculateSlaDueDate(now, 15),
+				closureSlaDueDate: calculateSlaDueDate(now, 30),
+				slaStartedAt: now,
+				updatedAt: now,
+			})
+			.where(eq(ideas.id, data.ideaId));
+
+		// Clear pending reminders so the fresh SLA starts clean.
+		await db
+			.delete(ideaEvents)
+			.where(and(eq(ideaEvents.ideaId, data.ideaId), eq(ideaEvents.eventType, "reminder_sent")));
+
+		// Log the reopen as a status change (submitter-/watcher-facing).
+		await db.insert(ideaEvents).values({
+			ideaId: data.ideaId,
+			eventType: "status_changed",
+			actorId: context.user.id,
+			oldValue: idea.status,
+			newValue: "new",
+			note: "Reopened",
+		});
+		if (target) {
+			await db.insert(ideaEvents).values({
+				ideaId: data.ideaId,
+				eventType: "reassigned",
+				actorId: context.user.id,
+				oldValue: idea.category.name,
+				newValue: target.name,
+			});
+		}
+
+		// Fire-and-forget: notify Watchers of the reopen (status-facing).
+		notifyIdeaWatchers({
+			ideaId: data.ideaId,
+			submissionId: idea.submissionId,
+			ideaTitle: idea.title,
+			eventType: "status_changed",
+			actorId: context.user.id,
+			submitterId: idea.submitterId,
+			update: { kind: "status", statusLabel: "Reopened" },
+		});
+
+		// If recategorized, notify the new accountable Owner.
+		if (target) {
+			const newOwner = await db.query.users.findFirst({
+				where: eq(users.id, target.ownerId),
+				columns: { displayName: true, email: true },
+			});
+			if (newOwner) {
+				sendIdeaReassignedEmail({
+					ownerEmail: newOwner.email,
+					ownerFirstName: newOwner.displayName.split(" ")[0],
+					submissionId: idea.submissionId,
+					ideaTitle: idea.title,
+					categoryName: target.name,
+					submitterName: idea.submitter.displayName,
+					reassignedByName: context.user.displayName,
+					reasonLabel: null,
+					note: "Reopened and moved into your category.",
+				});
+			}
+		}
+
+		trackEvent("IdeaReopened", {
+			ideaId: data.ideaId,
+			submissionId: idea.submissionId,
+			fromStatus: idea.status,
+		});
+		audit({
+			actorId: context.user.id,
+			action: "idea.reopened",
+			resourceType: "idea",
+			resourceId: idea.submissionId,
+			details: { from: idea.status, recategorizedTo: target?.name ?? null },
+		});
+
+		return { success: true };
+	});
+
+// ── Needs Triage (reviewer escape hatch) ──────────────────────────────────
+
+const TRIAGE_CATEGORY_NAME = "Needs Triage";
+
+/**
+ * Move an idea to the admin-owned **Needs Triage** category when the active
+ * reviewer can't place it (Pri 7). Like a Change Category, it clears the
+ * assignment and resets the SLA; it then notifies ThoughtBox admins to
+ * recategorize. Available to the active reviewer (owner/admin or the assigned
+ * Contributor) — the one stuck on the idea.
+ */
+export const requestTriage = createServerFn({ method: "POST" })
+	.middleware([authMiddleware])
+	.inputValidator(z.object({ ideaId: z.string(), note: z.string().trim().max(500).optional() }))
+	.handler(async ({ context, data }) => {
+		const idea = await db.query.ideas.findFirst({
+			where: eq(ideas.id, data.ideaId),
+			columns: {
+				id: true,
+				submissionId: true,
+				title: true,
+				status: true,
+				categoryId: true,
+				submitterId: true,
+				assignedReviewerId: true,
+			},
+			with: {
+				category: { columns: { name: true, ownerId: true } },
+				submitter: { columns: { displayName: true, department: true } },
+			},
+		});
+		if (!idea) throw new Error("Idea not found");
+
+		// The active reviewer (assigned actor) is the one who can be stuck on it.
+		const caps = await loadIdeaCapabilities(context.user, {
+			id: idea.id,
+			status: idea.status,
+			submitterId: idea.submitterId,
+			assignedReviewerId: idea.assignedReviewerId,
+			categoryId: idea.categoryId,
+			categoryOwnerId: idea.category.ownerId,
+		});
+		if (!caps.canEditOwnerNotes) {
+			throw new Error("Only the idea's reviewer can send it to triage.");
+		}
+
+		const triage = await db.query.categories.findFirst({
+			where: and(eq(categories.name, TRIAGE_CATEGORY_NAME), eq(categories.active, true)),
+			columns: { id: true, name: true },
+		});
+		if (!triage) {
+			throw new Error("No 'Needs Triage' category is configured. Ask an admin to add one.");
+		}
+		if (triage.id === idea.categoryId) {
+			throw new Error("This idea is already in triage.");
+		}
+
+		const now = new Date();
+		const statusResets = idea.status !== "new";
+		await db
+			.update(ideas)
+			.set({
+				categoryId: triage.id,
+				assignedReviewerId: null,
+				slaDueDate: calculateSlaDueDate(now, 15),
+				closureSlaDueDate: calculateSlaDueDate(now, 30),
+				slaStartedAt: now,
+				updatedAt: now,
+				...(statusResets ? { status: "new" as const } : {}),
+			})
+			.where(eq(ideas.id, data.ideaId));
+
+		await db
+			.delete(ideaEvents)
+			.where(and(eq(ideaEvents.ideaId, data.ideaId), eq(ideaEvents.eventType, "reminder_sent")));
+
+		await db.insert(ideaEvents).values({
+			ideaId: data.ideaId,
+			eventType: "reassigned",
+			actorId: context.user.id,
+			oldValue: idea.category.name,
+			newValue: triage.name,
+			note: data.note?.trim() || "Sent to triage — needs admin assistance.",
+		});
+		if (statusResets) {
+			await db.insert(ideaEvents).values({
+				ideaId: data.ideaId,
+				eventType: "status_changed",
+				actorId: context.user.id,
+				oldValue: idea.status,
+				newValue: "new",
+			});
+		}
+
+		// Fire-and-forget: alert every active admin to recategorize it.
+		const admins = await db.query.users.findMany({
+			where: (u, { eq: e, and: a }) => a(e(u.role, "admin"), e(u.active, true)),
+			columns: { email: true, displayName: true },
+		});
+		for (const adm of admins) {
+			sendIdeaAssignedEmail({
+				ownerEmail: adm.email,
+				ownerFirstName: adm.displayName.split(" ")[0],
+				submissionId: idea.submissionId,
+				ideaTitle: idea.title,
+				categoryName: triage.name,
+				submitterName: idea.submitter.displayName,
+				submitterDepartment: idea.submitter.department,
+			});
+		}
+
+		trackEvent("IdeaTriaged", { ideaId: data.ideaId, submissionId: idea.submissionId });
+		audit({
+			actorId: context.user.id,
+			action: "idea.triage_requested",
+			resourceType: "idea",
+			resourceId: idea.submissionId,
+			details: { from: idea.category.name, note: data.note?.trim() || null },
+		});
+
+		return { success: true };
 	});

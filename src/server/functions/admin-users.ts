@@ -1,12 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, eq, ne } from "drizzle-orm";
+import { and, count, eq, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/server/db";
-import { users } from "#/server/db/schema";
+import { categories, users } from "#/server/db/schema";
 import { sendUserInviteEmail } from "#/server/functions/email";
 import { audit } from "#/server/lib/audit";
 import { enrichUserProfile } from "#/server/lib/enrichment";
 import { searchDirectory as searchDirectoryApi } from "#/server/lib/graph";
+import { resolveDeactivation } from "#/server/lib/owner-departure";
 import { trackEvent } from "#/server/lib/telemetry";
 import { adminMiddleware } from "#/server/middleware/auth";
 
@@ -37,6 +38,29 @@ export const getUsers = createServerFn()
 		}));
 	});
 
+/**
+ * Block demoting/deactivating a user who still owns Categories (Pri 13): under
+ * the derived model removing them would orphan every idea in those Categories.
+ * The admin must transfer ownership first. Counts only live (active, non-deleted)
+ * Categories.
+ */
+async function ensureNoOwnedCategories(userId: string) {
+	const [{ n }] = await db
+		.select({ n: count() })
+		.from(categories)
+		.where(
+			and(
+				eq(categories.ownerId, userId),
+				eq(categories.active, true),
+				isNull(categories.deletedAt),
+			),
+		);
+	const decision = resolveDeactivation({ ownedCategoryCount: Number(n) });
+	if (!decision.canDeactivate) {
+		throw new Error(decision.reason ?? "Transfer category ownership first.");
+	}
+}
+
 async function ensureNotLastAdmin(userId: string, action: string) {
 	const target = await db.query.users.findFirst({
 		where: eq(users.id, userId),
@@ -62,6 +86,11 @@ export const updateUserRole = createServerFn({ method: "POST" })
 		}
 		if (data.role !== "admin") {
 			await ensureNotLastAdmin(data.userId, "demote");
+		}
+		// Demoting to submitter strips the owner standing — block while they still
+		// own Categories (transfer first) so no ideas are orphaned.
+		if (data.role === "submitter") {
+			await ensureNoOwnedCategories(data.userId);
 		}
 
 		const target = await db.query.users.findFirst({
@@ -99,6 +128,7 @@ export const toggleUserActive = createServerFn({ method: "POST" })
 		}
 		if (!data.active) {
 			await ensureNotLastAdmin(data.userId, "deactivate");
+			await ensureNoOwnedCategories(data.userId);
 		}
 
 		const target = await db.query.users.findFirst({

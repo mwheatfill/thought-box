@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { categories, settings, users } from "./schema";
@@ -110,6 +111,31 @@ async function seed() {
 			},
 		])
 		.onConflictDoNothing();
+
+	// Admin-owned catch-all for ideas a reviewer can't place (Pri 7 escape hatch).
+	// Owned by an admin so it never shows up as an "unowned category".
+	// Idempotent: categories have no unique name constraint, so guard against
+	// creating a second "Needs Triage" on reseed (requestTriage looks it up by name).
+	const [existingTriage] = await db
+		.select({ id: categories.id })
+		.from(categories)
+		.where(eq(categories.name, "Needs Triage"))
+		.limit(1);
+	if (!existingTriage) {
+		const [seedAdmin] = await db
+			.select({ id: users.id })
+			.from(users)
+			.where(eq(users.role, "admin"))
+			.limit(1);
+		await db.insert(categories).values({
+			name: "Needs Triage",
+			description:
+				"Catch-all for ideas a reviewer couldn't place. ThoughtBox admins recategorize these to the right owning category.",
+			routingType: "thoughtbox",
+			ownerId: seedAdmin?.id ?? null,
+			sortOrder: 99,
+		});
+	}
 
 	console.log("  ✓ Categories seeded");
 

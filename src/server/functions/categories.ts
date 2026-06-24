@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { eq, isNotNull, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/server/db";
 import { categories } from "#/server/db/schema";
@@ -171,6 +171,35 @@ export const restoreCategory = createServerFn({ method: "POST" })
 		});
 
 		return { success: true };
+	});
+
+/**
+ * Categories that need an Owner (Pri 13): active, idea-holding (ThoughtBox)
+ * Categories whose Owner is unset or has been deactivated out-of-band in Entra —
+ * which leaves every idea in them unaccountable. Surfaced to admins so they can
+ * reassign promptly.
+ */
+export const getUnownedCategories = createServerFn()
+	.middleware([adminMiddleware])
+	.handler(async () => {
+		const rows = await db.query.categories.findMany({
+			where: and(
+				eq(categories.active, true),
+				isNull(categories.deletedAt),
+				eq(categories.routingType, "thoughtbox"),
+			),
+			columns: { id: true, name: true, ownerId: true },
+			with: { owner: { columns: { displayName: true, active: true } } },
+		});
+
+		return rows
+			.filter((c) => !c.ownerId || !c.owner || !c.owner.active)
+			.map((c) => ({
+				id: c.id,
+				name: c.name,
+				// Departed = had an Owner who is now deactivated (vs never assigned).
+				formerOwnerName: c.owner && !c.owner.active ? c.owner.displayName : null,
+			}));
 	});
 
 /** Get owners for the default owner dropdown */

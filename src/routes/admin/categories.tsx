@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
+	AlertTriangle,
 	Check,
 	ChevronsUpDown,
 	ExternalLink,
@@ -59,6 +60,7 @@ import {
 	getCategories,
 	getDeletedCategories,
 	getOwners,
+	getUnownedCategories,
 	restoreCategory,
 	updateCategory,
 } from "#/server/functions/categories";
@@ -71,8 +73,12 @@ export const Route = createFileRoute("/admin/categories")({
 		}
 	},
 	loader: async () => {
-		const [cats, owners] = await Promise.all([getCategories(), getOwners()]);
-		return { categories: cats, owners };
+		const [cats, owners, unowned] = await Promise.all([
+			getCategories(),
+			getOwners(),
+			getUnownedCategories(),
+		]);
+		return { categories: cats, owners, unowned };
 	},
 	component: CategoriesPage,
 });
@@ -98,7 +104,7 @@ const emptyForm: CategoryForm = {
 };
 
 function CategoriesPage() {
-	const { categories: initialCategories, owners } = Route.useLoaderData();
+	const { categories: initialCategories, owners, unowned } = Route.useLoaderData();
 	const queryClient = useQueryClient();
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
@@ -233,6 +239,35 @@ function CategoriesPage() {
 					Add Category
 				</Button>
 			</div>
+
+			{unowned.length > 0 && (
+				<div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/30">
+					<div className="flex items-start gap-3">
+						<AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
+						<div className="space-y-1">
+							<p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+								{unowned.length} {unowned.length === 1 ? "category needs" : "categories need"} an
+								owner
+							</p>
+							<p className="text-sm text-amber-800 dark:text-amber-300">
+								Ideas in these categories have no accountable owner. Assign one in the row's owner
+								dropdown.
+							</p>
+							<ul className="mt-1 flex flex-wrap gap-1.5">
+								{unowned.map((u) => (
+									<li
+										key={u.id}
+										className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-200"
+									>
+										{u.name}
+										{u.formerOwnerName ? ` (${u.formerOwnerName} departed)` : ""}
+									</li>
+								))}
+							</ul>
+						</div>
+					</div>
+				</div>
+			)}
 
 			<Card>
 				<CardContent className="p-0">
