@@ -147,7 +147,7 @@ export function OwnerActions({
 	const reasonReady = !needsReason || declineReason.length > 0;
 	const canSave = statusChanged && messageReady && reasonReady;
 
-	const saveLabel = needsMessage ? "Save and Send Final Update" : "Save and Send Update";
+	const saveLabel = needsMessage ? "Save and Send Final Update" : "Save Note";
 
 	const handleSave = async () => {
 		if (status === "new") return;
@@ -352,7 +352,7 @@ export function OwnerActions({
 										className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
 									>
 										<Plus className="size-3.5" />
-										Add a private note for the team
+										Add an internal note
 									</button>
 								) : (
 									<div className="space-y-2 rounded-md border border-dashed border-muted-foreground/30 bg-muted/30 p-3">
@@ -360,8 +360,7 @@ export function OwnerActions({
 											<div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
 												<Lock className="size-3.5" />
 												<span>
-													Private team note{" "}
-													<span className="text-muted-foreground/70">(optional)</span>
+													Internal note <span className="text-muted-foreground/70">(optional)</span>
 												</span>
 											</div>
 											<button
