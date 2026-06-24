@@ -9,6 +9,9 @@ targetScope = 'resourceGroup'
 @description('Azure region for all resources')
 param location string = 'westus3'
 
+@description('Azure region for the App Service plan + site. Defaults to `location`; override only to dodge a region capacity shortage (the rest of the stack stays in `location`).')
+param appServiceLocation string = location
+
 @description('Environment name (prod, dev, staging)')
 param environmentName string = 'prod'
 
@@ -256,7 +259,7 @@ resource attachmentsContainer 'Microsoft.Storage/storageAccounts/blobServices/co
 
 resource appServicePlan 'Microsoft.Web/serverfarms@2024-04-01' = {
   name: appServicePlanName
-  location: location
+  location: appServiceLocation
   kind: 'linux'
   properties: {
     reserved: true
@@ -271,7 +274,7 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2024-04-01' = {
 
 resource appService 'Microsoft.Web/sites@2024-04-01' = {
   name: appServiceName
-  location: location
+  location: appServiceLocation
   kind: 'app,linux'
   identity: {
     type: 'SystemAssigned'

@@ -1,16 +1,17 @@
 using '../main.bicep'
 
 param location = 'westus3'
+param appServiceLocation = 'westus2'
 param environmentName = 'dev'
 param appServicePlanSku = 'B1'
 
 // Entra ID — a SEPARATE dev app registration is recommended (isolation from
 // prod). Fill in after creating it; add the dev redirect URI + admin consent.
 param azureTenantId = 'cd551af0-e42b-4a17-a193-1748738a72d7'
-param azureClientId = ''
+param azureClientId = '76f232c4-6669-4ff4-83fe-c6e5a777c2ba'
 
 // Graph API — dev app registration (Mail.Send scoped to the DEV mailbox).
-param graphClientId = ''
+param graphClientId = '76f232c4-6669-4ff4-83fe-c6e5a777c2ba'
 
 // Custom domain (dev)
 param customDomain = 'thoughtbox-dev.desertfinancial.com'
