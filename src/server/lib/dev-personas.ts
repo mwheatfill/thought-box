@@ -1,14 +1,24 @@
 import { and, count, desc, eq, isNull } from "drizzle-orm";
 import { db } from "#/server/db";
 import { categories, categoryContributors, ideas, users } from "#/server/db/schema";
+import { personasEnabled } from "#/server/lib/app-env";
 
 /**
- * Dev-only persona switching. NEVER active in production: every entry point here
- * is gated by `isDevEnv()`, and in a production Vite build `process.env.NODE_ENV`
- * is statically "production", so these branches compile out / no-op.
+ * Local development: NODE_ENV is "development"/"test", Easy Auth is mocked, so
+ * the persona switcher works without an admin gate (it's your own machine).
  */
 export function isDevEnv(): boolean {
 	return process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
+}
+
+/**
+ * Whether the persona switcher should be available at all — either locally
+ * (`isDevEnv`) or in a deployed dev env (`personasEnabled`). In a deployed dev
+ * env the actual identity *override* is additionally admin-gated by
+ * `resolvePersonaOverride`; this just controls whether the personas are listed.
+ */
+export function personaSwitchingEnabled(): boolean {
+	return isDevEnv() || personasEnabled;
 }
 
 export type PersonaIntent = "admin" | "owner" | "contributor" | "submitter";
@@ -82,7 +92,7 @@ export interface DevPersonaStatus extends DevPersona {
  * that category's roster. Returns the personas with the resolved category name.
  */
 export async function ensureDevPersonas(): Promise<DevPersonaStatus[]> {
-	if (!isDevEnv()) return [];
+	if (!personaSwitchingEnabled()) return [];
 
 	// Upsert each persona user (by entraId).
 	for (const p of DEV_PERSONAS) {
@@ -135,7 +145,11 @@ export async function ensureDevPersonas(): Promise<DevPersonaStatus[]> {
 			})
 		: null;
 
-	if (!cat && owner) {
+	// Local convenience only: auto-adopt the unowned category with the most ideas
+	// so the owner views aren't empty. NEVER in a deployed dev env — there the dev
+	// seed assigns the owner persona a dedicated category, so we don't silently
+	// reassign a real UAT category out from under a tester.
+	if (!cat && owner && isDevEnv()) {
 		const [pick] = await db
 			.select({ id: categories.id, name: categories.name, n: count(ideas.id) })
 			.from(categories)

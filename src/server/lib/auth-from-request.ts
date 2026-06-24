@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "#/server/db";
 import { users } from "#/server/db/schema";
+import { resolvePersonaOverride } from "#/server/lib/persona-override";
 import type { AuthUser } from "#/server/middleware/auth";
 
 function parseEntraId(request: Request): string | null {
@@ -22,7 +23,7 @@ export async function resolveAuthUser(request: Request): Promise<AuthUser | null
 	if (!entraId) return null;
 	const user = await db.query.users.findFirst({ where: eq(users.entraId, entraId) });
 	if (!user || !user.active) return null;
-	return {
+	const realUser: AuthUser = {
 		id: user.id,
 		entraId: user.entraId,
 		email: user.email,
@@ -35,4 +36,9 @@ export async function resolveAuthUser(request: Request): Promise<AuthUser | null
 		role: user.role,
 		active: user.active,
 	};
+
+	// Deployed dev only: honor the same admin-gated persona override here so that
+	// AI-chat submissions and file uploads also act as the selected persona.
+	const acting = await resolvePersonaOverride(request, realUser);
+	return acting ?? realUser;
 }

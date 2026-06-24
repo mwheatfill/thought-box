@@ -1,10 +1,11 @@
 import { createMiddleware } from "@tanstack/react-start";
-import { and, count, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "#/server/db";
-import { categories, categoryContributors, users } from "#/server/db/schema";
+import { users } from "#/server/db/schema";
 import { devClaimsFor, isDevEnv } from "#/server/lib/dev-personas";
 import { enrichUserProfile } from "#/server/lib/enrichment";
-import { type EffectiveRole, deriveUserRole } from "#/server/lib/roles";
+import { resolveEffectiveRole, resolvePersonaOverride } from "#/server/lib/persona-override";
+import type { EffectiveRole } from "#/server/lib/roles";
 
 // Skip enrichment DB query if checked within the last 60 seconds
 const enrichmentCache = new Map<string, number>();
@@ -28,36 +29,6 @@ export interface AuthUser {
 	 */
 	role: EffectiveRole;
 	active: boolean;
-}
-
-/**
- * Compute a user's effective role (ADR-0003). `admin` short-circuits — no need
- * to touch the join tables. Everyone else is owner/contributor/submitter by
- * their live Category ownership and roster memberships.
- */
-async function resolveEffectiveRole(userId: string, isAdmin: boolean): Promise<EffectiveRole> {
-	if (isAdmin) return "admin";
-	const [owned, roster] = await Promise.all([
-		db
-			.select({ n: count() })
-			.from(categories)
-			.where(
-				and(
-					eq(categories.ownerId, userId),
-					eq(categories.active, true),
-					isNull(categories.deletedAt),
-				),
-			),
-		db
-			.select({ n: count() })
-			.from(categoryContributors)
-			.where(eq(categoryContributors.userId, userId)),
-	]);
-	return deriveUserRole({
-		isAdmin: false,
-		ownedCategoryCount: Number(owned[0]?.n ?? 0),
-		rosterMembershipCount: Number(roster[0]?.n ?? 0),
-	});
 }
 
 // ── Header parsing ─────────────────────────────────────────────────────────
@@ -197,7 +168,11 @@ export const authMiddleware = createMiddleware().server(async ({ next, request }
 		active: user.active,
 	};
 
-	return next({ context: { user: authUser } });
+	// Deployed dev only: a real admin may impersonate a test persona (admin-gated
+	// inside resolvePersonaOverride). `realUser` is always the true identity so the
+	// UI can show an "acting as" indicator. In prod / for non-admins this is null.
+	const actingUser = await resolvePersonaOverride(request, authUser);
+	return next({ context: { user: actingUser ?? authUser, realUser: authUser } });
 });
 
 /**

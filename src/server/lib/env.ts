@@ -20,6 +20,11 @@ const envSchema = z.object({
 	DEV_USER_ENTRA_ID: z.string().optional(),
 
 	NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+
+	// Deployment environment, independent of NODE_ENV (which stays "production"
+	// for any deployed build). Only "dev" unlocks admin-gated persona switching
+	// in a deployed env. Defaults to "prod" — fail-safe.
+	APP_ENV: z.enum(["dev", "prod"]).default("prod"),
 });
 
 export type Env = z.infer<typeof envSchema>;

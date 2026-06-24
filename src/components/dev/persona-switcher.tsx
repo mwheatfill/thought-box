@@ -1,7 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { Check, UserCog } from "lucide-react";
+import { Check, RotateCcw, UserCog } from "lucide-react";
 import { useState } from "react";
 import { getDevPersonas } from "#/server/functions/dev";
+
+interface ActingAs {
+	realDisplayName: string;
+	realEmail: string;
+}
 
 const INTENT_COLOR: Record<string, string> = {
 	admin: "text-purple-600 dark:text-purple-400",
@@ -22,11 +27,19 @@ function switchTo(entraId: string | null) {
 }
 
 /**
- * Dev-only floating widget to switch the active user across roles without
- * editing `.env` or restarting. Rendered only under `import.meta.env.DEV`, so it
- * is compiled out of production builds entirely.
+ * Floating widget to switch the active user across roles for testing — without
+ * separate accounts. Rendered only when the session is allowed to switch
+ * (`canSwitchPersona`): local dev (any user) or a deployed dev env where the REAL
+ * signed-in user is an admin. The identity override itself is admin-gated
+ * server-side, so a forged cookie from a non-admin is ignored.
  */
-export function PersonaSwitcher({ currentEntraId }: { currentEntraId?: string }) {
+export function PersonaSwitcher({
+	currentEntraId,
+	actingAs,
+}: {
+	currentEntraId?: string;
+	actingAs?: ActingAs | null;
+}) {
 	const [open, setOpen] = useState(false);
 	const { data: personas = [] } = useQuery({
 		queryKey: ["dev-personas"],
@@ -42,8 +55,23 @@ export function PersonaSwitcher({ currentEntraId }: { currentEntraId?: string })
 			{open && (
 				<div className="mb-2 w-72 overflow-hidden rounded-lg border bg-popover shadow-lg">
 					<div className="border-b px-3 py-2 text-xs font-semibold text-muted-foreground">
-						Switch persona (dev only)
+						Switch persona (test only)
 					</div>
+					{actingAs && (
+						<div className="flex items-start gap-2 border-b bg-amber-500/10 px-3 py-2 text-xs">
+							<span className="min-w-0 flex-1 text-amber-700 dark:text-amber-300">
+								Acting as <span className="font-medium">{current?.displayName ?? "persona"}</span> —
+								you are <span className="font-medium">{actingAs.realDisplayName}</span>.
+							</span>
+							<button
+								type="button"
+								onClick={() => switchTo(null)}
+								className="flex shrink-0 items-center gap-1 rounded border bg-background px-1.5 py-0.5 font-medium hover:bg-muted"
+							>
+								<RotateCcw className="size-3" /> Back to me
+							</button>
+						</div>
+					)}
 					<ul>
 						{personas.map((p) => (
 							<li key={p.entraId}>

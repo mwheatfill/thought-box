@@ -20,10 +20,12 @@ import { TooltipProvider } from "#/components/ui/tooltip";
 import { getSidebarState } from "#/server/functions/sidebar";
 import { getCurrentUser } from "#/server/functions/users";
 
-import type { AuthUser } from "#/server/middleware/auth";
 import appCss from "../styles/globals.css?url";
 
-let cachedUser: AuthUser | null = null;
+/** The session user plus persona-switching metadata (canSwitchPersona, actingAs). */
+type SessionUser = Awaited<ReturnType<typeof getCurrentUser>>;
+
+let cachedUser: SessionUser | null = null;
 
 const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('theme');var mode=(stored==='light'||stored==='dark'||stored==='auto')?stored:'auto';var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=mode==='auto'?(prefersDark?'dark':'light'):mode;var root=document.documentElement;root.classList.remove('light','dark');root.classList.add(resolved);root.style.colorScheme=resolved;}catch(e){}})();`;
 
@@ -62,7 +64,7 @@ export const Route = createRootRoute({
 
 		// Skip auth for the deactivated page to avoid redirect loops
 		if (location.pathname === "/deactivated") {
-			return { user: null as unknown as AuthUser, sidebarOpen };
+			return { user: null as unknown as SessionUser, sidebarOpen };
 		}
 
 		// Cache user on client after first load — only changes on login/logout (full reload)
@@ -180,7 +182,9 @@ function RootComponent() {
 					</SidebarInset>
 				</SidebarProvider>
 				<Toaster position="bottom-right" richColors />
-				{import.meta.env.DEV && <PersonaSwitcher currentEntraId={user?.entraId} />}
+				{user?.canSwitchPersona && (
+					<PersonaSwitcher currentEntraId={user.entraId} actingAs={user.actingAs} />
+				)}
 				<TanStackDevtools
 					config={{ position: "bottom-right" }}
 					plugins={[

@@ -3,18 +3,28 @@ import { and, count, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/server/db";
 import { categories, categoryContributors, ideas, users } from "#/server/db/schema";
+import { personasEnabled } from "#/server/lib/app-env";
+import { isDevEnv } from "#/server/lib/dev-personas";
 import { getUserPresence } from "#/server/lib/graph";
 import { deriveUserRole } from "#/server/lib/roles";
 import { authMiddleware } from "#/server/middleware/auth";
 
 /**
- * Get the currently authenticated user.
- * Used by the root layout to determine role-based navigation.
+ * Get the currently authenticated user, plus persona-switching metadata for the
+ * dev switcher: `canSwitchPersona` (local dev, or a deployed dev env where the
+ * REAL user is an admin) and `actingAs` (set when an admin is impersonating a
+ * persona — the true identity, for the "acting as" banner).
  */
 export const getCurrentUser = createServerFn()
 	.middleware([authMiddleware])
 	.handler(async ({ context }) => {
-		return context.user;
+		const real = context.realUser;
+		const canSwitchPersona = isDevEnv() || (personasEnabled && real.role === "admin");
+		const actingAs =
+			real.id !== context.user.id
+				? { realDisplayName: real.displayName, realEmail: real.email }
+				: null;
+		return { ...context.user, canSwitchPersona, actingAs };
 	});
 
 /**
