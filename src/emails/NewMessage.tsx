@@ -27,7 +27,7 @@ export default function NewMessage({
 	viewUrl = "https://thoughtbox.desertfinancial.com/ideas/TB-0001",
 }: NewMessageProps) {
 	const headline = isFromOwner
-		? `${senderName} has a question about your idea`
+		? "There has been a comment added about your idea"
 		: `${senderName} responded on ${submissionId}`;
 
 	return (
@@ -44,7 +44,7 @@ export default function NewMessage({
 
 			<IdeaCard submissionId={submissionId} title={ideaTitle} />
 
-			<QuoteBlock label={senderName}>{messagePreview}</QuoteBlock>
+			<QuoteBlock label={isFromOwner ? "Your reviewer" : senderName}>{messagePreview}</QuoteBlock>
 
 			<PrimaryButton href={viewUrl}>Reply →</PrimaryButton>
 		</EmailLayout>

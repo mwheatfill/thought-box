@@ -55,10 +55,13 @@ export function EmailLayout({ preview, accentColor = "#3b82f6", children }: Emai
 
 						{/* Footer */}
 						<Section className="px-4 py-6">
-							<Text className="m-0 text-center text-[11px] leading-5 text-gray-400">
-								This is an automated message from ThoughtBox. Please do not reply.
+							<Text className="m-0 text-center text-[13px] font-semibold leading-5 text-gray-600">
+								Please don't reply to this email — this inbox isn't monitored.
+							</Text>
+							<Text className="m-0 mt-1.5 text-center text-[11px] leading-5 text-gray-400">
+								To add a comment or respond, open your idea in ThoughtBox.
 								<br />
-								Desert Financial Credit Union
+								Automated message from ThoughtBox · Desert Financial Credit Union
 							</Text>
 						</Section>
 					</Container>

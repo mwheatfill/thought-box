@@ -116,7 +116,7 @@ export async function sendNewMessageEmail(params: {
 	isFromOwner: boolean;
 }) {
 	const subject = params.isFromOwner
-		? `An owner has a question about your idea: ${params.ideaTitle}`
+		? `There has been a comment added about your idea: ${params.ideaTitle}`
 		: `The submitter responded on: ${params.ideaTitle}`;
 
 	await sendEmail({
@@ -418,7 +418,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 					}),
 				},
 				message_from_owner: {
-					subject: `[TEST] An owner has a question about your idea: ${sample.ideaTitle}`,
+					subject: `[TEST] There has been a comment added about your idea: ${sample.ideaTitle}`,
 					template: createElement(NewMessage, {
 						recipientFirstName: firstName,
 						senderName: "Michelle Murray",
