@@ -1,31 +1,11 @@
-import { ChevronsUpDown, Lock, Plus, RefreshCw, X } from "lucide-react";
+import { Lock, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { DualSlaProgress } from "#/components/dashboard/sla-progress";
 import { ClosedIdeaPanel } from "#/components/ideas/closed-idea-panel";
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from "#/components/ui/alert-dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
-import {
-	Command,
-	CommandEmpty,
-	CommandGroup,
-	CommandInput,
-	CommandItem,
-	CommandList,
-} from "#/components/ui/command";
 import { Label } from "#/components/ui/label";
 import { MentionTextarea, parseMentions } from "#/components/ui/mention-textarea";
-import { Popover, PopoverContent, PopoverTrigger } from "#/components/ui/popover";
 import {
 	Select,
 	SelectContent,
@@ -34,16 +14,7 @@ import {
 	SelectValue,
 } from "#/components/ui/select";
 import { Textarea } from "#/components/ui/textarea";
-import { UserCardPopover } from "#/components/ui/user-card";
-import {
-	DECLINE_REASONS,
-	IMPACT_AREAS,
-	type LockedStatus,
-	REASSIGNMENT_REASONS,
-	type ReassignmentReason,
-	isLockedStatus,
-} from "#/lib/constants";
-import { cn, initials } from "#/lib/utils";
+import { DECLINE_REASONS, type LockedStatus, isLockedStatus } from "#/lib/constants";
 
 interface Owner {
 	id: string;
@@ -55,15 +26,9 @@ interface Owner {
 }
 
 interface OwnerActionsProps {
-	submissionId: string;
-	ideaTitle: string;
-	categoryName: string;
-	impactArea: string | null;
-	userRole: string;
 	currentStatus: string;
 	currentDeclineReason: string | null;
 	currentMessageToSubmitter: string | null;
-	slaStatus: "on_track" | "approaching" | "overdue" | "none";
 	slaDaysRemaining: number | null;
 	slaDueDate: string | null;
 	closureSlaDueDate: string | null;
@@ -91,24 +56,12 @@ interface OwnerActionsProps {
 		 */
 		internalNoteMentions?: string[];
 	}) => Promise<void>;
-	onReassign: (input: {
-		newOwnerId: string;
-		reason?: ReassignmentReason;
-		note?: string;
-	}) => Promise<void>;
-	onReassignComplete?: () => void;
 	isSaving: boolean;
-	isReassigning: boolean;
 }
 
 type SelectableStatus = "new" | "under_review" | "accepted" | "declined";
 
 export function OwnerActions({
-	submissionId,
-	ideaTitle,
-	categoryName,
-	impactArea,
-	userRole,
 	currentStatus,
 	currentDeclineReason,
 	currentMessageToSubmitter,
@@ -123,20 +76,13 @@ export function OwnerActions({
 	assignedOwnerPhotoUrl,
 	owners,
 	onSave,
-	onReassign,
-	onReassignComplete,
 	isSaving,
-	isReassigning,
 }: OwnerActionsProps) {
 	const isClosed = isLockedStatus(currentStatus);
 
 	const [status, setStatus] = useState<SelectableStatus>(currentStatus as SelectableStatus);
 	const [declineReason, setDeclineReason] = useState(currentDeclineReason ?? "");
 	const [messageToSubmitter, setMessageToSubmitter] = useState(currentMessageToSubmitter ?? "");
-	const [reassignOpen, setReassignOpen] = useState(false);
-	const [pendingReassign, setPendingReassign] = useState<Owner | null>(null);
-	const [reassignReason, setReassignReason] = useState<ReassignmentReason | "">("");
-	const [reassignNote, setReassignNote] = useState("");
 	const [internalNote, setInternalNote] = useState("");
 	const [internalNoteOpen, setInternalNoteOpen] = useState(false);
 
@@ -196,75 +142,6 @@ export function OwnerActions({
 							closureSlaDaysRemaining={closureSlaDaysRemaining}
 							closureSlaDueDate={closureSlaDueDate}
 						/>
-
-						{/* Assigned owner with reassign */}
-						<div className="space-y-3">
-							<div className="flex items-center justify-between">
-								<span className="text-sm text-muted-foreground">Assigned to</span>
-								{assignedOwnerId ? (
-									<UserCardPopover userId={assignedOwnerId}>
-										<button type="button" className="flex items-center gap-2 hover:text-primary">
-											<Avatar className="size-6">
-												{assignedOwnerPhotoUrl && (
-													<AvatarImage src={assignedOwnerPhotoUrl} alt={assignedOwnerName ?? ""} />
-												)}
-												<AvatarFallback className="text-[10px]">
-													{initials(assignedOwnerName ?? "")}
-												</AvatarFallback>
-											</Avatar>
-											<span className="text-sm font-medium hover:underline">
-												{assignedOwnerName}
-											</span>
-										</button>
-									</UserCardPopover>
-								) : (
-									<span className="text-sm font-medium">Unassigned</span>
-								)}
-							</div>
-							<Popover open={reassignOpen} onOpenChange={setReassignOpen}>
-								<PopoverTrigger asChild>
-									<Button
-										variant="outline"
-										size="sm"
-										className="w-full justify-between font-normal"
-										disabled={isReassigning}
-									>
-										<span className="flex items-center gap-2">
-											<RefreshCw className={cn("size-3.5", isReassigning && "animate-spin")} />
-											{isReassigning ? "Assigning..." : assignedOwnerId ? "Reassign" : "Assign"}
-										</span>
-										<ChevronsUpDown className="size-3.5 opacity-50" />
-									</Button>
-								</PopoverTrigger>
-								<PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-									<Command>
-										<CommandInput placeholder="Search owners..." />
-										<CommandList>
-											<CommandEmpty>No owners found.</CommandEmpty>
-											<CommandGroup>
-												{owners
-													.filter((l) => l.id !== assignedOwnerId)
-													.map((l) => (
-														<CommandItem
-															key={l.id}
-															value={l.displayName}
-															onSelect={() => {
-																setReassignOpen(false);
-																setPendingReassign(l);
-															}}
-														>
-															{l.displayName}
-															<span className="ml-auto text-xs text-muted-foreground capitalize">
-																{l.role}
-															</span>
-														</CommandItem>
-													))}
-											</CommandGroup>
-										</CommandList>
-									</Command>
-								</PopoverContent>
-							</Popover>
-						</div>
 					</CardContent>
 				</Card>
 			)}
@@ -276,8 +153,9 @@ export function OwnerActions({
 						<CardTitle className="text-sm font-medium">Actions</CardTitle>
 					</CardHeader>
 					<CardContent className="space-y-4">
-						{/* Status change. `new` is shown as the current state when applicable
-						    but cannot be selected — reassignment is the only path back. */}
+						{/* Status change. `new` shows as the current state when applicable but
+						    can't be selected — an idea only returns to New via Change Category
+						    or Reopen (both in the Reviewer & routing card). */}
 						<div className="space-y-1.5">
 							<Label htmlFor="status">Status</Label>
 							<Select value={status} onValueChange={(v) => setStatus(v as SelectableStatus)}>
@@ -397,133 +275,6 @@ export function OwnerActions({
 					</CardContent>
 				</Card>
 			)}
-
-			{/* Reassign confirmation */}
-			<AlertDialog
-				open={!!pendingReassign}
-				onOpenChange={(open) => {
-					if (!open) {
-						setPendingReassign(null);
-						setReassignReason("");
-						setReassignNote("");
-					}
-				}}
-			>
-				<AlertDialogContent className="max-w-md">
-					<AlertDialogHeader>
-						<AlertDialogTitle>
-							{assignedOwnerId ? "Reassign this idea?" : "Assign this idea?"}
-						</AlertDialogTitle>
-					</AlertDialogHeader>
-
-					{/* Idea context */}
-					<div className="rounded-lg border bg-muted/30 p-3">
-						<p className="font-mono text-xs text-muted-foreground">{submissionId}</p>
-						<p className="mt-0.5 text-sm font-medium line-clamp-2">{ideaTitle}</p>
-						<div className="mt-2 flex gap-2">
-							<span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-								{categoryName}
-							</span>
-							{impactArea && (
-								<span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-									{IMPACT_AREAS[impactArea as keyof typeof IMPACT_AREAS] ?? impactArea}
-								</span>
-							)}
-						</div>
-					</div>
-
-					{/* Reassign target */}
-					{pendingReassign && (
-						<div className="flex items-center gap-3 rounded-lg border p-3">
-							<Avatar className="size-10">
-								{pendingReassign.photoUrl && (
-									<AvatarImage src={pendingReassign.photoUrl} alt={pendingReassign.displayName} />
-								)}
-								<AvatarFallback className="text-xs">
-									{initials(pendingReassign.displayName)}
-								</AvatarFallback>
-							</Avatar>
-							<div>
-								<p className="text-sm font-medium">{pendingReassign.displayName}</p>
-								{pendingReassign.jobTitle && (
-									<p className="text-xs text-muted-foreground">{pendingReassign.jobTitle}</p>
-								)}
-								{pendingReassign.department && (
-									<p className="text-xs text-muted-foreground">{pendingReassign.department}</p>
-								)}
-							</div>
-						</div>
-					)}
-
-					{/* Reason + note (reassignment only) */}
-					{assignedOwnerId && (
-						<div className="space-y-3">
-							<div className="space-y-1.5">
-								<Label htmlFor="reassign-reason">
-									Reason <span className="text-red-600">*</span>
-								</Label>
-								<Select
-									value={reassignReason}
-									onValueChange={(v) => setReassignReason(v as ReassignmentReason)}
-								>
-									<SelectTrigger id="reassign-reason">
-										<SelectValue placeholder="Select a reason" />
-									</SelectTrigger>
-									<SelectContent>
-										{Object.entries(REASSIGNMENT_REASONS).map(([key, label]) => (
-											<SelectItem key={key} value={key}>
-												{label}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-							</div>
-							<div className="space-y-1.5">
-								<Label htmlFor="reassign-note">
-									Note <span className="text-xs font-normal text-muted-foreground">(optional)</span>
-								</Label>
-								<Textarea
-									id="reassign-note"
-									placeholder="Short context for the new owner..."
-									value={reassignNote}
-									onChange={(e) => setReassignNote(e.target.value)}
-									rows={3}
-									maxLength={500}
-								/>
-							</div>
-						</div>
-					)}
-
-					<AlertDialogDescription>
-						{assignedOwnerId
-							? userRole === "admin"
-								? "This will send a notification email and reset SLA timers. Status will roll back to New."
-								: "This will send a notification email, reset SLA timers (status rolls back to New), and you will lose access to this idea."
-							: "This will send a notification email and start SLA timers."}
-					</AlertDialogDescription>
-
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction
-							disabled={!!assignedOwnerId && !reassignReason}
-							onClick={async () => {
-								if (!pendingReassign) return;
-								await onReassign({
-									newOwnerId: pendingReassign.id,
-									reason: assignedOwnerId ? reassignReason || undefined : undefined,
-									note: assignedOwnerId && reassignNote.trim() ? reassignNote.trim() : undefined,
-								});
-								setPendingReassign(null);
-								if (userRole !== "admin") {
-									onReassignComplete?.();
-								}
-							}}
-						>
-							{assignedOwnerId ? "Reassign" : "Assign"}
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
 		</div>
 	);
 }

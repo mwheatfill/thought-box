@@ -23,7 +23,6 @@ import type { ConversationMessage } from "#/server/db/schema";
 import {
 	sendIdeaAssignedEmail,
 	sendIdeaReassignedEmail,
-	sendIdeaReassignedSubmitterEmail,
 	sendIdeaSubmittedEmail,
 	sendStatusChangedEmail,
 	sendWatcherAlert,
@@ -597,170 +596,7 @@ const REASSIGN_REASON_KEYS = Object.keys(REASSIGNMENT_REASONS) as [
 	...ReassignmentReason[],
 ];
 
-export const reassignIdea = createServerFn({ method: "POST" })
-	.middleware([ownerMiddleware])
-	.inputValidator(
-		z.object({
-			ideaId: z.string(),
-			newOwnerId: z.string(),
-			reason: z.enum(REASSIGN_REASON_KEYS).optional(),
-			note: z.string().trim().max(500).optional(),
-		}),
-	)
-	.handler(async ({ context, data }) => {
-		const idea = await db.query.ideas.findFirst({
-			where: eq(ideas.id, data.ideaId),
-			columns: {
-				id: true,
-				submissionId: true,
-				title: true,
-				status: true,
-				assignedReviewerId: true,
-				submitterId: true,
-			},
-			with: {
-				category: { columns: { name: true, ownerId: true } },
-				submitter: { columns: { displayName: true, email: true, department: true } },
-			},
-		});
-
-		if (!idea) throw new Error("Idea not found");
-
-		// Owners can only reassign ideas they're responsible for: ones whose
-		// Category they own (ADR-0001) or that are assigned to them. Admins any.
-		const isResponsible =
-			idea.category.ownerId === context.user.id || idea.assignedReviewerId === context.user.id;
-		if (context.user.role === "owner" && !isResponsible) {
-			throw new Error("Forbidden");
-		}
-
-		// Closed ideas are locked. Reassignment would reset SLA timers and fire
-		// notification emails — meaningless on an already-finalized decision.
-		if ((CLOSED_STATUSES as readonly string[]).includes(idea.status)) {
-			throw new Error("This idea is closed and locked. Reassignment is not allowed.");
-		}
-
-		const [oldOwner, newOwner] = await Promise.all([
-			idea.assignedReviewerId
-				? db.query.users.findFirst({
-						where: eq(users.id, idea.assignedReviewerId),
-						columns: { displayName: true },
-					})
-				: Promise.resolve(null),
-			db.query.users.findFirst({
-				where: eq(users.id, data.newOwnerId),
-				columns: { id: true, displayName: true, email: true },
-			}),
-		]);
-
-		if (!newOwner) throw new Error("Owner not found");
-
-		// First-time assignment skips reason/note — there's no prior assigned
-		// reviewer to describe a reassignment from.
-		const isReassignment = !!idea.assignedReviewerId;
-		const note = data.note?.trim() || null;
-		let reason: ReassignmentReason | null = null;
-
-		if (isReassignment) {
-			if (!data.reason) {
-				throw new Error("A reassignment reason is required.");
-			}
-			reason = data.reason;
-		}
-
-		// Reset SLA and update assignment. Reassignment also rolls status back to
-		// `new` — the incoming owner starts fresh. (Direct rollback to `new` is
-		// not exposed in the UI; reassignment is the only path back.)
-		const now = new Date();
-		const newSlaDueDate = calculateSlaDueDate(now, 15);
-		const newClosureSlaDueDate = calculateSlaDueDate(now, 30);
-		const statusWillReset = isReassignment && idea.status !== "new";
-
-		await db
-			.update(ideas)
-			.set({
-				assignedReviewerId: data.newOwnerId,
-				slaDueDate: newSlaDueDate,
-				closureSlaDueDate: newClosureSlaDueDate,
-				slaStartedAt: now,
-				updatedAt: now,
-				...(statusWillReset ? { status: "new" as const } : {}),
-			})
-			.where(eq(ideas.id, data.ideaId));
-
-		// First-time assignment writes no event and has no prior reminders to
-		// clear, matching the auto-assign-at-submission path.
-		if (isReassignment) {
-			await db
-				.delete(ideaEvents)
-				.where(and(eq(ideaEvents.ideaId, data.ideaId), eq(ideaEvents.eventType, "reminder_sent")));
-
-			await db.insert(ideaEvents).values({
-				ideaId: data.ideaId,
-				eventType: "reassigned",
-				actorId: context.user.id,
-				oldValue: oldOwner?.displayName ?? null,
-				newValue: newOwner.displayName,
-				reason,
-				note,
-			});
-
-			if (statusWillReset) {
-				await db.insert(ideaEvents).values({
-					ideaId: data.ideaId,
-					eventType: "status_changed",
-					actorId: context.user.id,
-					oldValue: idea.status,
-					newValue: "new",
-				});
-			}
-		}
-
-		if (isReassignment) {
-			sendIdeaReassignedEmail({
-				ownerEmail: newOwner.email,
-				ownerFirstName: newOwner.displayName.split(" ")[0],
-				submissionId: idea.submissionId,
-				ideaTitle: idea.title,
-				categoryName: idea.category.name,
-				submitterName: idea.submitter.displayName,
-				reassignedByName: context.user.displayName,
-				reasonLabel: reason ? REASSIGNMENT_REASONS[reason] : null,
-				note,
-			});
-			sendIdeaReassignedSubmitterEmail({
-				submitterEmail: idea.submitter.email,
-				submitterFirstName: idea.submitter.displayName.split(" ")[0],
-				submissionId: idea.submissionId,
-				ideaTitle: idea.title,
-				categoryName: idea.category.name,
-			});
-		} else {
-			// First-time assign mirrors the auto-assign-at-submission flow:
-			// owner-only notification, no submitter ping.
-			sendIdeaAssignedEmail({
-				ownerEmail: newOwner.email,
-				ownerFirstName: newOwner.displayName.split(" ")[0],
-				submissionId: idea.submissionId,
-				ideaTitle: idea.title,
-				categoryName: idea.category.name,
-				submitterName: idea.submitter.displayName,
-				submitterDepartment: idea.submitter.department,
-			});
-		}
-
-		audit({
-			actorId: context.user.id,
-			action: isReassignment ? "idea.reassigned" : "idea.assigned",
-			resourceType: "idea",
-			resourceId: idea.submissionId,
-			details: isReassignment
-				? { from: oldOwner?.displayName, to: newOwner.displayName, reason, note }
-				: { to: newOwner.displayName },
-		});
-
-		return { success: true, newOwnerName: newOwner.displayName };
-	});
+// (reassignIdea retired in Phase 9 — replaced by changeIdeaCategory + assignReviewer)
 
 // ── Active Owners + Admins directory ─────────────────────────────────────
 
@@ -1431,4 +1267,24 @@ export const requestTriage = createServerFn({ method: "POST" })
 		});
 
 		return { success: true };
+	});
+
+// ── Reassignable category targets (for the Change Category picker) ─────────
+
+/**
+ * The Categories an idea can be moved into: active, ThoughtBox-routing, and
+ * owned (so the move never leaves the idea unaccountable). Owner/admin-accessible
+ * — the picker behind the Change Category dialog. Mirrors loadValidCategoryTarget's
+ * "live destination" rule.
+ */
+export const getReassignableCategories = createServerFn()
+	.middleware([ownerMiddleware])
+	.handler(async () => {
+		const rows = await db.query.categories.findMany({
+			where: (c, { and: a, eq: e, isNull: n }) =>
+				a(e(c.active, true), e(c.routingType, "thoughtbox"), n(c.deletedAt)),
+			columns: { id: true, name: true, ownerId: true },
+			orderBy: (c, { asc }) => [asc(c.sortOrder)],
+		});
+		return rows.filter((c) => !!c.ownerId).map((c) => ({ id: c.id, name: c.name }));
 	});

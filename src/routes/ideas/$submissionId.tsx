@@ -11,6 +11,7 @@ import { AttachmentsPanel } from "#/components/ideas/attachments-panel";
 import { ClosedIdeaPanel } from "#/components/ideas/closed-idea-panel";
 import { AudienceBanner, MessageThread } from "#/components/ideas/message-thread";
 import { OwnerActions } from "#/components/ideas/owner-actions";
+import { ReopenControl, ReviewerControls } from "#/components/ideas/reviewer-controls";
 import { WatchersCard } from "#/components/ideas/watchers-card";
 import { PageTransition } from "#/components/ui/animated";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
@@ -31,12 +32,7 @@ import { IMPACT_AREAS, isLockedStatus } from "#/lib/constants";
 import type { IdeaStatus, LockedStatus } from "#/lib/constants";
 import { initials } from "#/lib/utils";
 import { getIdeaAttachments } from "#/server/functions/attachments";
-import {
-	getActiveOwnersAndAdmins,
-	getIdeaDetail,
-	reassignIdea,
-	updateIdea,
-} from "#/server/functions/ideas";
+import { getActiveOwnersAndAdmins, getIdeaDetail, updateIdea } from "#/server/functions/ideas";
 import { addInternalNote, getIdeaInternalNotes } from "#/server/functions/internal-notes";
 import { addMessage, getIdeaMessages } from "#/server/functions/messages";
 
@@ -82,7 +78,9 @@ function IdeaDetailPage() {
 		queryFn: () => getIdeaAttachments({ data: { ideaId: idea.id } }),
 	});
 
-	const canSeeInternalNotes = user.role === "owner" || user.role === "admin";
+	// Internal notes follow edit access (owner/admin or the assigned reviewer),
+	// not just the global role — an assigned Contributor reviews with them.
+	const canSeeInternalNotes = idea.canEdit;
 
 	const { data: internalNotes = [] } = useQuery({
 		queryKey: ["idea-internal-notes", idea.id],
@@ -103,19 +101,6 @@ function IdeaDetailPage() {
 		},
 		onError: (err: Error) => {
 			toast.error(err.message || "Failed to save changes");
-		},
-	});
-
-	// Reassign mutation
-	const reassignFn = useServerFn(reassignIdea);
-	const reassignMutation = useMutation({
-		mutationFn: (input: Parameters<typeof reassignFn>[0]["data"]) => reassignFn({ data: input }),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["idea", submissionId] });
-			toast.success("Idea reassigned");
-		},
-		onError: (err: Error) => {
-			toast.error(err.message || "Failed to reassign");
 		},
 	});
 
@@ -450,15 +435,9 @@ function IdeaDetailPage() {
 							<OwnerActions
 								// Remount on status/owner change to resync local form state.
 								key={`${idea.status}-${idea.assignedOwner?.id ?? "none"}`}
-								submissionId={idea.submissionId}
-								ideaTitle={idea.title}
-								categoryName={idea.categoryName}
-								impactArea={idea.impactArea}
-								userRole={user.role}
 								currentStatus={idea.status}
 								currentDeclineReason={idea.declineReason}
 								currentMessageToSubmitter={idea.messageToSubmitter}
-								slaStatus={idea.slaStatus}
 								slaDaysRemaining={idea.slaDaysRemaining}
 								slaDueDate={idea.slaDueDate}
 								closureSlaDueDate={idea.closureSlaDueDate}
@@ -481,20 +460,39 @@ function IdeaDetailPage() {
 										});
 									}
 								}}
-								onReassign={async ({ newOwnerId, reason, note }) => {
-									await reassignMutation.mutateAsync({
-										ideaId: idea.id,
-										newOwnerId,
-										reason,
-										note,
-									});
-								}}
-								onReassignComplete={() => {
-									window.history.back();
-								}}
 								isSaving={updateMutation.isPending}
-								isReassigning={reassignMutation.isPending}
 							/>
+
+							{/* Open idea: reviewer assignment + change category (AI suggest, triage). */}
+							{!isLockedStatus(idea.status) && (
+								<ReviewerControls
+									ideaId={idea.id}
+									categoryId={idea.categoryId}
+									categoryName={idea.categoryName}
+									assignedReviewerId={idea.assignedOwner?.id ?? null}
+									assignedReviewerName={idea.assignedOwner?.displayName ?? null}
+									onChanged={() =>
+										queryClient.invalidateQueries({ queryKey: ["idea", submissionId] })
+									}
+								/>
+							)}
+
+							{/* Closed idea: explicit reopen. */}
+							{isLockedStatus(idea.status) && (
+								<Card>
+									<CardHeader className="pb-3">
+										<CardTitle className="text-sm font-medium">Reopen</CardTitle>
+									</CardHeader>
+									<CardContent>
+										<ReopenControl
+											ideaId={idea.id}
+											onChanged={() =>
+												queryClient.invalidateQueries({ queryKey: ["idea", submissionId] })
+											}
+										/>
+									</CardContent>
+								</Card>
+							)}
 
 							{/* Watchers */}
 							<WatchersCard ideaId={idea.id} />
