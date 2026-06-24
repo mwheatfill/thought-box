@@ -4,7 +4,7 @@ import { attachments, ideaEvents, ideas } from "#/server/db/schema";
 import { audit } from "#/server/lib/audit";
 import { resolveAuthUser } from "#/server/lib/auth-from-request";
 import { downloadBlob, getMaxFileSize, isAllowedType, uploadBlob } from "#/server/lib/blob";
-import { resolveIdeaAccess } from "#/server/lib/owner-visibility";
+import { loadIdeaCapabilities } from "#/server/lib/idea-authz";
 import { trackEvent } from "#/server/lib/telemetry";
 
 /**
@@ -57,6 +57,7 @@ export async function handleAttachmentUpload(request: Request): Promise<Response
 				id: true,
 				submissionId: true,
 				status: true,
+				categoryId: true,
 				submitterId: true,
 				assignedReviewerId: true,
 			},
@@ -68,19 +69,19 @@ export async function handleAttachmentUpload(request: Request): Promise<Response
 				headers: { "Content-Type": "application/json" },
 			});
 		}
-		// Access & perspective by relationship to this idea, not global role —
-		// an "owner"-role user who submitted this idea acts on it as its submitter.
-		// Owner perspective derives from the Category Owner (ADR-0001) or the
-		// assigned reviewer.
-		const { canView, viewerRole } = resolveIdeaAccess({
-			userId: user.id,
-			userRole: user.role,
+		// Uploading is "adding" — the submitter (their own idea) or the active
+		// reviewer (owner/admin or an assigned Contributor doing legwork). An
+		// unassigned roster Contributor or Watcher can read but not add.
+		const caps = await loadIdeaCapabilities(user, {
+			id: idea.id,
+			status: idea.status,
 			submitterId: idea.submitterId,
-			categoryOwnerId: idea.category.ownerId,
 			assignedReviewerId: idea.assignedReviewerId,
+			categoryId: idea.categoryId,
+			categoryOwnerId: idea.category.ownerId,
 		});
-		const viewerIsSubmitter = viewerRole === "submitter";
-		if (!canView) {
+		const viewerIsSubmitter = idea.submitterId === user.id;
+		if (!caps.canEditOwnerNotes && !viewerIsSubmitter) {
 			return new Response(JSON.stringify({ error: "Forbidden" }), {
 				status: 403,
 				headers: { "Content-Type": "application/json" },
@@ -237,27 +238,31 @@ export async function handleAttachmentDownload(request: Request): Promise<Respon
 		// their own ideas; owners only on ideas assigned to them; admins on any.
 		const idea = await db.query.ideas.findFirst({
 			where: eq(ideas.id, attachment.ideaId),
-			columns: { submitterId: true, assignedReviewerId: true },
+			columns: {
+				id: true,
+				status: true,
+				categoryId: true,
+				submitterId: true,
+				assignedReviewerId: true,
+			},
 			with: { category: { columns: { ownerId: true } } },
 		});
 		if (!idea) return new Response("Not found", { status: 404 });
-		// Access & perspective by relationship to this idea, not global role —
-		// an "owner"-role user who submitted this idea views it as its submitter.
-		// Owner perspective derives from the Category Owner (ADR-0001) or reviewer.
-		const { canView, viewerRole } = resolveIdeaAccess({
-			userId: user.id,
-			userRole: user.role,
+		// Reading is the widest gate: anyone who can view the idea — owner/admin,
+		// the assigned reviewer, a roster Contributor, a Watcher, or the submitter.
+		const caps = await loadIdeaCapabilities(user, {
+			id: idea.id,
+			status: idea.status,
 			submitterId: idea.submitterId,
-			categoryOwnerId: idea.category.ownerId,
 			assignedReviewerId: idea.assignedReviewerId,
+			categoryId: idea.categoryId,
+			categoryOwnerId: idea.category.ownerId,
 		});
-		const viewerIsSubmitter = viewerRole === "submitter";
-		if (!canView) return new Response("Not found", { status: 404 });
+		if (!caps.canView) return new Response("Not found", { status: 404 });
 
-		// Visibility check: internal attachments are owner/admin-only. A row
-		// is internal if the column flag is set OR its parent event is an
-		// internal_note. Both paths block submitter access here.
-		if (viewerIsSubmitter) {
+		// Internal attachments are owner/admin + assigned-reviewer only. A row is
+		// internal if its flag is set OR its parent event is an internal_note.
+		if (!caps.canReadInternalNotes) {
 			let blocked = attachment.isInternal;
 			if (!blocked && attachment.messageId) {
 				const event = await db.query.ideaEvents.findFirst({
@@ -310,37 +315,32 @@ export async function handleAttachmentDelete(request: Request): Promise<Response
 			return new Response("Not found", { status: 404 });
 		}
 
-		// Idea-level access check + role-based visibility on internal_note attachments
+		// Idea-level access check; deletion is restricted below.
 		const idea = await db.query.ideas.findFirst({
 			where: eq(ideas.id, attachment.ideaId),
-			columns: { submissionId: true, submitterId: true, assignedReviewerId: true },
+			columns: {
+				id: true,
+				submissionId: true,
+				status: true,
+				categoryId: true,
+				submitterId: true,
+				assignedReviewerId: true,
+			},
 			with: { category: { columns: { ownerId: true } } },
 		});
 		if (!idea) return new Response("Not found", { status: 404 });
-		// Access & perspective by relationship to this idea, not global role —
-		// an "owner"-role user who submitted this idea acts on it as its submitter.
-		// Owner perspective derives from the Category Owner (ADR-0001) or reviewer.
-		const { canView, viewerRole } = resolveIdeaAccess({
-			userId: user.id,
-			userRole: user.role,
+		const caps = await loadIdeaCapabilities(user, {
+			id: idea.id,
+			status: idea.status,
 			submitterId: idea.submitterId,
-			categoryOwnerId: idea.category.ownerId,
 			assignedReviewerId: idea.assignedReviewerId,
+			categoryId: idea.categoryId,
+			categoryOwnerId: idea.category.ownerId,
 		});
-		const viewerIsSubmitter = viewerRole === "submitter";
-		if (!canView) return new Response("Not found", { status: 404 });
-
-		if (viewerIsSubmitter) {
-			let blocked = attachment.isInternal;
-			if (!blocked && attachment.messageId) {
-				const event = await db.query.ideaEvents.findFirst({
-					where: eq(ideaEvents.id, attachment.messageId),
-					columns: { eventType: true },
-				});
-				blocked = event?.eventType === "internal_note";
-			}
-			if (blocked) return new Response("Not found", { status: 404 });
-		}
+		// Deleting is for the active reviewer (owner/admin or assigned Contributor)
+		// or whoever uploaded the file — never an arbitrary viewer/Watcher.
+		const canDelete = caps.canEditOwnerNotes || attachment.uploadedById === user.id;
+		if (!canDelete) return new Response("Not found", { status: 404 });
 
 		// Soft delete
 		await db
