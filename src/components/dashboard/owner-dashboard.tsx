@@ -55,6 +55,10 @@ interface OwnerDashboardProps {
 	onBulkUpdate?: (ideaIds: string[], status: string) => Promise<void>;
 	isBulkUpdating?: boolean;
 	enableKpiFilter?: boolean;
+	/** Hide the KPI row (e.g. the All Ideas table, where the Dashboard owns KPIs). */
+	showKpis?: boolean;
+	/** Override the table card title. */
+	title?: string;
 }
 
 // ── Column definitions ────────────────────────────────────────────────────
@@ -175,6 +179,8 @@ export function OwnerDashboard({
 	onBulkUpdate,
 	isBulkUpdating,
 	enableKpiFilter,
+	showKpis = true,
+	title,
 }: OwnerDashboardProps) {
 	const navigate = useNavigate();
 	const openIdeas = useMemo(() => ideas.filter((i) => isOpenStatus(i.status)), [ideas]);
@@ -200,56 +206,58 @@ export function OwnerDashboard({
 	return (
 		<div className="space-y-6">
 			{/* KPI row */}
-			<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-				<FadeIn delay={0}>
-					<KpiCard
-						icon={Inbox}
-						label="My Open"
-						value={stats.openCount}
-						color="blue"
-						onClick={enableKpiFilter ? () => toggleKpi("open") : undefined}
-						isActive={kpiFilter === "open"}
-					/>
-				</FadeIn>
-				<FadeIn delay={0.05}>
-					<KpiCard
-						icon={AlertTriangle}
-						label="Overdue"
-						value={stats.overdueCount}
-						variant={stats.overdueCount > 0 ? "destructive" : undefined}
-						color={stats.overdueCount > 0 ? "red" : undefined}
-						onClick={enableKpiFilter ? () => toggleKpi("overdue") : undefined}
-						isActive={kpiFilter === "overdue"}
-					/>
-				</FadeIn>
-				<FadeIn delay={0.1}>
-					<KpiCard
-						icon={CheckCircle}
-						label="Closed"
-						value={closedIdeas.length}
-						color="emerald"
-						onClick={enableKpiFilter ? () => toggleKpi("closed") : undefined}
-						isActive={kpiFilter === "closed"}
-					/>
-				</FadeIn>
-				<FadeIn delay={0.15}>
-					<KpiCard
-						icon={Clock}
-						label="Total Assigned"
-						value={stats.totalAssigned}
-						color="purple"
-						onClick={
-							enableKpiFilter
-								? () => {
-										setKpiFilter(null);
-										setRowSelection({});
-									}
-								: undefined
-						}
-						isActive={kpiFilter === null}
-					/>
-				</FadeIn>
-			</div>
+			{showKpis && (
+				<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+					<FadeIn delay={0}>
+						<KpiCard
+							icon={Inbox}
+							label="My Open"
+							value={stats.openCount}
+							color="blue"
+							onClick={enableKpiFilter ? () => toggleKpi("open") : undefined}
+							isActive={kpiFilter === "open"}
+						/>
+					</FadeIn>
+					<FadeIn delay={0.05}>
+						<KpiCard
+							icon={AlertTriangle}
+							label="Overdue"
+							value={stats.overdueCount}
+							variant={stats.overdueCount > 0 ? "destructive" : undefined}
+							color={stats.overdueCount > 0 ? "red" : undefined}
+							onClick={enableKpiFilter ? () => toggleKpi("overdue") : undefined}
+							isActive={kpiFilter === "overdue"}
+						/>
+					</FadeIn>
+					<FadeIn delay={0.1}>
+						<KpiCard
+							icon={CheckCircle}
+							label="Closed"
+							value={closedIdeas.length}
+							color="emerald"
+							onClick={enableKpiFilter ? () => toggleKpi("closed") : undefined}
+							isActive={kpiFilter === "closed"}
+						/>
+					</FadeIn>
+					<FadeIn delay={0.15}>
+						<KpiCard
+							icon={Clock}
+							label="Total Assigned"
+							value={stats.totalAssigned}
+							color="purple"
+							onClick={
+								enableKpiFilter
+									? () => {
+											setKpiFilter(null);
+											setRowSelection({});
+										}
+									: undefined
+							}
+							isActive={kpiFilter === null}
+						/>
+					</FadeIn>
+				</div>
+			)}
 
 			{/* Ideas table */}
 			{displayIdeas.length === 0 && !kpiFilter ? (
@@ -268,11 +276,12 @@ export function OwnerDashboard({
 				<Card>
 					<CardHeader>
 						<CardTitle>
-							{kpiFilter === null
-								? "All Assigned Ideas"
-								: kpiFilter === "closed"
-									? "Closed Ideas"
-									: "Assigned Ideas"}
+							{title ??
+								(kpiFilter === null
+									? "All Assigned Ideas"
+									: kpiFilter === "closed"
+										? "Closed Ideas"
+										: "Assigned Ideas")}
 						</CardTitle>
 					</CardHeader>
 					<CardContent>

@@ -1,23 +1,120 @@
 import { createServerFn } from "@tanstack/react-start";
-import { count, eq, gte, inArray, or, sql } from "drizzle-orm";
+import { and, count, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
+import { OPEN_STATUSES } from "#/lib/constants";
 import { db } from "#/server/db";
-import { categories, ideaEvents, ideas, users } from "#/server/db/schema";
+import { categories, categoryContributors, ideaEvents, ideas, users } from "#/server/db/schema";
 import { businessDaysRemaining, calculateSlaStatus } from "#/server/lib/sla";
 import { adminMiddleware, authMiddleware } from "#/server/middleware/auth";
 
+// ── Scope helpers (category-centric, ADR-0001/0002) ───────────────────────
+
+/** Sub-select of the live (active, non-deleted) Category ids a user owns. */
+const ownedCategoryIds = (userId: string) =>
+	db
+		.select({ id: categories.id })
+		.from(categories)
+		.where(
+			and(
+				eq(categories.ownerId, userId),
+				eq(categories.active, true),
+				isNull(categories.deletedAt),
+			),
+		);
+
+/** Sub-select of the live Category ids a user is a roster Contributor on. */
+const rosterCategoryIds = (userId: string) =>
+	db
+		.select({ id: categoryContributors.categoryId })
+		.from(categoryContributors)
+		.innerJoin(categories, eq(categoryContributors.categoryId, categories.id))
+		.where(
+			and(
+				eq(categoryContributors.userId, userId),
+				eq(categories.active, true),
+				isNull(categories.deletedAt),
+			),
+		);
+
 /**
- * The set of ideas a user is responsible for under the category-centric model
- * (ADR-0001): ideas whose Category they own, OR ideas explicitly assigned to
- * them as reviewer. Replaces the old `assignedOwnerId = me` "my queue" filter.
+ * Every idea in the user's categories — those they own OR contribute to. The
+ * "accountability scope" behind the Dashboard summary and the All Ideas table.
  */
-function responsibleForIdeas(userId: string) {
+function inMyCategories(userId: string) {
 	return or(
-		inArray(
-			ideas.categoryId,
-			db.select({ id: categories.id }).from(categories).where(eq(categories.ownerId, userId)),
-		),
-		eq(ideas.assignedReviewerId, userId),
+		inArray(ideas.categoryId, ownedCategoryIds(userId)),
+		inArray(ideas.categoryId, rosterCategoryIds(userId)),
 	);
+}
+
+/**
+ * Ideas where the user is the **active reviewer** — the "what's on my plate"
+ * set behind My Queue: ideas explicitly assigned to them, OR unassigned ideas in
+ * a Category they own (they're the default reviewer until they delegate).
+ */
+function activeReviewerIsMe(userId: string) {
+	return or(
+		eq(ideas.assignedReviewerId, userId),
+		and(inArray(ideas.categoryId, ownedCategoryIds(userId)), isNull(ideas.assignedReviewerId)),
+	);
+}
+
+/** Shared row shape for the owner/contributor idea tables (reviewer-enriched). */
+async function loadReviewerIdeaRows(where: ReturnType<typeof or>) {
+	const result = await db.query.ideas.findMany({
+		where,
+		orderBy: (i, { asc }) => [asc(i.slaDueDate)],
+		with: {
+			category: {
+				columns: { name: true },
+				with: { owner: { columns: { id: true, displayName: true, photoUrl: true } } },
+			},
+			submitter: { columns: { id: true, displayName: true, photoUrl: true } },
+			assignedReviewer: { columns: { id: true, displayName: true, photoUrl: true } },
+		},
+	});
+
+	return result.map((idea) => {
+		const daysRemaining = businessDaysRemaining(idea.slaDueDate);
+		const reviewer = idea.assignedReviewer ?? idea.category.owner;
+		return {
+			id: idea.id,
+			submissionId: idea.submissionId,
+			title: idea.title,
+			status: idea.status,
+			categoryName: idea.category.name,
+			submitterId: idea.submitter.id,
+			submitterName: idea.submitter.displayName,
+			submitterPhotoUrl: idea.submitter.photoUrl,
+			activeReviewerId: reviewer?.id ?? null,
+			activeReviewerName: reviewer?.displayName ?? "Unassigned",
+			activeReviewerPhotoUrl: reviewer?.photoUrl ?? null,
+			isDelegated: !!idea.assignedReviewerId,
+			impactArea: idea.impactArea,
+			submittedAt: idea.submittedAt.toISOString(),
+			slaDueDate: idea.slaDueDate?.toISOString() ?? null,
+			slaDaysRemaining: daysRemaining,
+			slaStatus: calculateSlaStatus(idea.status, daysRemaining),
+		};
+	});
+}
+
+/** Open/overdue/closed/total counts over a scope. */
+async function loadScopeStats(where: ReturnType<typeof or>) {
+	const rows = await db.query.ideas.findMany({
+		where,
+		columns: { status: true, slaDueDate: true },
+	});
+	const open = rows.filter((i) => (OPEN_STATUSES as readonly string[]).includes(i.status));
+	const overdue = open.filter((i) => {
+		const d = businessDaysRemaining(i.slaDueDate);
+		return d !== null && d <= 0;
+	});
+	return {
+		openCount: open.length,
+		overdueCount: overdue.length,
+		closedCount: rows.length - open.length,
+		totalAssigned: rows.length,
+	};
 }
 
 // ── Submitter: My Ideas ───────────────────────────────────────────────────
@@ -45,78 +142,95 @@ export const getMyIdeas = createServerFn()
 		}));
 	});
 
-// ── Owner: Assigned Ideas ────────────────────────────────────────────────
+// ── My Queue: ideas where I'm the active reviewer ─────────────────────────
 
 export const getAssignedIdeas = createServerFn()
 	.middleware([authMiddleware])
-	.handler(async ({ context }) => {
-		const result = await db.query.ideas.findMany({
-			where: responsibleForIdeas(context.user.id),
-			orderBy: (i, { asc }) => [asc(i.slaDueDate)],
-			with: {
-				// The accountable Owner derives from the Category (ADR-0001); the
-				// active reviewer is the assigned reviewer when set, else the Owner.
-				category: {
-					columns: { name: true },
-					with: { owner: { columns: { id: true, displayName: true, photoUrl: true } } },
-				},
-				submitter: { columns: { id: true, displayName: true, photoUrl: true } },
-				assignedReviewer: { columns: { id: true, displayName: true, photoUrl: true } },
-			},
-		});
-
-		return result.map((idea) => {
-			const daysRemaining = businessDaysRemaining(idea.slaDueDate);
-			// Who's actually working it: the assigned reviewer, else the Category Owner.
-			const reviewer = idea.assignedReviewer ?? idea.category.owner;
-			return {
-				id: idea.id,
-				submissionId: idea.submissionId,
-				title: idea.title,
-				status: idea.status,
-				categoryName: idea.category.name,
-				submitterId: idea.submitter.id,
-				submitterName: idea.submitter.displayName,
-				submitterPhotoUrl: idea.submitter.photoUrl,
-				activeReviewerId: reviewer?.id ?? null,
-				activeReviewerName: reviewer?.displayName ?? "Unassigned",
-				activeReviewerPhotoUrl: reviewer?.photoUrl ?? null,
-				// Whether a contributor (not the accountable Owner) is the reviewer.
-				isDelegated: !!idea.assignedReviewerId,
-				impactArea: idea.impactArea,
-				submittedAt: idea.submittedAt.toISOString(),
-				slaDueDate: idea.slaDueDate?.toISOString() ?? null,
-				slaDaysRemaining: daysRemaining,
-				slaStatus: calculateSlaStatus(idea.status, daysRemaining),
-			};
-		});
-	});
-
-// ── Owner: KPI stats ─────────────────────────────────────────────────────
+	.handler(async ({ context }) => loadReviewerIdeaRows(activeReviewerIsMe(context.user.id)));
 
 export const getOwnerStats = createServerFn()
 	.middleware([authMiddleware])
+	.handler(async ({ context }) => loadScopeStats(activeReviewerIsMe(context.user.id)));
+
+// ── All Ideas: everything in my categories (owned ∪ roster) ───────────────
+
+export const getCategoryIdeas = createServerFn()
+	.middleware([authMiddleware])
+	.handler(async ({ context }) => loadReviewerIdeaRows(inMyCategories(context.user.id)));
+
+export const getCategoryStats = createServerFn()
+	.middleware([authMiddleware])
+	.handler(async ({ context }) => loadScopeStats(inMyCategories(context.user.id)));
+
+// ── Dashboard summary: my categories, broken down per category ────────────
+
+export const getCategorySummary = createServerFn()
+	.middleware([authMiddleware])
 	.handler(async ({ context }) => {
-		const myIdeas = await db.query.ideas.findMany({
-			where: responsibleForIdeas(context.user.id),
-			columns: { status: true, slaDueDate: true },
-		});
+		const userId = context.user.id;
 
-		const openStatuses = ["new", "under_review"] as const;
-		const openIdeas = myIdeas.filter((i) =>
-			openStatuses.includes(i.status as (typeof openStatuses)[number]),
-		);
-		const overdueIdeas = openIdeas.filter((i) => {
-			const days = businessDaysRemaining(i.slaDueDate);
-			return days !== null && days <= 0;
-		});
+		// The categories I own or contribute to, with my relationship to each.
+		const [owned, roster] = await Promise.all([
+			db.query.categories.findMany({
+				where: (c, { and: a, eq: e, isNull: n }) =>
+					a(e(c.ownerId, userId), e(c.active, true), n(c.deletedAt)),
+				columns: { id: true, name: true },
+			}),
+			db.query.categoryContributors.findMany({
+				where: eq(categoryContributors.userId, userId),
+				with: { category: { columns: { id: true, name: true, active: true, deletedAt: true } } },
+			}),
+		]);
 
-		return {
-			openCount: openIdeas.length,
-			overdueCount: overdueIdeas.length,
-			totalAssigned: myIdeas.length,
-		};
+		const mine = new Map<string, { id: string; name: string; role: "owner" | "contributor" }>();
+		for (const c of owned) mine.set(c.id, { id: c.id, name: c.name, role: "owner" });
+		for (const r of roster) {
+			const c = r.category;
+			if (c?.active && !c.deletedAt && !mine.has(c.id)) {
+				mine.set(c.id, { id: c.id, name: c.name, role: "contributor" });
+			}
+		}
+		const ids = [...mine.keys()];
+
+		const totals = await loadScopeStats(inMyCategories(userId));
+		if (ids.length === 0) {
+			return { totals, categories: [] as CategorySummaryRow[] };
+		}
+
+		// Per-category open/overdue counts in one pass.
+		const open = await db.query.ideas.findMany({
+			where: and(inArray(ideas.categoryId, ids), inArray(ideas.status, [...OPEN_STATUSES])),
+			columns: { categoryId: true, slaDueDate: true },
+		});
+		const byCat = new Map<string, { open: number; overdue: number }>();
+		for (const i of open) {
+			const e = byCat.get(i.categoryId) ?? { open: 0, overdue: 0 };
+			e.open += 1;
+			const d = businessDaysRemaining(i.slaDueDate);
+			if (d !== null && d <= 0) e.overdue += 1;
+			byCat.set(i.categoryId, e);
+		}
+
+		const categories: CategorySummaryRow[] = [...mine.values()]
+			.map((c) => ({
+				id: c.id,
+				name: c.name,
+				role: c.role,
+				openCount: byCat.get(c.id)?.open ?? 0,
+				overdueCount: byCat.get(c.id)?.overdue ?? 0,
+			}))
+			.sort((a, b) => b.openCount - a.openCount || a.name.localeCompare(b.name));
+
+		return { totals, categories };
 	});
+
+interface CategorySummaryRow {
+	id: string;
+	name: string;
+	role: "owner" | "contributor";
+	openCount: number;
+	overdueCount: number;
+}
 
 // ── Admin: Dashboard Stats ────────────────────────────────────────────────
 

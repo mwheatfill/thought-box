@@ -51,10 +51,15 @@ function getMainNav(role: string): NavItem[] {
 		items.push({ label: "My Ideas", href: "/my-ideas", icon: Lightbulb });
 	} else if (role === "owner") {
 		items.push({ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard });
+		items.push({ label: "All Ideas", href: "/ideas", icon: FileText });
 		items.push({ label: "My Queue", href: "/queue", icon: Inbox });
 		items.push({ label: "My Categories", href: "/my-categories", icon: Boxes });
+		items.push({ label: "My Ideas", href: "/my-ideas", icon: Lightbulb });
 	} else if (role === "contributor") {
-		// Contributors work ideas assigned to them — their queue, plus their own ideas.
+		// Contributors see their team's categories (Dashboard/All Ideas), work the
+		// ideas assigned to them (My Queue), and track their own (My Ideas).
+		items.push({ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard });
+		items.push({ label: "All Ideas", href: "/ideas", icon: FileText });
 		items.push({ label: "My Queue", href: "/queue", icon: Inbox });
 		items.push({ label: "My Ideas", href: "/my-ideas", icon: Lightbulb });
 	} else {

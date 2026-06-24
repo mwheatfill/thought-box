@@ -2,16 +2,15 @@ import { Await, Link, createFileRoute, defer, redirect } from "@tanstack/react-r
 import { ArrowRight } from "lucide-react";
 import { Suspense } from "react";
 import { AdminDashboard } from "#/components/dashboard/admin-dashboard";
-import { OwnerDashboard } from "#/components/dashboard/owner-dashboard";
+import { CategorySummary } from "#/components/dashboard/category-summary";
 import { PageTransition } from "#/components/ui/animated";
 import { Card, CardContent, CardHeader } from "#/components/ui/card";
 import { RouteError } from "#/components/ui/route-error";
 import { Skeleton } from "#/components/ui/skeleton";
 import {
-	getAssignedIdeas,
+	getCategorySummary,
 	getDashboardStats,
 	getOutcomeDistribution,
-	getOwnerStats,
 	getRecentProgramActivity,
 	getSubmissionsByCategory,
 	getSubmissionsByMonth,
@@ -21,13 +20,10 @@ export const Route = createFileRoute("/dashboard")({
 	errorComponent: ({ error }) => <RouteError error={error} />,
 	pendingComponent: DashboardSkeleton,
 	beforeLoad: ({ context }) => {
-		// The summary dashboard is for owners/admins. Submitters → their ideas;
-		// Contributors → their assigned queue.
+		// Dashboard = program overview (admin) or category overview (owner /
+		// contributor). Submitters have no category scope → their own ideas.
 		if (context.user.role === "submitter") {
 			throw redirect({ to: "/my-ideas" });
-		}
-		if (context.user.role === "contributor") {
-			throw redirect({ to: "/queue" });
 		}
 	},
 	loader: async ({ context }) => {
@@ -49,9 +45,9 @@ export const Route = createFileRoute("/dashboard")({
 			};
 		}
 
-		// Owner
-		const [ideas, stats] = await Promise.all([getAssignedIdeas(), getOwnerStats()]);
-		return { role: "owner" as const, ideas, stats };
+		// Owner / Contributor — a summary of the categories they own or contribute to.
+		const summary = await getCategorySummary();
+		return { role: "owner" as const, summary };
 	},
 	component: DashboardPage,
 });
@@ -67,7 +63,7 @@ function DashboardPage() {
 					<p className="text-muted-foreground">
 						{data.role === "admin"
 							? "Program overview across the organization."
-							: "Your assigned ideas and response metrics."}
+							: "An overview of the categories you own or contribute to."}
 					</p>
 				</div>
 
@@ -111,16 +107,7 @@ function DashboardPage() {
 					</div>
 				)}
 
-				{data.role === "owner" && (
-					<div className="space-y-6">
-						<OwnerDashboard ideas={data.ideas} stats={data.stats} />
-						<LinkCard
-							to="/queue"
-							title="Full Queue"
-							description="Open your full queue with bulk actions and advanced filters."
-						/>
-					</div>
-				)}
+				{data.role === "owner" && <CategorySummary data={data.summary} />}
 			</main>
 		</PageTransition>
 	);
