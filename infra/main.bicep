@@ -325,6 +325,10 @@ resource appSettings 'Microsoft.Web/sites/config@2024-04-01' = {
   dependsOn: [kvRoleAssignment]
   properties: {
     NODE_ENV: 'production'
+    // Deployment env, independent of NODE_ENV. Only 'dev' unlocks admin-gated
+    // persona switching (and only alongside a non-prod shared mailbox). Derived
+    // from the deploy param so it can't be hand-set wrong.
+    APP_ENV: environmentName
     DATABASE_URL: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=database-url)'
     AZURE_STORAGE_ACCOUNT: storageAccount.name
     AZURE_CLIENT_ID: azureClientId

@@ -1,0 +1,83 @@
+name: Build & Deploy (dev)
+
+# Deploys the UAT/dev environment (thoughtbox-dev.desertfinancial.com).
+# Manual-only by default, or pushes to a `dev` branch. The Azure resources are
+# the `-dev` stack (separate App Service + PostgreSQL + storage) provisioned from
+# infra/parameters/dev.bicepparam. APP_ENV=dev is set by Bicep, which unlocks
+# admin-gated persona switching (only alongside the non-prod dev mailbox).
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AZURE_WEBAPP_NAME: app-df-thoughtbox-dev
+  AZURE_RG: rg-df-thoughtbox-dev
+  NODE_VERSION: "22"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint & format
+        run: pnpm check
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Create deployment package
+        run: |
+          mkdir -p deploy-pkg
+          cp -r dist/ deploy-pkg/dist/
+          cp -r drizzle/ deploy-pkg/drizzle/
+          cp server-adapter.js package.json deploy-pkg/
+          cd deploy-pkg
+          npm install --omit=dev --ignore-scripts --legacy-peer-deps
+          zip -rq ../deploy.zip .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deploy-package-dev
+          path: deploy.zip
+          retention-days: 3
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: deploy-package-dev
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: deploy.zip
