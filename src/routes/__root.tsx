@@ -11,7 +11,6 @@ import {
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useState } from "react";
-import { PersonaSwitcher } from "#/components/dev/persona-switcher";
 import { AppSidebar } from "#/components/layout/app-sidebar";
 import { Button } from "#/components/ui/button";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "#/components/ui/sidebar";
@@ -177,13 +176,6 @@ function RootComponent() {
 						>
 							<SidebarTrigger className="text-foreground" />
 							<span className="text-base font-semibold text-foreground">ThoughtBox</span>
-							{user?.canSwitchPersona && (
-								<PersonaSwitcher
-									currentEntraId={user.entraId}
-									actingAs={user.actingAs}
-									className="ml-auto"
-								/>
-							)}
 						</header>
 						<Outlet />
 					</SidebarInset>

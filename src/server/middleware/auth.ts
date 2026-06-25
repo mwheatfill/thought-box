@@ -172,7 +172,30 @@ export const authMiddleware = createMiddleware().server(async ({ next, request }
 	// inside resolvePersonaOverride). `realUser` is always the true identity so the
 	// UI can show an "acting as" indicator. In prod / for non-admins this is null.
 	const actingUser = await resolvePersonaOverride(request, authUser);
-	return next({ context: { user: actingUser ?? authUser, realUser: authUser } });
+	if (actingUser) {
+		return next({ context: { user: actingUser, realUser: authUser } });
+	}
+
+	// Local dev: the persona switcher swaps identity wholesale via the dev_persona
+	// cookie, so authUser *is* the persona. Surface the same "acting as" indicator
+	// by treating DEV_USER_ENTRA_ID as the home identity — when the active persona
+	// differs from home, the UI shows you're impersonating, and "Back to me"
+	// (clearing the cookie) reverts to home and drops the indicator.
+	const homeEntraId = process.env.DEV_USER_ENTRA_ID;
+	if (isDevEnv() && homeEntraId && authUser.entraId !== homeEntraId) {
+		const home = devClaimsFor(homeEntraId);
+		const homeUser: AuthUser = {
+			...authUser,
+			id: `home:${home.entraId}`,
+			entraId: home.entraId,
+			email: home.email,
+			displayName: home.displayName,
+			role: "admin",
+		};
+		return next({ context: { user: authUser, realUser: homeUser } });
+	}
+
+	return next({ context: { user: authUser, realUser: authUser } });
 });
 
 /**

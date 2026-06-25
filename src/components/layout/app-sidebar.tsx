@@ -14,6 +14,7 @@ import {
 	Trash2,
 	Users,
 } from "lucide-react";
+import { SidebarUserMenu } from "#/components/dev/persona-switcher";
 import { ThemeToggle } from "#/components/layout/theme-toggle";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Separator } from "#/components/ui/separator";
@@ -80,8 +81,15 @@ const adminNav: NavItem[] = [
 
 // ── Sidebar ────────────────────────────────────────────────────────────────
 
+/** The session user as resolved by `getCurrentUser` — `AuthUser` plus the dev
+ * persona-switching metadata the footer needs. */
+type SidebarUser = AuthUser & {
+	canSwitchPersona?: boolean;
+	actingAs?: { realDisplayName: string; realEmail: string } | null;
+};
+
 interface AppSidebarProps {
-	user: AuthUser;
+	user: SidebarUser;
 }
 
 export function AppSidebar({ user }: AppSidebarProps) {
@@ -144,18 +152,26 @@ export function AppSidebar({ user }: AppSidebarProps) {
 				)}
 			</SidebarContent>
 
-			<SidebarFooter className="p-4">
-				<div className="flex items-center justify-between">
-					<div className="flex items-center gap-3">
-						<Avatar className="size-8">
-							{user.photoUrl && <AvatarImage src={user.photoUrl} alt={user.displayName} />}
-							<AvatarFallback className="text-xs">{initials(user.displayName)}</AvatarFallback>
-						</Avatar>
-						<div className="flex flex-col">
-							<span className="text-sm font-medium leading-none">{user.displayName}</span>
-							<span className="text-xs text-muted-foreground capitalize">{user.role}</span>
+			<SidebarFooter className="p-2">
+				<div className="flex items-center justify-between gap-1">
+					{user.canSwitchPersona ? (
+						<SidebarUserMenu user={user} actingAs={user.actingAs} />
+					) : (
+						<div className="flex min-w-0 flex-1 items-center gap-2.5 p-2">
+							<Avatar className="size-8 shrink-0">
+								{user.photoUrl && <AvatarImage src={user.photoUrl} alt={user.displayName} />}
+								<AvatarFallback className="text-xs">{initials(user.displayName)}</AvatarFallback>
+							</Avatar>
+							<div className="flex min-w-0 flex-col">
+								<span className="truncate text-sm font-medium leading-tight">
+									{user.displayName}
+								</span>
+								<span className="text-xs text-muted-foreground capitalize leading-tight">
+									{user.role}
+								</span>
+							</div>
 						</div>
-					</div>
+					)}
 					<ThemeToggle />
 				</div>
 			</SidebarFooter>

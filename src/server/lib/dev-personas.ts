@@ -86,6 +86,16 @@ export interface DevPersonaStatus extends DevPersona {
 }
 
 /**
+ * Memoize the (idempotent) materialization. Both the switcher's list call and
+ * every impersonated request route through `ensureDevPersonas`, and each cold
+ * call costs ~10 DB round-trips. The personas and their relationships don't
+ * change within a session, so a short TTL keeps a deployed dev env snappy while
+ * staying fresh enough for a test-only tool.
+ */
+let ensuredCache: { at: number; data: DevPersonaStatus[] } | null = null;
+const ENSURE_TTL_MS = 60_000;
+
+/**
  * Idempotently ensure the dev personas exist with the relationships that make
  * each role meaningful: the owner persona owns a real category (the unowned one
  * with the most ideas, so the views aren't empty), and the contributor sits on
@@ -93,6 +103,9 @@ export interface DevPersonaStatus extends DevPersona {
  */
 export async function ensureDevPersonas(): Promise<DevPersonaStatus[]> {
 	if (!personaSwitchingEnabled()) return [];
+	if (ensuredCache && Date.now() - ensuredCache.at < ENSURE_TTL_MS) {
+		return ensuredCache.data;
+	}
 
 	// Upsert each persona user (by entraId).
 	for (const p of DEV_PERSONAS) {
@@ -179,8 +192,10 @@ export async function ensureDevPersonas(): Promise<DevPersonaStatus[]> {
 			.onConflictDoNothing();
 	}
 
-	return DEV_PERSONAS.map((p) => ({
+	const data = DEV_PERSONAS.map((p) => ({
 		...p,
 		categoryName: p.intent === "owner" || p.intent === "contributor" ? (cat?.name ?? null) : null,
 	}));
+	ensuredCache = { at: Date.now(), data };
+	return data;
 }
