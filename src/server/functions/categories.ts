@@ -6,6 +6,7 @@ import { db } from "#/server/db";
 import { categories, ideas, users } from "#/server/db/schema";
 import { sendCategoryRoleGrantedEmail } from "#/server/functions/email";
 import { audit } from "#/server/lib/audit";
+import { upsertDirectoryUser } from "#/server/lib/user-upsert";
 import { adminMiddleware } from "#/server/middleware/auth";
 
 export const getCategories = createServerFn()
@@ -269,20 +270,26 @@ export const getUnownedCategories = createServerFn()
 	});
 
 /**
- * Candidate users for a Category's Default Owner. Any active user qualifies —
- * Owner is a derived role (ADR-0003): someone becomes an Owner *by* being given
- * a Category, so the picker must offer not-yet-Owners (whose stored `role` is
- * still `submitter`), not just existing owners/admins. Filtering to stored
- * owner/admin created a chicken-and-egg where a submitter could never be made
- * an Owner.
+ * Resolve a Default Owner pick to a User id, inline-creating the User from the
+ * Entra directory if they're not in the system yet. The owner picker searches
+ * the directory (existing Users + Entra employees), but the category form
+ * persists a User id, so the pick must be materialized before save. Owner is a
+ * derived role (ADR-0003) — the upserted User stays `submitter`; owning this
+ * Category is what makes them an Owner.
  */
-export const getOwnerCandidates = createServerFn()
+export const ensureUserFromDirectory = createServerFn({ method: "POST" })
 	.middleware([adminMiddleware])
-	.handler(async () => {
-		const result = await db.query.users.findMany({
-			where: (u, { eq }) => eq(u.active, true),
-			columns: { id: true, displayName: true, role: true },
-			orderBy: (u, { asc }) => [asc(u.displayName)],
-		});
-		return result;
+	.inputValidator(
+		z.object({
+			entraId: z.string(),
+			displayName: z.string(),
+			email: z.string(),
+			jobTitle: z.string().nullable().optional(),
+			department: z.string().nullable().optional(),
+			officeLocation: z.string().nullable().optional(),
+		}),
+	)
+	.handler(async ({ context, data }) => {
+		const { id } = await upsertDirectoryUser(data, context.user.id);
+		return { id, displayName: data.displayName };
 	});

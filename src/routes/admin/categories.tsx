@@ -3,7 +3,6 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
 	AlertTriangle,
-	Check,
 	ChevronsUpDown,
 	ExternalLink,
 	MoveDown,
@@ -15,17 +14,10 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { DirectoryPicker, type DirectoryResult } from "#/components/categories/directory-picker";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent } from "#/components/ui/card";
-import {
-	Command,
-	CommandEmpty,
-	CommandGroup,
-	CommandInput,
-	CommandItem,
-	CommandList,
-} from "#/components/ui/command";
 import {
 	Dialog,
 	DialogContent,
@@ -57,9 +49,9 @@ import { cn } from "#/lib/utils";
 import {
 	createCategory,
 	deleteCategory,
+	ensureUserFromDirectory,
 	getCategories,
 	getDeletedCategories,
-	getOwnerCandidates,
 	getUnownedCategories,
 	restoreCategory,
 	updateCategory,
@@ -73,12 +65,8 @@ export const Route = createFileRoute("/admin/categories")({
 		}
 	},
 	loader: async () => {
-		const [cats, owners, unowned] = await Promise.all([
-			getCategories(),
-			getOwnerCandidates(),
-			getUnownedCategories(),
-		]);
-		return { categories: cats, owners, unowned };
+		const [cats, unowned] = await Promise.all([getCategories(), getUnownedCategories()]);
+		return { categories: cats, unowned };
 	},
 	component: CategoriesPage,
 });
@@ -104,14 +92,16 @@ const emptyForm: CategoryForm = {
 };
 
 function CategoriesPage() {
-	const { categories: initialCategories, owners, unowned } = Route.useLoaderData();
+	const { categories: initialCategories, unowned } = Route.useLoaderData();
 	const queryClient = useQueryClient();
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [showDeleted, setShowDeleted] = useState(false);
 	const [form, setForm] = useState<CategoryForm>(emptyForm);
+	const [selectedOwnerName, setSelectedOwnerName] = useState<string | null>(null);
 	const [ownerPopoverOpen, setOwnerPopoverOpen] = useState(false);
 	const [search, setSearch] = useState("");
+	const ensureOwner = useServerFn(ensureUserFromDirectory);
 
 	const { data: cats = initialCategories } = useQuery({
 		queryKey: ["admin-categories"],
@@ -204,6 +194,7 @@ function CategoriesPage() {
 
 	function openCreate() {
 		setEditingId(null);
+		setSelectedOwnerName(null);
 		setForm({
 			...emptyForm,
 			sortOrder: cats.length > 0 ? Math.max(...cats.map((c) => c.sortOrder)) + 1 : 1,
@@ -213,6 +204,7 @@ function CategoriesPage() {
 
 	function openEdit(cat: (typeof cats)[number]) {
 		setEditingId(cat.id);
+		setSelectedOwnerName(cat.defaultOwnerName);
 		setForm({
 			name: cat.name,
 			description: cat.description,
@@ -225,7 +217,22 @@ function CategoriesPage() {
 		setDialogOpen(true);
 	}
 
-	const selectedOwner = owners.find((l) => l.id === form.defaultOwnerId);
+	// Resolve a directory pick (existing User or a never-seen Entra employee) to a
+	// User id, inline-creating if needed, before storing it on the category form.
+	const ownerSelectMutation = useMutation({
+		mutationFn: (person: DirectoryResult) => ensureOwner({ data: person }),
+		onSuccess: ({ id, displayName }) => {
+			setForm((f) => ({ ...f, defaultOwnerId: id }));
+			setSelectedOwnerName(displayName);
+			setOwnerPopoverOpen(false);
+		},
+	});
+
+	function clearOwner() {
+		setForm((f) => ({ ...f, defaultOwnerId: "" }));
+		setSelectedOwnerName(null);
+		setOwnerPopoverOpen(false);
+	}
 
 	return (
 		<main className="flex-1 bg-background p-6">
@@ -501,40 +508,27 @@ function CategoriesPage() {
 								<Popover open={ownerPopoverOpen} onOpenChange={setOwnerPopoverOpen}>
 									<PopoverTrigger asChild>
 										<Button variant="outline" className="w-full justify-between font-normal">
-											{selectedOwner?.displayName ?? "Search for an owner..."}
+											{selectedOwnerName ?? "Search for an owner..."}
 											<ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
 										</Button>
 									</PopoverTrigger>
-									<PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-										<Command>
-											<CommandInput placeholder="Type a name..." />
-											<CommandList>
-												<CommandEmpty>No owners found.</CommandEmpty>
-												<CommandGroup>
-													{owners.map((l) => (
-														<CommandItem
-															key={l.id}
-															value={l.displayName}
-															onSelect={() => {
-																setForm({ ...form, defaultOwnerId: l.id });
-																setOwnerPopoverOpen(false);
-															}}
-														>
-															<Check
-																className={cn(
-																	"mr-2 size-4",
-																	form.defaultOwnerId === l.id ? "opacity-100" : "opacity-0",
-																)}
-															/>
-															{l.displayName}
-															<span className="ml-auto text-xs text-muted-foreground capitalize">
-																{l.role}
-															</span>
-														</CommandItem>
-													))}
-												</CommandGroup>
-											</CommandList>
-										</Command>
+									<PopoverContent className="w-[--radix-popover-trigger-width] p-2" align="start">
+										<DirectoryPicker
+											placeholder="Search employees…"
+											onSelect={(person) => ownerSelectMutation.mutate(person)}
+										/>
+										{ownerSelectMutation.isPending && (
+											<p className="px-1 pt-2 text-xs text-muted-foreground">Adding…</p>
+										)}
+										{form.defaultOwnerId && (
+											<button
+												type="button"
+												onClick={clearOwner}
+												className="mt-1 w-full rounded px-1 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted"
+											>
+												Clear owner
+											</button>
+										)}
 									</PopoverContent>
 								</Popover>
 							</div>
