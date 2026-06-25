@@ -59,7 +59,7 @@ import {
 	deleteCategory,
 	getCategories,
 	getDeletedCategories,
-	getOwners,
+	getOwnerCandidates,
 	getUnownedCategories,
 	restoreCategory,
 	updateCategory,
@@ -75,7 +75,7 @@ export const Route = createFileRoute("/admin/categories")({
 	loader: async () => {
 		const [cats, owners, unowned] = await Promise.all([
 			getCategories(),
-			getOwners(),
+			getOwnerCandidates(),
 			getUnownedCategories(),
 		]);
 		return { categories: cats, owners, unowned };

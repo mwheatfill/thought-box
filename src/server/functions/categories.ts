@@ -268,12 +268,19 @@ export const getUnownedCategories = createServerFn()
 			}));
 	});
 
-/** Get owners for the default owner dropdown */
-export const getOwners = createServerFn()
+/**
+ * Candidate users for a Category's Default Owner. Any active user qualifies —
+ * Owner is a derived role (ADR-0003): someone becomes an Owner *by* being given
+ * a Category, so the picker must offer not-yet-Owners (whose stored `role` is
+ * still `submitter`), not just existing owners/admins. Filtering to stored
+ * owner/admin created a chicken-and-egg where a submitter could never be made
+ * an Owner.
+ */
+export const getOwnerCandidates = createServerFn()
 	.middleware([adminMiddleware])
 	.handler(async () => {
 		const result = await db.query.users.findMany({
-			where: (u, { or, eq }) => or(eq(u.role, "owner"), eq(u.role, "admin")),
+			where: (u, { eq }) => eq(u.active, true),
 			columns: { id: true, displayName: true, role: true },
 			orderBy: (u, { asc }) => [asc(u.displayName)],
 		});
