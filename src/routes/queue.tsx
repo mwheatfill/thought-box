@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { OwnerDashboard } from "#/components/dashboard/owner-dashboard";
 import { getAssignedIdeas, getOwnerStats } from "#/server/functions/dashboard";
 import { bulkUpdateStatus } from "#/server/functions/ideas";
@@ -27,9 +28,13 @@ function QueuePage() {
 	const bulkMutation = useMutation({
 		mutationFn: ({ ideaIds, status }: { ideaIds: string[]; status: string }) =>
 			bulkUpdate({ data: { ideaIds, status: status as "under_review" } }),
-		onSuccess: () => {
+		onSuccess: ({ count }) => {
 			queryClient.invalidateQueries();
+			toast.success(
+				count === 1 ? "1 idea moved to Under Review" : `${count} ideas moved to Under Review`,
+			);
 		},
+		onError: () => toast.error("Couldn't update the selected ideas"),
 	});
 
 	return (
@@ -39,7 +44,9 @@ function QueuePage() {
 				ideas={ideas}
 				stats={stats}
 				onBulkUpdate={async (ideaIds, status) => {
-					await bulkMutation.mutateAsync({ ideaIds, status });
+					// Errors surface via the mutation's onError toast; swallow here so the
+					// awaiting caller doesn't produce an unhandled rejection.
+					await bulkMutation.mutateAsync({ ideaIds, status }).catch(() => {});
 				}}
 				isBulkUpdating={bulkMutation.isPending}
 				enableKpiFilter

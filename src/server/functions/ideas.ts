@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import {
 	CLOSED_STATUSES,
@@ -138,10 +138,10 @@ export const createIdea = createServerFn({ method: "POST" })
 			ownerName = owner?.displayName ?? null;
 		}
 
-		const submitterIdeas = await db.query.ideas.findMany({
-			where: eq(ideas.submitterId, context.user.id),
-			columns: { id: true },
-		});
+		const [{ n: submitterIdeaCount }] = await db
+			.select({ n: count() })
+			.from(ideas)
+			.where(eq(ideas.submitterId, context.user.id));
 
 		// Fire-and-forget: send confirmation to submitter
 		sendIdeaSubmittedEmail({
@@ -150,7 +150,7 @@ export const createIdea = createServerFn({ method: "POST" })
 			submissionId,
 			ideaTitle: data.title,
 			categoryName: category.name,
-			ideaCount: submitterIdeas.length,
+			ideaCount: submitterIdeaCount,
 		});
 
 		// Fire-and-forget: notify assigned owner
@@ -356,6 +356,14 @@ export const getIdeaDetail = createServerFn()
 			// The active reviewer (assigned reviewer, else the derived Category
 			// Owner) — shown to the submitter only once the idea has been reviewed.
 			assignedOwner: showOwner ? activeReviewer : null,
+			// The *explicitly* assigned reviewer (null when the idea derives to the
+			// Category Owner) — owner/admin only, so the Reviewer & routing card can
+			// distinguish "delegated" from "sitting with the default owner".
+			assignedReviewerId: isAdminViewer || isOwnerLikeViewer ? idea.assignedReviewerId : null,
+			assignedReviewerName:
+				(isAdminViewer || isOwnerLikeViewer) && idea.assignedReviewerId && idea.assignedReviewer
+					? idea.assignedReviewer.displayName
+					: null,
 			events: events.map((e) => {
 				const redactReassign = e.eventType === "reassigned" && !showOwner;
 				// Anonymize the owner/reviewer's identity (Category Owner or the
@@ -565,7 +573,14 @@ export const bulkUpdateStatus = createServerFn({ method: "POST" })
 	.handler(async ({ context, data }) => {
 		const candidates = await db.query.ideas.findMany({
 			where: inArray(ideas.id, data.ideaIds),
-			columns: { id: true, status: true, assignedReviewerId: true },
+			columns: {
+				id: true,
+				status: true,
+				assignedReviewerId: true,
+				submissionId: true,
+				title: true,
+				submitterId: true,
+			},
 			with: { category: { columns: { ownerId: true } } },
 		});
 
@@ -604,6 +619,21 @@ export const bulkUpdateStatus = createServerFn({ method: "POST" })
 				})),
 			),
 		]);
+
+		// Fire-and-forget: notify each idea's Watchers + active reviewer, matching
+		// the single-idea updateIdea path (bulk previously dropped these silently).
+		for (const t of targets) {
+			notifyIdeaWatchers({
+				ideaId: t.id,
+				submissionId: t.submissionId,
+				ideaTitle: t.title,
+				eventType: "status_changed",
+				actorId: context.user.id,
+				submitterId: t.submitterId,
+				alsoNotifyId: t.assignedReviewerId ?? t.category.ownerId,
+				update: { kind: "status", statusLabel: STATUS_LABELS[data.status] ?? data.status },
+			});
+		}
 
 		trackEvent("BulkStatusChanged", { newStatus: data.status }, { count: targets.length });
 

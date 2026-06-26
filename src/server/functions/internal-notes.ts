@@ -69,12 +69,18 @@ export const addInternalNote = createServerFn({ method: "POST" })
 			.returning({ id: ideaEvents.id });
 
 		// Fire-and-forget: notify each mentioned user. Skip self-mentions and only
-		// notify those who can actually read internal notes — owner/admin, or this
-		// idea's assigned reviewer (who may be a Contributor with the submitter role).
+		// notify those who can actually read internal notes — admins, plus THIS
+		// idea's Category Owner and assigned reviewer (by relationship, not stored
+		// role: the Category Owner may still carry the `submitter` role under ADR-0003,
+		// and a stored `owner` of some other category can't read this note).
 		if (data.mentions && data.mentions.length > 0) {
-			const canReadNotes = idea.assignedReviewerId
-				? or(inArray(users.role, ["owner", "admin"]), eq(users.id, idea.assignedReviewerId))
-				: inArray(users.role, ["owner", "admin"]);
+			const allowedIds = [idea.category.ownerId, idea.assignedReviewerId].filter(
+				(id): id is string => Boolean(id),
+			);
+			const canReadNotes =
+				allowedIds.length > 0
+					? or(eq(users.role, "admin"), inArray(users.id, allowedIds))
+					: eq(users.role, "admin");
 			const recipients = await db.query.users.findMany({
 				where: and(inArray(users.id, data.mentions), ne(users.id, context.user.id), canReadNotes),
 				columns: { email: true, displayName: true },

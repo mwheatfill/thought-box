@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "#/server/db";
 import { users } from "#/server/db/schema";
-import { resolvePersonaOverride } from "#/server/lib/persona-override";
+import { resolveEffectiveRole, resolvePersonaOverride } from "#/server/lib/persona-override";
 import type { AuthUser } from "#/server/middleware/auth";
 
 function parseEntraId(request: Request): string | null {
@@ -23,6 +23,10 @@ export async function resolveAuthUser(request: Request): Promise<AuthUser | null
 	if (!entraId) return null;
 	const user = await db.query.users.findFirst({ where: eq(users.entraId, entraId) });
 	if (!user || !user.active) return null;
+	// AuthUser.role is the relationship-derived effective role (ADR-0003), not the
+	// stored column — match the TanStack middleware so the two auth entry points
+	// agree (a Category Owner stored as `submitter` must read as `owner` here too).
+	const role = await resolveEffectiveRole(user.id, user.role === "admin");
 	const realUser: AuthUser = {
 		id: user.id,
 		entraId: user.entraId,
@@ -33,7 +37,7 @@ export async function resolveAuthUser(request: Request): Promise<AuthUser | null
 		officeLocation: user.officeLocation,
 		photoUrl: user.photoUrl,
 		managerDisplayName: user.managerDisplayName,
-		role: user.role,
+		role,
 		active: user.active,
 	};
 

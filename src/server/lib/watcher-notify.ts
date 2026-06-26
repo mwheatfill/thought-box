@@ -40,18 +40,32 @@ export async function notifyIdeaWatchers(params: {
 		with: { user: { columns: { id: true, email: true, displayName: true } } },
 	});
 
-	const recipientIds = new Set<string>(rows.flatMap((r) => (r.user ? [r.user.id] : [])));
+	// The first query already loaded each watcher's email/displayName via the
+	// `user` relation — keep them, and only round-trip for ids it didn't cover
+	// (just the optional active reviewer in `alsoNotifyId`).
+	const byId = new Map<string, { email: string; displayName: string }>();
+	for (const r of rows) {
+		if (r.user) byId.set(r.user.id, { email: r.user.email, displayName: r.user.displayName });
+	}
+
+	const recipientIds = new Set<string>(byId.keys());
 	if (params.alsoNotifyId) recipientIds.add(params.alsoNotifyId);
 	recipientIds.delete(params.actorId);
 	recipientIds.delete(params.submitterId);
 	if (recipientIds.size === 0) return;
 
-	const recipients = await db.query.users.findMany({
-		where: inArray(users.id, [...recipientIds]),
-		columns: { email: true, displayName: true },
-	});
+	const missing = [...recipientIds].filter((id) => !byId.has(id));
+	if (missing.length > 0) {
+		const extra = await db.query.users.findMany({
+			where: inArray(users.id, missing),
+			columns: { id: true, email: true, displayName: true },
+		});
+		for (const u of extra) byId.set(u.id, { email: u.email, displayName: u.displayName });
+	}
 
-	for (const u of recipients) {
+	for (const id of recipientIds) {
+		const u = byId.get(id);
+		if (!u) continue;
 		sendWatcherUpdateEmail({
 			watcherEmail: u.email,
 			watcherFirstName: u.displayName.split(" ")[0],

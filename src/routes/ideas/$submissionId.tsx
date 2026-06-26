@@ -478,8 +478,8 @@ function IdeaDetailPage() {
 									ideaId={idea.id}
 									categoryId={idea.categoryId}
 									categoryName={idea.categoryName}
-									assignedReviewerId={idea.assignedOwner?.id ?? null}
-									assignedReviewerName={idea.assignedOwner?.displayName ?? null}
+									assignedReviewerId={idea.assignedReviewerId ?? null}
+									assignedReviewerName={idea.assignedReviewerName ?? null}
 									onChanged={() =>
 										queryClient.invalidateQueries({ queryKey: ["idea", submissionId] })
 									}

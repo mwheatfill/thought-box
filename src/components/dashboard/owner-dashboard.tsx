@@ -354,8 +354,9 @@ export function OwnerDashboard({
 											<SelectValue />
 										</SelectTrigger>
 										<SelectContent>
+											{/* Bulk is intentionally Under Review only — Accepted/Declined need a
+											    per-idea message (and reason), so they happen one at a time. */}
 											<SelectItem value="under_review">Under Review</SelectItem>
-											<SelectItem value="accepted">Accepted</SelectItem>
 										</SelectContent>
 									</Select>
 									<Button
