@@ -208,13 +208,19 @@ export async function searchDirectory(query: string): Promise<DirectoryUser[]> {
 		);
 	}
 
-	// Production: search Entra ID directory (members only, not guests, not disabled)
-	const safeQuery = query.replace(/'/g, "''");
+	// Production: search the Entra directory (members only, not guests, not disabled).
+	// $search does tokenized matching across the term, so a surname finds a
+	// "First Last" record and "owner" finds "Olive Owner" — far better recall than a
+	// prefix-only startsWith. $search on /users requires the ConsistencyLevel:eventual
+	// header and is AND-ed with the $filter. The term is wrapped in double quotes, so
+	// strip any the user typed.
+	const safeQuery = query.replace(/"/g, "").trim();
+	if (safeQuery.length < 2) return [];
 	const response = await client
 		.api("/users")
-		.filter(
-			`userType eq 'Member' and accountEnabled eq true and (startsWith(displayName,'${safeQuery}') or startsWith(mail,'${safeQuery}'))`,
-		)
+		.header("ConsistencyLevel", "eventual")
+		.search(`"displayName:${safeQuery}" OR "mail:${safeQuery}"`)
+		.filter("userType eq 'Member' and accountEnabled eq true")
 		.select("id,displayName,mail,jobTitle,department,officeLocation")
 		.top(10)
 		.get();
