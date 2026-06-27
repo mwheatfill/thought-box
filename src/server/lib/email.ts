@@ -48,7 +48,13 @@ function isUndeliverable(email: string, fromMailbox: string | undefined): boolea
 
 function getMailClient(): Client | null {
 	const isAzure = process.cwd().startsWith("/home/site");
-	if (isAzure) {
+	// Alias avoids Vite statically replacing `process.env.APP_ENV` at build time.
+	const isDev = (process.env as Record<string, string | undefined>).APP_ENV === "dev";
+	// Prod on Azure → managed identity (scoped by an Exchange ApplicationAccessPolicy).
+	// Dev (deployed or local) → client-credentials via the dev app registration: the
+	// dev managed identity's Mail.Send isn't honored at runtime, and the app reg is
+	// what the dev env was provisioned for (Graph perms + its own access policy).
+	if (isAzure && !isDev) {
 		const credential = new ManagedIdentityCredential();
 		const authProvider = new TokenCredentialAuthenticationProvider(credential, {
 			scopes: ["https://graph.microsoft.com/.default"],
@@ -56,7 +62,7 @@ function getMailClient(): Client | null {
 		return Client.initWithMiddleware({ authProvider });
 	}
 
-	// Dev: fall back to client secret if configured
+	// Dev + local: client secret (the dev app registration)
 	const tenantId = process.env.AZURE_TENANT_ID;
 	const clientId = process.env.GRAPH_CLIENT_ID;
 	const clientSecret = process.env.GRAPH_CLIENT_SECRET;
