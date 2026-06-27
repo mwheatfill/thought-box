@@ -41,6 +41,10 @@ const UNDELIVERABLE_RECIPIENTS = new Set(["legacy-inmoment@desertfinancial.com"]
 function isUndeliverable(email: string, fromMailbox: string | undefined): boolean {
 	const normalized = email.trim().toLowerCase();
 	if (UNDELIVERABLE_RECIPIENTS.has(normalized)) return true;
+	// Dev personas use non-routable `@localhost` addresses (a guardrail so test
+	// flows never email real employees). Skip them cleanly instead of letting Graph
+	// 403 on each — the attempt is still logged as skipped.
+	if (normalized.endsWith("@localhost")) return true;
 	// Never email our own sending mailbox — that's a self-addressed mail loop.
 	if (fromMailbox && normalized === fromMailbox.trim().toLowerCase()) return true;
 	return false;

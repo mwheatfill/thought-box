@@ -3,9 +3,16 @@ import { eq } from "drizzle-orm";
 import { db } from "#/server/db";
 import { users } from "#/server/db/schema";
 import { devClaimsFor, isDevEnv } from "#/server/lib/dev-personas";
+import { initEmailLog } from "#/server/lib/email-log";
 import { enrichUserProfile } from "#/server/lib/enrichment";
 import { resolveEffectiveRole, resolvePersonaOverride } from "#/server/lib/persona-override";
 import type { EffectiveRole } from "#/server/lib/roles";
+
+// Register the email logger in THIS (Vite) bundle. server-adapter calls it too,
+// but only on the esbuild copy of email.ts — sends from Vite-bundled server
+// functions use a separate module instance whose logFn would otherwise be unset,
+// so every send went unrecorded in email_log. Cheap + idempotent (stores a fn).
+initEmailLog();
 
 // Skip enrichment DB query if checked within the last 60 seconds
 const enrichmentCache = new Map<string, number>();
