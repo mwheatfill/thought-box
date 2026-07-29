@@ -120,6 +120,15 @@ ${categoryTaxonomy}${userContext}`;
 		system: systemPrompt,
 		messages,
 		stopWhen: stepCountIs(5),
+		onError: ({ error }) => {
+			// Provider failures happen mid-stream, after the 200 response has
+			// started — this log + event is the only server-side signal.
+			console.error("[chat] AI provider error:", error);
+			trackEvent("ChatFailed", {
+				userId: userId ?? "anonymous",
+				error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+			});
+		},
 		tools: {
 			set_readiness: tool({
 				description:
@@ -372,5 +381,9 @@ ${categoryTaxonomy}${userContext}`;
 		},
 	});
 
-	return result.toUIMessageStreamResponse();
+	return result.toUIMessageStreamResponse({
+		// Forward a user-safe message in the stream's error part so the client
+		// can react (default masks errors as "An error occurred.").
+		onError: () => "The AI assistant is temporarily unavailable.",
+	});
 }

@@ -10,6 +10,7 @@ import type { ToolCallMessagePartComponent } from "@assistant-ui/react";
 import { AssistantChatTransport, useChatRuntime } from "@assistant-ui/react-ai-sdk";
 import { ArrowUp, Check, ExternalLink, Loader2, Pencil, RotateCcw, Send } from "lucide-react";
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { IdeaSubmittedCard } from "#/components/chat/idea-submitted-card";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Button } from "#/components/ui/button";
@@ -538,7 +539,15 @@ export function ChatInterface({
 		[user.id],
 	);
 
-	const runtime = useChatRuntime({ transport });
+	const runtime = useChatRuntime({
+		transport,
+		// Fires on stream errors too (provider failures arrive mid-stream with a
+		// 200 status, so the fetch check above never sees them).
+		onError: () => {
+			toast.error("The AI assistant is unavailable right now — switching to the standard form.");
+			onErrorRef.current?.();
+		},
+	});
 
 	return (
 		<ChatUserContext.Provider value={user.id}>

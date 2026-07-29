@@ -26,6 +26,7 @@ const { handleChatRequest } = await import("./dist/server/chat-handler.js");
 const { handlePhotoRequest } = await import("./dist/server/photo-handler.js");
 const { handleSlaCronRequest } = await import("./dist/server/sla-cron.js");
 const { handleHealthRequest } = await import("./dist/server/health.js");
+const { runAiHealthCheck } = await import("./dist/server/ai-health.js");
 const { init: initEmailLog } = await import("./dist/server/init-email-log.js");
 initEmailLog();
 
@@ -212,6 +213,14 @@ server.listen(PORT, () => {
 			}
 		}
 	}, 60_000); // Check every minute
+
+	// AI provider health ping — every 5 minutes, alerts after 3 consecutive
+	// failures. Deliberately NOT part of /health: Azure's health check would
+	// recycle the app whenever the AI provider is down.
+	const aiPing = () =>
+		runAiHealthCheck().catch((err) => console.error("[ai-health] Check crashed:", err));
+	setTimeout(aiPing, 60_000); // first ping shortly after boot
+	setInterval(aiPing, 300_000);
 });
 
 process.on("SIGTERM", () => {

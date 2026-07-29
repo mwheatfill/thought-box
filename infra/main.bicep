@@ -600,6 +600,59 @@ resource alertResponseTime 'Microsoft.Insights/scheduledQueryRules@2021-08-01' =
   }
 }
 
+// ── Monitoring: Container console logs → Log Analytics ─────────────────────
+// AI provider failures happen mid-stream (the response is already a 200), so
+// they never appear in request telemetry — only as AI_APICallError lines on
+// stdout. Shipping console logs makes them queryable and alertable.
+
+resource consoleLogsDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'console-logs-to-workspace'
+  scope: appService
+  properties: {
+    workspaceId: logWorkspace.id
+    logs: [
+      {
+        category: 'AppServiceConsoleLogs'
+        enabled: true
+      }
+    ]
+  }
+}
+
+// ── Monitoring: Alert — AI Provider Errors ─────────────────────────────────
+// Threshold tolerates a single transient error (~2-3 matching lines); a real
+// outage trips it fast because the in-process health ping fails every 5 min.
+
+resource alertAiProvider 'Microsoft.Insights/scheduledQueryRules@2021-08-01' = {
+  name: 'alert-${prefix}-ai-provider'
+  location: location
+  properties: {
+    description: 'AI provider errors in container logs (chat failures or failed health pings)'
+    severity: 2
+    enabled: true
+    scopes: [logWorkspace.id]
+    evaluationFrequency: 'PT15M'
+    windowSize: 'PT15M'
+    criteria: {
+      allOf: [
+        {
+          query: 'AppServiceConsoleLogs | where ResultDescription has "AI_APICallError" or ResultDescription has "[ai-health] Ping failed"'
+          timeAggregation: 'Count'
+          operator: 'GreaterThan'
+          threshold: 4
+          failingPeriods: {
+            numberOfEvaluationPeriods: 1
+            minFailingPeriodsToAlert: 1
+          }
+        }
+      ]
+    }
+    actions: {
+      actionGroups: [actionGroup.id]
+    }
+  }
+}
+
 // ── Monitoring: Alert — PostgreSQL CPU ─────────────────────────────────────
 
 resource alertPostgresCpu 'Microsoft.Insights/metricAlerts@2018-03-01' = {
