@@ -92,3 +92,18 @@ await esbuild.build({
 });
 
 console.log("Email log init built → dist/server/init-email-log.js");
+
+await esbuild.build({
+	entryPoints: ["src/server/api/ai-health.ts"],
+	bundle: true,
+	platform: "node",
+	target: "node22",
+	format: "esm",
+	outfile: "dist/server/ai-health.js",
+	packages: "external",
+	alias: {
+		"#/*": "./src/*",
+	},
+});
+
+console.log("AI health check built → dist/server/ai-health.js");
