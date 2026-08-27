@@ -80,6 +80,7 @@ function formatDetails(details: Record<string, unknown> | null): string {
 	if (details.name) parts.push(String(details.name));
 	if (details.filename) parts.push(String(details.filename));
 	if (details.title) parts.push(String(details.title));
+	if (details.watcher) parts.push(String(details.watcher));
 	if (details.from && details.to) parts.push(`${details.from} → ${details.to}`);
 	if (details.category) parts.push(String(details.category));
 	if (details.role && !details.from) parts.push(`Role: ${details.role}`);

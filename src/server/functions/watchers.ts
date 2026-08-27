@@ -3,6 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "#/server/db";
 import { ideaWatchers, ideas, users } from "#/server/db/schema";
+import { sendWatcherUpdateEmail } from "#/server/functions/email";
 import { audit } from "#/server/lib/audit";
 import { loadIdeaCapabilities } from "#/server/lib/idea-authz";
 import { upsertDirectoryUser } from "#/server/lib/user-upsert";
@@ -14,6 +15,8 @@ async function loadIdeaForWatch(ideaId: string) {
 		where: eq(ideas.id, ideaId),
 		columns: {
 			id: true,
+			submissionId: true,
+			title: true,
 			status: true,
 			categoryId: true,
 			submitterId: true,
@@ -225,18 +228,32 @@ export const addWatcher = createServerFn({ method: "POST" })
 			return { success: true, userId, displayName: data.displayName };
 		}
 
-		await db
+		const inserted = await db
 			.insert(ideaWatchers)
 			.values({ ideaId: data.ideaId, userId, source: "owner_added", addedById: context.user.id })
-			.onConflictDoNothing();
+			.onConflictDoNothing()
+			.returning({ ideaId: ideaWatchers.ideaId });
 
-		audit({
-			actorId: context.user.id,
-			action: "idea.watcher_added",
-			resourceType: "idea",
-			resourceId: data.ideaId,
-			details: { watcher: data.displayName },
-		});
+		// Conflict = already watching: nothing changed, so no audit entry or email.
+		if (inserted.length > 0) {
+			audit({
+				actorId: context.user.id,
+				action: "idea.watcher_added",
+				resourceType: "idea",
+				resourceId: idea.submissionId,
+				details: { ideaId: data.ideaId, watcher: data.displayName },
+			});
+
+			// Fire-and-forget: tell the new Watcher they've been looped in.
+			sendWatcherUpdateEmail({
+				watcherEmail: data.email,
+				watcherFirstName: data.displayName.split(" ")[0] ?? data.displayName,
+				submissionId: idea.submissionId,
+				ideaTitle: idea.title,
+				updateKind: "added",
+				addedByName: context.user.displayName,
+			}).catch(() => {});
+		}
 
 		return { success: true, userId, displayName: data.displayName };
 	});
@@ -250,6 +267,11 @@ export const removeWatcher = createServerFn({ method: "POST" })
 		const canManage = canManageWatchers(context.user, idea);
 		if (!canManage) throw new Error("Forbidden");
 
+		const removedUser = await db.query.users.findFirst({
+			where: eq(users.id, data.userId),
+			columns: { displayName: true },
+		});
+
 		await db
 			.delete(ideaWatchers)
 			.where(and(eq(ideaWatchers.ideaId, data.ideaId), eq(ideaWatchers.userId, data.userId)));
@@ -258,8 +280,8 @@ export const removeWatcher = createServerFn({ method: "POST" })
 			actorId: context.user.id,
 			action: "idea.watcher_removed",
 			resourceType: "idea",
-			resourceId: data.ideaId,
-			details: { userId: data.userId },
+			resourceId: idea.submissionId,
+			details: { ideaId: data.ideaId, watcher: removedUser?.displayName ?? data.userId },
 		});
 
 		return { success: true };

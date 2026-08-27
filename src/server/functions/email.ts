@@ -225,14 +225,17 @@ export async function sendWatcherUpdateEmail(params: {
 	watcherFirstName: string;
 	submissionId: string;
 	ideaTitle: string;
-	updateKind: "status" | "message";
+	updateKind: "status" | "message" | "added";
 	statusLabel?: string | null;
 	messagePreview?: string | null;
+	addedByName?: string | null;
 }) {
 	const headline =
-		params.updateKind === "status"
-			? `Update on idea ${params.submissionId}: ${params.statusLabel}`
-			: `New activity on idea ${params.submissionId}`;
+		params.updateKind === "added"
+			? `You've been added as a watcher on idea ${params.submissionId}`
+			: params.updateKind === "status"
+				? `Update on idea ${params.submissionId}: ${params.statusLabel}`
+				: `New activity on idea ${params.submissionId}`;
 	await sendEmail({
 		to: params.watcherEmail,
 		subject: headline,
@@ -244,6 +247,7 @@ export async function sendWatcherUpdateEmail(params: {
 			updateKind: params.updateKind,
 			statusLabel: params.statusLabel ?? null,
 			messagePreview: params.messagePreview ?? null,
+			addedByName: params.addedByName ?? null,
 			viewUrl: ideaUrl(params.submissionId),
 		}),
 	});

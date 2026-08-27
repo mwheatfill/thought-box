@@ -44,7 +44,7 @@ export default function NewMessage({
 
 			<IdeaCard submissionId={submissionId} title={ideaTitle} />
 
-			<QuoteBlock label={isFromOwner ? "Your reviewer" : senderName}>{messagePreview}</QuoteBlock>
+			<QuoteBlock label={senderName}>{messagePreview}</QuoteBlock>
 
 			<PrimaryButton href={viewUrl}>Reply →</PrimaryButton>
 		</EmailLayout>
