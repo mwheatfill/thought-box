@@ -25,7 +25,11 @@ import {
 } from "#/components/ui/chart";
 import { RouteError } from "#/components/ui/route-error";
 import { getAnalytics } from "#/server/functions/analytics";
-import { getIdeaReportCsv, getReportConnectionInfo } from "#/server/functions/reports";
+import {
+	getIdeaReportCsv,
+	getReassignmentReportCsv,
+	getReportConnectionInfo,
+} from "#/server/functions/reports";
 
 export const Route = createFileRoute("/admin/analytics")({
 	errorComponent: ({ error }) => <RouteError error={error} />,
@@ -73,6 +77,26 @@ function AnalyticsPage() {
 			a.click();
 			URL.revokeObjectURL(url);
 			toast.success(`Exported ${count} ideas`);
+		},
+		onError: () => toast.error("Export failed"),
+	});
+
+	const reassignExportFn = useServerFn(getReassignmentReportCsv);
+	const reassignExportMutation = useMutation({
+		mutationFn: () => reassignExportFn(),
+		onSuccess: ({ csv, count }) => {
+			if (count === 0) {
+				toast.message("No category changes to export yet.");
+				return;
+			}
+			const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = `reassignment-report-${new Date().toISOString().slice(0, 10)}.csv`;
+			a.click();
+			URL.revokeObjectURL(url);
+			toast.success(`Exported ${count} category changes`);
 		},
 		onError: () => toast.error("Export failed"),
 	});
@@ -184,6 +208,30 @@ function AnalyticsPage() {
 							>
 								<Download className="mr-2 size-4" />
 								{exportMutation.isPending ? "Exporting…" : "Export CSV"}
+							</Button>
+						</CardContent>
+					</Card>
+
+					<Card className="flex flex-col">
+						<CardHeader className="flex-1">
+							<div className="mb-1 flex items-center gap-2">
+								<FileSpreadsheet className="size-5 text-primary" />
+								<CardTitle className="text-base">Reassignment history</CardTitle>
+							</div>
+							<CardDescription>
+								Every category change: which idea moved, from and to which category, who moved it,
+								why, and when — for accurate category reporting.
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<Button
+								variant="outline"
+								className="w-full"
+								disabled={reassignExportMutation.isPending}
+								onClick={() => reassignExportMutation.mutate()}
+							>
+								<Download className="mr-2 size-4" />
+								{reassignExportMutation.isPending ? "Exporting…" : "Export CSV"}
 							</Button>
 						</CardContent>
 					</Card>
