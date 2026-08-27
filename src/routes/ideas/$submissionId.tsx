@@ -456,18 +456,8 @@ function IdeaDetailPage() {
 								assignedOwnerName={idea.assignedOwner?.displayName ?? null}
 								assignedOwnerId={idea.assignedOwner?.id ?? null}
 								assignedOwnerPhotoUrl={idea.assignedOwner?.photoUrl ?? null}
-								owners={owners}
 								onSave={async (updates) => {
-									const { internalNote, internalNoteMentions, ...statusUpdates } = updates;
-									await updateMutation.mutateAsync(statusUpdates);
-									if (internalNote) {
-										// Fire-and-forget: the status save already succeeded; a failed
-										// note shouldn't roll back the status change.
-										internalNoteMutation.mutate({
-											content: internalNote,
-											mentions: internalNoteMentions,
-										});
-									}
+									await updateMutation.mutateAsync(updates);
 								}}
 								isSaving={updateMutation.isPending}
 							/>
