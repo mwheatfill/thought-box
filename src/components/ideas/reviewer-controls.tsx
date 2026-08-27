@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { ChevronsUpDown, FolderInput, Loader2, RotateCcw, Sparkles, UserCog } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { DirectoryPicker, type DirectoryResult } from "#/components/categories/directory-picker";
 import { Button } from "#/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "#/components/ui/card";
 import {
@@ -75,7 +76,8 @@ export function ReviewerControls({
 	});
 	const assignFn = useServerFn(assignReviewer);
 	const assignMutation = useMutation({
-		mutationFn: (reviewerId: string | null) => assignFn({ data: { ideaId, reviewerId } }),
+		mutationFn: (input: { reviewerId: string | null; directory?: DirectoryResult }) =>
+			assignFn({ data: { ideaId, ...input } }),
 		onSuccess: () => {
 			toast.success("Reviewer updated");
 			setAssignOpen(false);
@@ -114,7 +116,7 @@ export function ReviewerControls({
 									<CommandGroup>
 										<CommandItem
 											value="__owner__"
-											onSelect={() => assignMutation.mutate(null)}
+											onSelect={() => assignMutation.mutate({ reviewerId: null })}
 											disabled={assignMutation.isPending}
 										>
 											Category Owner (default)
@@ -126,7 +128,7 @@ export function ReviewerControls({
 											<CommandItem
 												key={c.id}
 												value={c.displayName}
-												onSelect={() => assignMutation.mutate(c.id)}
+												onSelect={() => assignMutation.mutate({ reviewerId: c.id })}
 												disabled={assignMutation.isPending}
 											>
 												{c.displayName}
@@ -138,6 +140,16 @@ export function ReviewerControls({
 									</CommandGroup>
 								</CommandList>
 							</Command>
+							{/* Open-directory assignment (R29): anyone, inline-created on first touch. */}
+							<div className="border-t p-2">
+								<p className="mb-1.5 text-xs text-muted-foreground">
+									Or assign anyone from the directory
+								</p>
+								<DirectoryPicker
+									placeholder="Search everyone…"
+									onSelect={(u) => assignMutation.mutate({ reviewerId: null, directory: u })}
+								/>
+							</div>
 						</PopoverContent>
 					</Popover>
 				</div>

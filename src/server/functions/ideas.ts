@@ -28,7 +28,7 @@ import {
 	sendStatusChangedEmail,
 	sendWatcherAlert,
 } from "#/server/functions/email";
-import { isScopedToCategory, planAssignment } from "#/server/lib/assignment";
+import { planAssignment } from "#/server/lib/assignment";
 import { audit } from "#/server/lib/audit";
 import { planCategoryChange } from "#/server/lib/category-change";
 import { loadIdeaCapabilities } from "#/server/lib/idea-authz";
@@ -41,6 +41,7 @@ import { resolveIdeaOwnership } from "#/server/lib/ownership";
 import { businessDaysRemaining, calculateSlaDueDate, calculateSlaStatus } from "#/server/lib/sla";
 import { nextSubmissionId } from "#/server/lib/submission-id";
 import { trackEvent } from "#/server/lib/telemetry";
+import { upsertDirectoryUser } from "#/server/lib/user-upsert";
 import { notifyIdeaWatchers } from "#/server/lib/watcher-notify";
 import { authMiddleware, ownerMiddleware } from "#/server/middleware/auth";
 
@@ -888,6 +889,17 @@ export const assignReviewer = createServerFn({ method: "POST" })
 		z.object({
 			ideaId: z.string(),
 			reviewerId: z.string().nullable(),
+			/** Assign anyone from the Entra directory (R29) — inline-created on first touch. */
+			directory: z
+				.object({
+					entraId: z.string(),
+					displayName: z.string(),
+					email: z.string(),
+					jobTitle: z.string().nullable().optional(),
+					department: z.string().nullable().optional(),
+					officeLocation: z.string().nullable().optional(),
+				})
+				.optional(),
 		}),
 	)
 	.handler(async ({ context, data }) => {
@@ -902,10 +914,7 @@ export const assignReviewer = createServerFn({ method: "POST" })
 				submitterId: true,
 			},
 			with: {
-				category: {
-					columns: { name: true, ownerId: true },
-					with: { contributors: { columns: { userId: true } } },
-				},
+				category: { columns: { name: true, ownerId: true } },
 				submitter: { columns: { displayName: true, department: true } },
 			},
 		});
@@ -920,30 +929,41 @@ export const assignReviewer = createServerFn({ method: "POST" })
 			throw new Error("This idea is closed and locked. Reopen it to assign a reviewer.");
 		}
 
-		// Validate the candidate is scoped to the Category (unless unassigning).
+		// Resolve the candidate: an existing user, or anyone from the Entra
+		// directory (R29 — open assignment), inline-created on first touch.
 		let candidate: { id: string; displayName: string; email: string } | null = null;
-		if (data.reviewerId) {
+		let resolvedReviewerId: string | null = data.reviewerId ?? null;
+		if (data.directory) {
+			const { id: userId } = await upsertDirectoryUser(
+				{
+					entraId: data.directory.entraId,
+					displayName: data.directory.displayName,
+					email: data.directory.email,
+					jobTitle: data.directory.jobTitle,
+					department: data.directory.department,
+					officeLocation: data.directory.officeLocation,
+				},
+				context.user.id,
+			);
+			resolvedReviewerId = userId;
+			candidate = {
+				id: userId,
+				displayName: data.directory.displayName,
+				email: data.directory.email,
+			};
+		} else if (data.reviewerId) {
 			const target = await db.query.users.findFirst({
 				where: eq(users.id, data.reviewerId),
-				columns: { id: true, displayName: true, email: true, role: true, active: true },
+				columns: { id: true, displayName: true, email: true, active: true },
 			});
 			if (!target || !target.active) {
 				throw new Error("That person can't be assigned.");
-			}
-			const onRoster = idea.category.contributors.some((c) => c.userId === target.id);
-			const scoped = isScopedToCategory({
-				isAdmin: target.role === "admin",
-				isCategoryOwner: target.id === idea.category.ownerId,
-				isCategoryContributor: onRoster,
-			});
-			if (!scoped) {
-				throw new Error("That person isn't on this category's team.");
 			}
 			candidate = { id: target.id, displayName: target.displayName, email: target.email };
 		}
 
 		const plan = planAssignment({
-			reviewerId: data.reviewerId,
+			reviewerId: resolvedReviewerId,
 			categoryOwnerId: idea.category.ownerId,
 		});
 
