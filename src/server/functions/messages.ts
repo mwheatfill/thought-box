@@ -24,6 +24,8 @@ export const addMessage = createServerFn({ method: "POST" })
 				id: true,
 				submissionId: true,
 				title: true,
+				status: true,
+				categoryId: true,
 				submitterId: true,
 				assignedReviewerId: true,
 			},
@@ -39,14 +41,19 @@ export const addMessage = createServerFn({ method: "POST" })
 			assignedReviewerId: idea.assignedReviewerId,
 		});
 
-		// Access check
+		// Access check: the submitter, or anyone on the review side — owner/admin,
+		// the assigned reviewer, or a category Watcher (R14).
 		const isSubmitter = idea.submitterId === context.user.id;
-		const isOwnerSide =
-			idea.category.ownerId === context.user.id || idea.assignedReviewerId === context.user.id;
-		const isAdmin = context.user.role === "admin";
-
-		if (!isSubmitter && !isOwnerSide && !isAdmin) {
-			throw new Error("Forbidden");
+		if (!isSubmitter) {
+			const caps = await loadIdeaCapabilities(context.user, {
+				id: idea.id,
+				status: idea.status,
+				submitterId: idea.submitterId,
+				assignedReviewerId: idea.assignedReviewerId,
+				categoryId: idea.categoryId,
+				categoryOwnerId: idea.category.ownerId,
+			});
+			if (!caps.canMessageSubmitter) throw new Error("Forbidden");
 		}
 
 		const [event] = await db
@@ -66,6 +73,7 @@ export const addMessage = createServerFn({ method: "POST" })
 			ideaId: data.ideaId,
 			submissionId: idea.submissionId,
 			ideaTitle: idea.title,
+			categoryId: idea.categoryId,
 			eventType: "message",
 			actorId: context.user.id,
 			submitterId: idea.submitterId,

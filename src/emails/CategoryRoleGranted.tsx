@@ -21,12 +21,10 @@ export default function CategoryRoleGranted({
 	viewUrl = "https://thoughtbox.desertfinancial.com/my-categories",
 }: CategoryRoleGrantedProps) {
 	const isOwner = kind === "owner";
-	const headline = isOwner
-		? `You now own ${categoryName}`
-		: `You're on the ${categoryName} review team`;
+	const headline = isOwner ? `You now own ${categoryName}` : `You're now watching ${categoryName}`;
 	const body = isOwner
 		? `${grantedByName} made you the owner of the ${categoryName} category. You're now accountable for its ideas and their SLAs.`
-		: `${grantedByName} added you as a contributor to ${categoryName}. You can now be assigned ideas in this category to review.`;
+		: `${grantedByName} added you as a watcher on ${categoryName}. You'll get updates on its ideas, and you can add owner notes and message submitters.`;
 
 	return (
 		<EmailLayout preview={headline} accentColor="#3b82f6">

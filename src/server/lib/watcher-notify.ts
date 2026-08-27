@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "#/server/db";
-import { ideaWatchers, users } from "#/server/db/schema";
+import { categoryContributors, ideaWatchers, users } from "#/server/db/schema";
 import { sendWatcherUpdateEmail } from "#/server/functions/email";
 import { notifiesWatchers } from "#/server/lib/watcher-events";
 
@@ -13,16 +13,19 @@ type WatcherUpdate =
  * or public message — enforced through `notifiesWatchers`).
  *
  * Recipients = the **explicit Watchers** (self opt-in + owner-added; legacy
- * `assignment` rows are ignored — the reviewer follows implicitly) PLUS an
- * optional implicit follower (`alsoNotifyId`, the active reviewer, passed for
- * status changes so a Contributor learns the owner's verdict). The actor and the
- * submitter are always excluded — they're notified through their own emails.
- * Fire-and-forget: never blocks the primary action.
+ * `assignment` rows are ignored — the reviewer follows implicitly) PLUS the
+ * **category Watcher roster** (R14: category watchers get alerts for everything
+ * in their category) PLUS an optional implicit follower (`alsoNotifyId`, the
+ * active reviewer, passed for status changes so they learn the owner's
+ * verdict). The actor and the submitter are always excluded — they're notified
+ * through their own emails. Fire-and-forget: never blocks the primary action.
  */
 export async function notifyIdeaWatchers(params: {
 	ideaId: string;
 	submissionId: string;
 	ideaTitle: string;
+	/** The idea's category — its Watcher roster is alerted too. */
+	categoryId: string;
 	eventType: string;
 	actorId: string;
 	submitterId: string;
@@ -32,19 +35,25 @@ export async function notifyIdeaWatchers(params: {
 }): Promise<void> {
 	if (!notifiesWatchers(params.eventType)) return;
 
-	const rows = await db.query.ideaWatchers.findMany({
-		where: and(
-			eq(ideaWatchers.ideaId, params.ideaId),
-			inArray(ideaWatchers.source, ["self", "owner_added"]),
-		),
-		with: { user: { columns: { id: true, email: true, displayName: true } } },
-	});
+	const [rows, rosterRows] = await Promise.all([
+		db.query.ideaWatchers.findMany({
+			where: and(
+				eq(ideaWatchers.ideaId, params.ideaId),
+				inArray(ideaWatchers.source, ["self", "owner_added"]),
+			),
+			with: { user: { columns: { id: true, email: true, displayName: true } } },
+		}),
+		db.query.categoryContributors.findMany({
+			where: eq(categoryContributors.categoryId, params.categoryId),
+			with: { user: { columns: { id: true, email: true, displayName: true } } },
+		}),
+	]);
 
 	// The first query already loaded each watcher's email/displayName via the
 	// `user` relation — keep them, and only round-trip for ids it didn't cover
 	// (just the optional active reviewer in `alsoNotifyId`).
 	const byId = new Map<string, { email: string; displayName: string }>();
-	for (const r of rows) {
+	for (const r of [...rows, ...rosterRows]) {
 		if (r.user) byId.set(r.user.id, { email: r.user.email, displayName: r.user.displayName });
 	}
 

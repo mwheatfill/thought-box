@@ -80,7 +80,7 @@ function IdeaDetailPage() {
 
 	// Internal notes follow edit access (owner/admin or the assigned reviewer),
 	// not just the global role — an assigned Contributor reviews with them.
-	const canSeeInternalNotes = idea.canEdit;
+	const canSeeInternalNotes = idea.canReadInternalNotes;
 
 	const { data: internalNotes = [] } = useQuery({
 		queryKey: ["idea-internal-notes", idea.id],

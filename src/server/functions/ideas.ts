@@ -312,10 +312,10 @@ export const getIdeaDetail = createServerFn()
 			throw new Error("Not found");
 		}
 
-		// Load activity events. Internal notes are owner/admin + assigned-reviewer
-		// only (never the submitter or an unassigned Contributor); the `assigned`
-		// delegation event is hidden from the submitter.
-		const canReadInternal = isAdminViewer || isOwnerLikeViewer;
+		// Load activity events. Internal notes are for the review side — owner/
+		// admin, assigned reviewer, or a category Watcher (R14); never the
+		// submitter. The `assigned` delegation event is hidden from the submitter.
+		const canReadInternal = isAdminViewer || isOwnerLikeViewer || isCategoryContributor;
 		const isSubmitter = viewerRole === "submitter";
 		const allEvents = await db.query.ideaEvents.findMany({
 			where: eq(ideaEvents.ideaId, idea.id),
@@ -392,9 +392,11 @@ export const getIdeaDetail = createServerFn()
 			}),
 			canEdit,
 			// Who may post to the submitter-facing thread — mirrors addMessage's gate
-			// (submitter, Category Owner, assigned reviewer, or admin). A roster
-			// Contributor who isn't the reviewer, or a Watcher, can read but not send.
-			canMessage: isSubmitter || isOwnerLikeViewer || isAdminViewer,
+			// (submitter, Category Owner, assigned reviewer, admin, or a category
+			// Watcher — R14). A per-idea watcher can read but not send.
+			canMessage: isSubmitter || isOwnerLikeViewer || isAdminViewer || isCategoryContributor,
+			// Who may see the Internal Notes tab (and add notes) — the review side.
+			canReadInternalNotes: canReadInternal,
 		};
 	});
 
@@ -525,11 +527,12 @@ export const updateIdea = createServerFn({ method: "POST" })
 			});
 
 			// Fire-and-forget: notify Watchers + the active reviewer (so an assigned
-			// Contributor learns the owner's verdict on their idea).
+			// reviewer learns the owner's verdict on their idea).
 			notifyIdeaWatchers({
 				ideaId: data.ideaId,
 				submissionId: idea.submissionId,
 				ideaTitle: idea.title,
+				categoryId: idea.categoryId,
 				eventType: "status_changed",
 				actorId: context.user.id,
 				submitterId: idea.submitterId,
@@ -580,6 +583,7 @@ export const bulkUpdateStatus = createServerFn({ method: "POST" })
 				submissionId: true,
 				title: true,
 				submitterId: true,
+				categoryId: true,
 			},
 			with: { category: { columns: { ownerId: true } } },
 		});
@@ -627,6 +631,7 @@ export const bulkUpdateStatus = createServerFn({ method: "POST" })
 				ideaId: t.id,
 				submissionId: t.submissionId,
 				ideaTitle: t.title,
+				categoryId: t.categoryId,
 				eventType: "status_changed",
 				actorId: context.user.id,
 				submitterId: t.submitterId,
@@ -1173,11 +1178,13 @@ export const reopenIdea = createServerFn({ method: "POST" })
 			ideaTitle: idea.title,
 		});
 
-		// Fire-and-forget: notify Watchers of the reopen (status-facing).
+		// Fire-and-forget: notify Watchers of the reopen (status-facing) — the
+		// roster of the category the idea now lives in, if it moved.
 		notifyIdeaWatchers({
 			ideaId: data.ideaId,
 			submissionId: idea.submissionId,
 			ideaTitle: idea.title,
+			categoryId: target ? target.id : idea.categoryId,
 			eventType: "status_changed",
 			actorId: context.user.id,
 			submitterId: idea.submitterId,

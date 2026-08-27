@@ -253,7 +253,7 @@ function UsersPage() {
 								options: [
 									{ value: "admin", label: "Admin" },
 									{ value: "owner", label: "Owner" },
-									{ value: "contributor", label: "Contributor" },
+									{ value: "contributor", label: "Watcher" },
 									{ value: "submitter", label: "Submitter" },
 								],
 							},
@@ -291,8 +291,8 @@ function UsersPage() {
 						<DialogTitle>Make administrator</DialogTitle>
 						<DialogDescription>
 							{pendingPromotion?.displayName} will become a ThoughtBox administrator with full
-							access, and we'll email them to let them know. (Owner and Contributor roles are
-							granted by assigning a category or adding someone to a roster — not here.)
+							access, and we'll email them to let them know. (Owner and Watcher roles are granted by
+							assigning a category or adding someone to a roster — not here.)
 						</DialogDescription>
 					</DialogHeader>
 					<div className="flex justify-end gap-2">

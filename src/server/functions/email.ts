@@ -271,7 +271,7 @@ export async function sendCategoryRoleGrantedEmail(params: {
 		subject:
 			params.kind === "owner"
 				? `You now own the ${params.categoryName} category`
-				: `You've been added to the ${params.categoryName} review team`,
+				: `You're now watching the ${params.categoryName} category`,
 		templateName: "CategoryRoleGranted",
 		template: createElement(CategoryRoleGranted, {
 			recipientFirstName: params.recipientFirstName,

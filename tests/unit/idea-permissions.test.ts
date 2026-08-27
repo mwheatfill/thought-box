@@ -39,13 +39,24 @@ describe("resolveIdeaCapabilities", () => {
 		expect(c.canAssignReviewer).toBe(false);
 	});
 
-	it("gives an unassigned roster Contributor view-and-watch only — no internal notes", () => {
+	it("gives a category Watcher notes + messaging on any idea in the category, but no status power (R14)", () => {
 		const c = resolveIdeaCapabilities({ ...NONE, isCategoryContributor: true, status: "new" });
 		expect(c.canView).toBe(true);
-		expect(c.canReadInternalNotes).toBe(false);
+		expect(c.canReadInternalNotes).toBe(true);
+		expect(c.canEditOwnerNotes).toBe(true);
+		expect(c.canMessageSubmitter).toBe(true);
+		expect(c.canAdvanceToUnderReview).toBe(false);
+		expect(c.canDecide).toBe(false);
+		expect(c.canChangeCategory).toBe(false);
+		expect(c.canAssignReviewer).toBe(false);
+	});
+
+	it("locks a category Watcher's notes + messaging once the idea closes", () => {
+		const c = resolveIdeaCapabilities({ ...NONE, isCategoryContributor: true, status: "declined" });
+		expect(c.canReadInternalNotes).toBe(true);
 		expect(c.canEditOwnerNotes).toBe(false);
 		expect(c.canMessageSubmitter).toBe(false);
-		expect(c.canAdvanceToUnderReview).toBe(false);
+		expect(c.canReopen).toBe(false);
 	});
 
 	it("keeps internal notes readable to the assigned reviewer after the idea closes", () => {

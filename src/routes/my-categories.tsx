@@ -61,7 +61,7 @@ function MyCategoriesPage() {
 									</span>
 									<span className="flex items-center gap-1.5">
 										<Users2 className="size-4" /> {c.contributorCount}{" "}
-										{c.contributorCount === 1 ? "contributor" : "contributors"}
+										{c.contributorCount === 1 ? "watcher" : "watchers"}
 									</span>
 								</div>
 								<Button variant="outline" size="sm" className="w-full" onClick={() => manage(c.id)}>

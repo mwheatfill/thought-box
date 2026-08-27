@@ -4,16 +4,16 @@ export interface IdeaCapabilities {
 	/** May open the idea at all (owner, any assigned/roster reviewer, or submitter). */
 	canView: boolean;
 	/**
-	 * May read the internal (Owner) notes thread — owner/admin or the assigned
-	 * reviewer, on an idea of any status (history stays readable after close).
-	 * An unassigned roster Contributor and the submitter never see it.
+	 * May read the internal (Owner) notes thread — owner/admin, the assigned
+	 * reviewer, or a category Watcher, on an idea of any status (history stays
+	 * readable after close). The submitter never sees it.
 	 */
 	canReadInternalNotes: boolean;
-	/** May edit Owner Notes — owner/admin, or a Contributor assigned to this idea. */
+	/** May edit Owner Notes — owner/admin, the assigned reviewer, or a category Watcher. */
 	canEditOwnerNotes: boolean;
-	/** May message the submitter — owner/admin, or a Contributor assigned to this idea. */
+	/** May message the submitter — owner/admin, the assigned reviewer, or a category Watcher. */
 	canMessageSubmitter: boolean;
-	/** May move New → Under Review — owner/admin, or an assigned Contributor (legwork). */
+	/** May move New → Under Review — owner/admin, or the assigned reviewer. */
 	canAdvanceToUnderReview: boolean;
 	/** May Accept/Decline — the verdict, reserved to owner/admin (ADR-0002). */
 	canDecide: boolean;
@@ -27,15 +27,17 @@ export interface IdeaCapabilities {
 
 /**
  * Resolve what a user may do on a specific idea, from their relationship to it
- * and the idea's status. Encodes the Contributor model (ADR-0002):
+ * and the idea's status. Encodes the category-Watcher model (client-confirmed
+ * R14, superseding ADR-0002's assignment gate):
  *
- * - View is the widest gate: owner, any assigned reviewer, any roster
- *   Contributor (even unassigned, so they can watch), and the submitter.
- * - Acting (notes / messages / advancing to Under Review) is **assignment-
- *   gated**: an owner/admin always, a Contributor only on ideas assigned to
- *   them. An unassigned roster Contributor gets view-and-watch only.
- * - The verdict (Accept/Decline), Change Category, Assignment, and Reopen are
- *   reserved to owner/admin — a Contributor does the legwork, not the decision.
+ * - View is the widest gate: owner, any assigned reviewer, any category
+ *   Watcher (roster), per-idea watchers, and the submitter.
+ * - Owner Notes and messaging the submitter are **category-scoped**: an
+ *   owner/admin, the assigned reviewer, or anyone on the category's Watcher
+ *   roster.
+ * - Status changes stay reserved: Under Review for the assigned actor, the
+ *   verdict (Accept/Decline), Change Category, Assignment, and Reopen for
+ *   owner/admin. A Watcher contributes notes and messages, not decisions.
  * - Closed ideas are locked except for Reopen.
  *
  * Inputs are plain relationship booleans so this stays pure and exhaustively
@@ -53,8 +55,10 @@ export function resolveIdeaCapabilities(params: {
 }): IdeaCapabilities {
 	const closed = (CLOSED_STATUSES as readonly string[]).includes(params.status);
 	const ownerLike = params.isAdmin || params.isCategoryOwner;
-	// Assignment-gated reviewer actions: owner/admin always, Contributor only when assigned.
+	// Assignment-gated status actions: owner/admin always, else the assigned reviewer.
 	const assignedActor = ownerLike || params.isAssignedReviewer;
+	// Notes + messaging extend to the whole category Watcher roster (R14).
+	const reviewSide = assignedActor || params.isCategoryContributor;
 
 	return {
 		canView:
@@ -64,10 +68,10 @@ export function resolveIdeaCapabilities(params: {
 			params.isSubmitter ||
 			(params.isWatcher ?? false),
 		// Reading internal notes is closed-independent (the thread stays readable
-		// for history) but never extends to an unassigned Contributor or submitter.
-		canReadInternalNotes: assignedActor,
-		canEditOwnerNotes: assignedActor && !closed,
-		canMessageSubmitter: assignedActor && !closed,
+		// for history) but never extends to the submitter.
+		canReadInternalNotes: reviewSide,
+		canEditOwnerNotes: reviewSide && !closed,
+		canMessageSubmitter: reviewSide && !closed,
 		canAdvanceToUnderReview: assignedActor && params.status === "new",
 		canDecide: ownerLike && !closed,
 		canChangeCategory: ownerLike && !closed,

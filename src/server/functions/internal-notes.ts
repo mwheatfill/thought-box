@@ -120,8 +120,8 @@ export const getIdeaInternalNotes = createServerFn()
 		});
 
 		if (!idea) throw new Error("Idea not found");
-		// Internal notes are owner/admin + assigned-reviewer only (ADR-0002): never
-		// the submitter, never an unassigned Contributor.
+		// Internal notes are for the review side — owner/admin, assigned reviewer,
+		// or a category Watcher (R14); never the submitter.
 		const caps = await loadIdeaCapabilities(context.user, {
 			id: idea.id,
 			status: idea.status,

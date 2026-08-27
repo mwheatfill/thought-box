@@ -73,7 +73,7 @@ export function CategorySummary({ data }: { data: CategorySummaryData }) {
 														: "border-amber-300 text-amber-700 dark:text-amber-300"
 												}
 											>
-												{c.role === "owner" ? "Owner" : "Contributor"}
+												{c.role === "owner" ? "Owner" : "Watcher"}
 											</Badge>
 										</div>
 										<div className="flex gap-4 text-sm">

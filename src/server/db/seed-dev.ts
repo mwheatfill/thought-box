@@ -30,7 +30,7 @@ const PERSONAS = [
 	},
 	{
 		entraId: "dev-contributor-1",
-		displayName: "Casey Contributor",
+		displayName: "Casey Watcher",
 		email: "dev-contributor@localhost",
 		role: "submitter" as const,
 	},

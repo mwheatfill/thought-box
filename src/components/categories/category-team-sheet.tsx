@@ -78,7 +78,7 @@ export function CategoryTeamSheet({
 			toast.success(`Added ${r.displayName} to the team`);
 			invalidate();
 		},
-		onError: (e) => toast.error(e instanceof Error ? e.message : "Couldn't add contributor"),
+		onError: (e) => toast.error(e instanceof Error ? e.message : "Couldn't add watcher"),
 	});
 
 	const removeMutation = useMutation({
@@ -88,7 +88,7 @@ export function CategoryTeamSheet({
 			toast.success("Removed from the team");
 			invalidate();
 		},
-		onError: () => toast.error("Couldn't remove contributor"),
+		onError: () => toast.error("Couldn't remove watcher"),
 	});
 
 	const transferMutation = useMutation({
@@ -119,8 +119,8 @@ export function CategoryTeamSheet({
 				<SheetHeader>
 					<SheetTitle>{team?.name ?? "Manage team"}</SheetTitle>
 					<SheetDescription>
-						Manage who reviews ideas in this category. Owners hold accountability; contributors do
-						assigned legwork.
+						Manage who reviews ideas in this category. Owners hold accountability; watchers can add
+						owner notes and message submitters.
 					</SheetDescription>
 				</SheetHeader>
 
@@ -145,14 +145,14 @@ export function CategoryTeamSheet({
 							)}
 						</section>
 
-						{/* Contributors */}
+						{/* Watchers */}
 						<section className="space-y-2">
 							<h3 className="text-xs font-semibold uppercase text-muted-foreground">
-								Contributors ({team.contributors.length})
+								Watchers ({team.contributors.length})
 							</h3>
 							{team.contributors.length === 0 ? (
 								<p className="text-sm text-muted-foreground">
-									No contributors yet. Add a colleague to share the review work.
+									No watchers yet. Add a colleague to share the review work.
 								</p>
 							) : (
 								<ul className="space-y-1">
@@ -181,7 +181,7 @@ export function CategoryTeamSheet({
 							)}
 							<div className="pt-2">
 								<p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-									<UserPlus className="size-3.5" /> Add a contributor
+									<UserPlus className="size-3.5" /> Add a watcher
 								</p>
 								<DirectoryPicker
 									placeholder="Search by name…"
