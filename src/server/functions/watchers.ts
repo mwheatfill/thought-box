@@ -1,12 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
+import { firstName } from "#/lib/utils";
 import { db } from "#/server/db";
 import { ideaWatchers, ideas, users } from "#/server/db/schema";
 import { sendWatcherUpdateEmail } from "#/server/functions/email";
 import { audit } from "#/server/lib/audit";
 import { loadIdeaCapabilities } from "#/server/lib/idea-authz";
-import { upsertDirectoryUser } from "#/server/lib/user-upsert";
+import { DirectoryUserSchema, upsertDirectoryUser } from "#/server/lib/user-upsert";
 import { authMiddleware } from "#/server/middleware/auth";
 
 /** Load an idea's authz shape (id columns + Category Owner) or throw. */
@@ -195,33 +196,19 @@ export const unwatchIdea = createServerFn({ method: "POST" })
  */
 export const addWatcher = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
-	.inputValidator(
-		z.object({
-			ideaId: z.string(),
-			entraId: z.string(),
-			displayName: z.string(),
-			email: z.string(),
-			jobTitle: z.string().nullable().optional(),
-			department: z.string().nullable().optional(),
-			officeLocation: z.string().nullable().optional(),
-		}),
-	)
+	.inputValidator(DirectoryUserSchema.extend({ ideaId: z.string() }))
 	.handler(async ({ context, data }) => {
 		const idea = await loadIdeaForWatch(data.ideaId);
 		const canManage = canManageWatchers(context.user, idea);
 		if (!canManage) throw new Error("Forbidden");
 
-		const { id: userId } = await upsertDirectoryUser(
-			{
-				entraId: data.entraId,
-				displayName: data.displayName,
-				email: data.email,
-				jobTitle: data.jobTitle,
-				department: data.department,
-				officeLocation: data.officeLocation,
-			},
-			context.user.id,
-		);
+		const { ideaId: _ideaId, ...person } = data;
+		const { id: userId, active } = await upsertDirectoryUser(person, context.user.id);
+		if (!active) {
+			throw new Error(
+				`${data.displayName}'s account is deactivated — reactivate them on the Users page first.`,
+			);
+		}
 
 		// The submitter is already implicitly watching — no row needed.
 		if (userId === idea.submitterId) {
@@ -247,7 +234,7 @@ export const addWatcher = createServerFn({ method: "POST" })
 			// Fire-and-forget: tell the new Watcher they've been looped in.
 			sendWatcherUpdateEmail({
 				watcherEmail: data.email,
-				watcherFirstName: data.displayName.split(" ")[0] ?? data.displayName,
+				watcherFirstName: firstName(data.displayName),
 				submissionId: idea.submissionId,
 				ideaTitle: idea.title,
 				updateKind: "added",

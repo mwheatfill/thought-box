@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
+import { CLOSED_STATUSES } from "#/lib/constants";
+import { firstName } from "#/lib/utils";
 import { db } from "#/server/db";
 import { ideaEvents, ideas, users } from "#/server/db/schema";
 import { sendNewMessageEmail } from "#/server/functions/email";
@@ -40,6 +42,11 @@ export const addMessage = createServerFn({ method: "POST" })
 			categoryOwnerId: idea.category.ownerId,
 			assignedReviewerId: idea.assignedReviewerId,
 		});
+
+		// Closed ideas are locked for everyone — Reopen is the only path back.
+		if ((CLOSED_STATUSES as readonly string[]).includes(idea.status)) {
+			throw new Error("This idea is closed and locked. Reopen it to continue the conversation.");
+		}
 
 		// Access check: the submitter, or anyone on the review side — owner/admin,
 		// the assigned reviewer, or a category Watcher (R14).
@@ -92,7 +99,7 @@ export const addMessage = createServerFn({ method: "POST" })
 			if (recipient) {
 				sendNewMessageEmail({
 					recipientEmail: recipient.email,
-					recipientFirstName: recipient.displayName.split(" ")[0],
+					recipientFirstName: firstName(recipient.displayName),
 					senderName: context.user.displayName,
 					submissionId: idea.submissionId,
 					ideaTitle: idea.title,

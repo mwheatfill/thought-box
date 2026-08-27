@@ -25,6 +25,40 @@ interface WatcherUpdateProps {
 	viewUrl: string;
 }
 
+/**
+ * One copy source per update kind — the server subject and the email body pull
+ * from here so they can never drift apart.
+ */
+export function watcherUpdateCopy(params: {
+	updateKind: "status" | "message" | "added";
+	submissionId: string;
+	statusLabel?: string | null;
+}): { subject: string; headline: string; icon: string; meta: string } {
+	switch (params.updateKind) {
+		case "added":
+			return {
+				subject: `You've been added as a watcher on idea ${params.submissionId}`,
+				headline: "You've been added as a watcher",
+				icon: "👀",
+				meta: "Now watching",
+			};
+		case "status":
+			return {
+				subject: `Update on idea ${params.submissionId}: ${params.statusLabel}`,
+				headline: `Status updated: ${params.statusLabel}`,
+				icon: "◎",
+				meta: `Now ${params.statusLabel}`,
+			};
+		default:
+			return {
+				subject: `New activity on idea ${params.submissionId}`,
+				headline: "New activity on an idea you're watching",
+				icon: "💬",
+				meta: "New message",
+			};
+	}
+}
+
 export default function WatcherUpdate({
 	watcherFirstName = "Alex",
 	submissionId = "TB-0001",
@@ -37,30 +71,22 @@ export default function WatcherUpdate({
 }: WatcherUpdateProps) {
 	const isStatus = updateKind === "status";
 	const isAdded = updateKind === "added";
-	const headline = isAdded
-		? "You've been added as a watcher"
-		: isStatus
-			? `Status updated: ${statusLabel}`
-			: "New activity on an idea you're watching";
+	const copy = watcherUpdateCopy({ updateKind, submissionId, statusLabel });
 	const subline = isAdded
 		? `Hi ${watcherFirstName}, ${addedByName ?? "the idea's owner"} added you as a watcher on this idea. You'll get updates when its status changes or a new message is posted.`
 		: `Hi ${watcherFirstName}, there's an update on an idea you're watching.`;
 
 	return (
-		<EmailLayout preview={`${submissionId} — ${headline}`} accentColor="#3b82f6">
+		<EmailLayout preview={`${submissionId} — ${copy.headline}`} accentColor="#3b82f6">
 			<HeroIcon bgColor="#dbeafe" color="#3b82f6">
-				{isAdded ? "👀" : isStatus ? "◎" : "💬"}
+				{copy.icon}
 			</HeroIcon>
 
-			<Text className="m-0 text-center text-xl font-bold text-gray-900">{headline}</Text>
+			<Text className="m-0 text-center text-xl font-bold text-gray-900">{copy.headline}</Text>
 
 			<Text className="m-0 mt-2 text-center text-sm text-gray-500">{subline}</Text>
 
-			<IdeaCard
-				submissionId={submissionId}
-				title={ideaTitle}
-				meta={isAdded ? "Now watching" : isStatus ? `Now ${statusLabel}` : "New message"}
-			/>
+			<IdeaCard submissionId={submissionId} title={ideaTitle} meta={copy.meta} />
 
 			{!isStatus && messagePreview && <QuoteBlock>{messagePreview}</QuoteBlock>}
 

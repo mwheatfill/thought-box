@@ -8,6 +8,7 @@ import {
 	type ReassignmentReason,
 	STATUS_LABELS,
 } from "#/lib/constants";
+import { firstName } from "#/lib/utils";
 import { db, sql } from "#/server/db";
 import {
 	categories,
@@ -32,6 +33,7 @@ import { planAssignment } from "#/server/lib/assignment";
 import { audit } from "#/server/lib/audit";
 import { planCategoryChange } from "#/server/lib/category-change";
 import { loadIdeaCapabilities } from "#/server/lib/idea-authz";
+import { resolveIdeaCapabilities } from "#/server/lib/idea-permissions";
 import {
 	anonymizeActorName,
 	resolveIdeaAccess,
@@ -41,7 +43,7 @@ import { resolveIdeaOwnership } from "#/server/lib/ownership";
 import { businessDaysRemaining, calculateSlaDueDate, calculateSlaStatus } from "#/server/lib/sla";
 import { nextSubmissionId } from "#/server/lib/submission-id";
 import { trackEvent } from "#/server/lib/telemetry";
-import { upsertDirectoryUser } from "#/server/lib/user-upsert";
+import { DirectoryUserSchema, upsertDirectoryUser } from "#/server/lib/user-upsert";
 import { notifyIdeaWatchers } from "#/server/lib/watcher-notify";
 import { authMiddleware, ownerMiddleware } from "#/server/middleware/auth";
 
@@ -147,7 +149,7 @@ export const createIdea = createServerFn({ method: "POST" })
 		// Fire-and-forget: send confirmation to submitter
 		sendIdeaSubmittedEmail({
 			submitterEmail: context.user.email,
-			submitterFirstName: context.user.displayName.split(" ")[0],
+			submitterFirstName: firstName(context.user.displayName),
 			submissionId,
 			ideaTitle: data.title,
 			categoryName: category.name,
@@ -158,7 +160,7 @@ export const createIdea = createServerFn({ method: "POST" })
 		if (owner) {
 			sendIdeaAssignedEmail({
 				ownerEmail: owner.email,
-				ownerFirstName: owner.displayName.split(" ")[0],
+				ownerFirstName: firstName(owner.displayName),
 				submissionId,
 				ideaTitle: data.title,
 				categoryName: category.name,
@@ -313,10 +315,20 @@ export const getIdeaDetail = createServerFn()
 			throw new Error("Not found");
 		}
 
-		// Load activity events. Internal notes are for the review side — owner/
-		// admin, assigned reviewer, or a category Watcher (R14); never the
-		// submitter. The `assigned` delegation event is hidden from the submitter.
-		const canReadInternal = isAdminViewer || isOwnerLikeViewer || isCategoryContributor;
+		// One capability resolution for the viewer — the same pure module addMessage
+		// and the internal-notes endpoints gate on, so the UI can never disagree
+		// with the server (e.g. on closed ideas).
+		const caps = resolveIdeaCapabilities({
+			isAdmin: isAdminViewer,
+			isCategoryOwner: categoryOwner?.id === context.user.id,
+			isAssignedReviewer: idea.assignedReviewerId === context.user.id,
+			isCategoryContributor,
+			isSubmitter: idea.submitterId === context.user.id,
+			isWatcher,
+			status: idea.status,
+		});
+		// Internal notes: review side only; readable after close (history).
+		const canReadInternal = caps.canReadInternalNotes;
 		const isSubmitter = viewerRole === "submitter";
 		const allEvents = await db.query.ideaEvents.findMany({
 			where: eq(ideaEvents.ideaId, idea.id),
@@ -392,10 +404,13 @@ export const getIdeaDetail = createServerFn()
 				};
 			}),
 			canEdit,
-			// Who may post to the submitter-facing thread — mirrors addMessage's gate
-			// (submitter, Category Owner, assigned reviewer, admin, or a category
-			// Watcher — R14). A per-idea watcher can read but not send.
-			canMessage: isSubmitter || isOwnerLikeViewer || isAdminViewer || isCategoryContributor,
+			// Who may post to the submitter-facing thread right now — addMessage's
+			// exact gate: the submitter or the review side, never on a closed idea.
+			// A per-idea watcher can read but not send.
+			canMessage:
+				(idea.submitterId === context.user.id &&
+					!(CLOSED_STATUSES as readonly string[]).includes(idea.status)) ||
+				caps.canMessageSubmitter,
 			// Who may see the Internal Notes tab (and add notes) — the review side.
 			canReadInternalNotes: canReadInternal,
 		};
@@ -518,11 +533,11 @@ export const updateIdea = createServerFn({ method: "POST" })
 				idea.hasBeenReviewed || (REVIEWED_STATUSES as readonly string[]).includes(data.status);
 			sendStatusChangedEmail({
 				submitterEmail: idea.submitter.email,
-				submitterFirstName: idea.submitter.displayName.split(" ")[0],
+				submitterFirstName: firstName(idea.submitter.displayName),
 				submissionId: idea.submissionId,
 				ideaTitle: idea.title,
 				newStatus: data.status,
-				ownerFirstName: ownerVisible ? context.user.displayName.split(" ")[0] : "Your reviewer",
+				ownerFirstName: ownerVisible ? firstName(context.user.displayName) : "Your reviewer",
 				messageToSubmitter: data.messageToSubmitter ?? idea.messageToSubmitter ?? null,
 				declineReason: data.declineReason ?? null,
 			});
@@ -830,7 +845,7 @@ export const changeIdeaCategory = createServerFn({ method: "POST" })
 		if (newOwner) {
 			sendIdeaReassignedEmail({
 				ownerEmail: newOwner.email,
-				ownerFirstName: newOwner.displayName.split(" ")[0],
+				ownerFirstName: firstName(newOwner.displayName),
 				submissionId: idea.submissionId,
 				ideaTitle: idea.title,
 				categoryName: newCategory.name,
@@ -888,18 +903,9 @@ export const assignReviewer = createServerFn({ method: "POST" })
 	.inputValidator(
 		z.object({
 			ideaId: z.string(),
-			reviewerId: z.string().nullable(),
+			reviewerId: z.string().nullable().optional(),
 			/** Assign anyone from the Entra directory (R29) — inline-created on first touch. */
-			directory: z
-				.object({
-					entraId: z.string(),
-					displayName: z.string(),
-					email: z.string(),
-					jobTitle: z.string().nullable().optional(),
-					department: z.string().nullable().optional(),
-					officeLocation: z.string().nullable().optional(),
-				})
-				.optional(),
+			directory: DirectoryUserSchema.optional(),
 		}),
 	)
 	.handler(async ({ context, data }) => {
@@ -934,20 +940,15 @@ export const assignReviewer = createServerFn({ method: "POST" })
 		let candidate: { id: string; displayName: string; email: string } | null = null;
 		let resolvedReviewerId: string | null = data.reviewerId ?? null;
 		if (data.directory) {
-			const { id: userId } = await upsertDirectoryUser(
-				{
-					entraId: data.directory.entraId,
-					displayName: data.directory.displayName,
-					email: data.directory.email,
-					jobTitle: data.directory.jobTitle,
-					department: data.directory.department,
-					officeLocation: data.directory.officeLocation,
-				},
-				context.user.id,
-			);
-			resolvedReviewerId = userId;
+			const up = await upsertDirectoryUser(data.directory, context.user.id);
+			if (!up.active) {
+				throw new Error(
+					`${data.directory.displayName}'s account is deactivated — reactivate them on the Users page first.`,
+				);
+			}
+			resolvedReviewerId = up.id;
 			candidate = {
-				id: userId,
+				id: up.id,
 				displayName: data.directory.displayName,
 				email: data.directory.email,
 			};
@@ -1006,7 +1007,7 @@ export const assignReviewer = createServerFn({ method: "POST" })
 		if (plan.notifiesAssignee && candidate) {
 			sendIdeaAssignedEmail({
 				ownerEmail: candidate.email,
-				ownerFirstName: candidate.displayName.split(" ")[0],
+				ownerFirstName: firstName(candidate.displayName),
 				submissionId: idea.submissionId,
 				ideaTitle: idea.title,
 				categoryName: idea.category.name,
@@ -1186,6 +1187,7 @@ export const reopenIdea = createServerFn({ method: "POST" })
 					actorId: context.user.id,
 					oldValue: idea.category.name,
 					newValue: target.name,
+					note: "Reopened into a different category",
 				});
 			}
 		});
@@ -1193,7 +1195,7 @@ export const reopenIdea = createServerFn({ method: "POST" })
 		// Fire-and-forget: tell the submitter their idea is being looked at again.
 		sendIdeaReopenedEmail({
 			submitterEmail: idea.submitter.email,
-			submitterFirstName: idea.submitter.displayName.split(" ")[0],
+			submitterFirstName: firstName(idea.submitter.displayName),
 			submissionId: idea.submissionId,
 			ideaTitle: idea.title,
 		});
@@ -1220,7 +1222,7 @@ export const reopenIdea = createServerFn({ method: "POST" })
 			if (newOwner) {
 				sendIdeaReassignedEmail({
 					ownerEmail: newOwner.email,
-					ownerFirstName: newOwner.displayName.split(" ")[0],
+					ownerFirstName: firstName(newOwner.displayName),
 					submissionId: idea.submissionId,
 					ideaTitle: idea.title,
 					categoryName: target.name,
@@ -1353,7 +1355,7 @@ export const requestTriage = createServerFn({ method: "POST" })
 		for (const adm of admins) {
 			sendIdeaAssignedEmail({
 				ownerEmail: adm.email,
-				ownerFirstName: adm.displayName.split(" ")[0],
+				ownerFirstName: firstName(adm.displayName),
 				submissionId: idea.submissionId,
 				ideaTitle: idea.title,
 				categoryName: triage.name,

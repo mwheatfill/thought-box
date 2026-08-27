@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { and, count, eq, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
+import { firstName } from "#/lib/utils";
 import { db } from "#/server/db";
 import { categories, categoryContributors, users } from "#/server/db/schema";
 import { sendUserInviteEmail } from "#/server/functions/email";
@@ -135,7 +136,7 @@ export const updateUserRole = createServerFn({ method: "POST" })
 		if (data.role === "admin" && target && target.role !== "admin") {
 			sendUserInviteEmail({
 				recipientEmail: target.email,
-				recipientFirstName: target.displayName.split(" ")[0],
+				recipientFirstName: firstName(target.displayName),
 				role: "admin",
 				invitedByName: context.user.displayName,
 			}).catch(() => {});
@@ -240,7 +241,7 @@ export const upsertUser = createServerFn({ method: "POST" })
 			if (data.role === "admin" && existing.role !== "admin") {
 				sendUserInviteEmail({
 					recipientEmail: data.email,
-					recipientFirstName: data.displayName.split(" ")[0],
+					recipientFirstName: firstName(data.displayName),
 					role: "admin",
 					invitedByName: context.user.displayName,
 				}).catch(() => {});
@@ -292,7 +293,7 @@ export const upsertUser = createServerFn({ method: "POST" })
 		if ((data.role ?? "submitter") === "admin") {
 			sendUserInviteEmail({
 				recipientEmail: data.email,
-				recipientFirstName: data.displayName.split(" ")[0],
+				recipientFirstName: firstName(data.displayName),
 				role: "admin",
 				invitedByName: context.user.displayName,
 			}).catch(() => {});

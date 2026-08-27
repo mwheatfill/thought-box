@@ -2,11 +2,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { and, count, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { OPEN_STATUSES } from "#/lib/constants";
+import { firstName } from "#/lib/utils";
 import { db } from "#/server/db";
 import { categories, ideas, users } from "#/server/db/schema";
 import { sendCategoryRoleGrantedEmail } from "#/server/functions/email";
 import { audit } from "#/server/lib/audit";
-import { upsertDirectoryUser } from "#/server/lib/user-upsert";
+import { DirectoryUserSchema, upsertDirectoryUser } from "#/server/lib/user-upsert";
 import { adminMiddleware } from "#/server/middleware/auth";
 
 export const getCategories = createServerFn()
@@ -169,7 +170,7 @@ export const updateCategory = createServerFn({ method: "POST" })
 			if (newOwner) {
 				sendCategoryRoleGrantedEmail({
 					recipientEmail: newOwner.email,
-					recipientFirstName: newOwner.displayName.split(" ")[0],
+					recipientFirstName: firstName(newOwner.displayName),
 					categoryName: before.name,
 					kind: "owner",
 					openIdeaCount: Number(openCount[0]?.n ?? 0),
@@ -279,17 +280,13 @@ export const getUnownedCategories = createServerFn()
  */
 export const ensureUserFromDirectory = createServerFn({ method: "POST" })
 	.middleware([adminMiddleware])
-	.inputValidator(
-		z.object({
-			entraId: z.string(),
-			displayName: z.string(),
-			email: z.string(),
-			jobTitle: z.string().nullable().optional(),
-			department: z.string().nullable().optional(),
-			officeLocation: z.string().nullable().optional(),
-		}),
-	)
+	.inputValidator(DirectoryUserSchema)
 	.handler(async ({ context, data }) => {
-		const { id } = await upsertDirectoryUser(data, context.user.id);
+		const { id, active } = await upsertDirectoryUser(data, context.user.id);
+		if (!active) {
+			throw new Error(
+				`${data.displayName}'s account is deactivated — reactivate them on the Users page first.`,
+			);
+		}
 		return { id, displayName: data.displayName };
 	});

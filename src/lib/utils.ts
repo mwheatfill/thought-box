@@ -32,6 +32,11 @@ export function initials(name: string): string {
 		.toUpperCase();
 }
 
+/** First word of a display name — the informal salutation used across emails. */
+export function firstName(displayName: string): string {
+	return displayName.split(" ")[0] || displayName;
+}
+
 /** Cmd/Ctrl + Enter — the universal "send" shortcut in chat composers. */
 export function isSendShortcut(e: KeyboardEvent | React.KeyboardEvent<Element>): boolean {
 	return (e.metaKey || e.ctrlKey) && e.key === "Enter";

@@ -2,6 +2,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { convertToModelMessages, stepCountIs, streamText, tool } from "ai";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { firstName } from "#/lib/utils";
 import { db, sql } from "#/server/db";
 import { categories, conversations, ideaEvents, ideas, settings, users } from "#/server/db/schema";
 import type { ConversationMessage } from "#/server/db/schema";
@@ -76,8 +77,8 @@ export async function handleChatRequest(request: Request): Promise<Response> {
 			columns: { displayName: true, department: true, jobTitle: true },
 		});
 		if (user) {
-			const firstName = user.displayName.split(" ")[0];
-			userContext = `\n\nThe current employee is ${firstName}. Their full name is ${user.displayName}.`;
+			const first = firstName(user.displayName);
+			userContext = `\n\nThe current employee is ${first}. Their full name is ${user.displayName}.`;
 			if (user.department) userContext += ` They work in ${user.department}.`;
 			if (user.jobTitle) userContext += ` Their title is ${user.jobTitle}.`;
 		}
@@ -287,7 +288,7 @@ ${categoryTaxonomy}${userContext}`;
 						if (owner) {
 							sendIdeaAssignedEmail({
 								ownerEmail: owner.email,
-								ownerFirstName: owner.displayName.split(" ")[0],
+								ownerFirstName: firstName(owner.displayName),
 								submissionId: idea.submissionId,
 								ideaTitle: idea.title,
 								categoryName: category.name,
@@ -309,7 +310,7 @@ ${categoryTaxonomy}${userContext}`;
 
 						sendIdeaSubmittedEmail({
 							submitterEmail: submitter.email,
-							submitterFirstName: submitter.displayName.split(" ")[0],
+							submitterFirstName: firstName(submitter.displayName),
 							submissionId: idea.submissionId,
 							ideaTitle: idea.title,
 							categoryName: category.name,

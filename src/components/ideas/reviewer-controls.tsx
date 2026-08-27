@@ -76,7 +76,7 @@ export function ReviewerControls({
 	});
 	const assignFn = useServerFn(assignReviewer);
 	const assignMutation = useMutation({
-		mutationFn: (input: { reviewerId: string | null; directory?: DirectoryResult }) =>
+		mutationFn: (input: { reviewerId?: string | null; directory?: DirectoryResult }) =>
 			assignFn({ data: { ideaId, ...input } }),
 		onSuccess: () => {
 			toast.success("Reviewer updated");
@@ -147,7 +147,7 @@ export function ReviewerControls({
 								</p>
 								<DirectoryPicker
 									placeholder="Search everyone…"
-									onSelect={(u) => assignMutation.mutate({ reviewerId: null, directory: u })}
+									onSelect={(u) => assignMutation.mutate({ directory: u })}
 								/>
 							</div>
 						</PopoverContent>

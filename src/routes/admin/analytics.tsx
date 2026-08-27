@@ -46,6 +46,17 @@ const chartConfig = {
 	requests: { label: "Requests", color: "#3b82f6" },
 } satisfies ChartConfig;
 
+/** Hand the browser a CSV as a named download. */
+function downloadCsv(filename: string, csv: string) {
+	const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement("a");
+	a.href = url;
+	a.download = filename;
+	a.click();
+	URL.revokeObjectURL(url);
+}
+
 function AnalyticsPage() {
 	const initialData = Route.useLoaderData();
 
@@ -69,13 +80,7 @@ function AnalyticsPage() {
 				toast.message("No ideas to export yet.");
 				return;
 			}
-			const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement("a");
-			a.href = url;
-			a.download = `idea-report-${new Date().toISOString().slice(0, 10)}.csv`;
-			a.click();
-			URL.revokeObjectURL(url);
+			downloadCsv(`idea-report-${new Date().toISOString().slice(0, 10)}.csv`, csv);
 			toast.success(`Exported ${count} ideas`);
 		},
 		onError: () => toast.error("Export failed"),
@@ -89,13 +94,7 @@ function AnalyticsPage() {
 				toast.message("No category changes to export yet.");
 				return;
 			}
-			const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement("a");
-			a.href = url;
-			a.download = `reassignment-report-${new Date().toISOString().slice(0, 10)}.csv`;
-			a.click();
-			URL.revokeObjectURL(url);
+			downloadCsv(`reassignment-report-${new Date().toISOString().slice(0, 10)}.csv`, csv);
 			toast.success(`Exported ${count} category changes`);
 		},
 		onError: () => toast.error("Export failed"),

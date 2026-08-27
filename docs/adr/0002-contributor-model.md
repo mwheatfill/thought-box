@@ -1,5 +1,13 @@
 # Contributor Model: roster-granted, assignment-gated, single per Idea
 
+> **Superseded in part (2026-08-27, client-confirmed R14/R29).** The assignment
+> gate is removed: roster membership (UI label now **"Watcher"**) grants Owner
+> Notes editing and submitter messaging on **all** Ideas in the Category, plus
+> category-wide alert emails — and assignment is open to the whole directory,
+> not just people scoped to the Category. Still standing: roster-granted role,
+> one assigned reviewer per Idea, and verdict reserved to Owner/Admin. See
+> CONTEXT.md for the current model.
+
 ## Context
 
 The UAT sheet (Pri 3) asked for "Watchers" on a Category who could update Owner Notes and message submitters. We split that into two concepts: a passive **Watcher** (subscription) and an active **Contributor** (role). This ADR records how the Contributor role is granted and bounded.

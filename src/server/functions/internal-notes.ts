@@ -1,8 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { and, eq, inArray, ne, or } from "drizzle-orm";
 import { z } from "zod";
+import { firstName } from "#/lib/utils";
 import { db } from "#/server/db";
-import { ideaEvents, ideas, users } from "#/server/db/schema";
+import { categoryContributors, ideaEvents, ideas, users } from "#/server/db/schema";
 import { sendMentionAlertEmail } from "#/server/functions/email";
 import { loadAttachmentsByEvent } from "#/server/lib/attachments-by-event";
 import { loadIdeaCapabilities } from "#/server/lib/idea-authz";
@@ -43,8 +44,8 @@ export const addInternalNote = createServerFn({ method: "POST" })
 
 		if (!idea) throw new Error("Idea not found");
 
-		// Editing Owner Notes is assignment-gated (ADR-0002): owner/admin always, a
-		// Contributor only on ideas assigned to them. Gated on the relationship.
+		// Editing Owner Notes is for the review side — owner/admin, assigned
+		// reviewer, or a category Watcher (R14). Gated on the relationship.
 		const caps = await loadIdeaCapabilities(context.user, {
 			id: idea.id,
 			status: idea.status,
@@ -70,13 +71,19 @@ export const addInternalNote = createServerFn({ method: "POST" })
 
 		// Fire-and-forget: notify each mentioned user. Skip self-mentions and only
 		// notify those who can actually read internal notes — admins, plus THIS
-		// idea's Category Owner and assigned reviewer (by relationship, not stored
-		// role: the Category Owner may still carry the `submitter` role under ADR-0003,
-		// and a stored `owner` of some other category can't read this note).
+		// idea's Category Owner, assigned reviewer, and category Watcher roster
+		// (by relationship, not stored role: the Category Owner may still carry
+		// the `submitter` role under ADR-0003).
 		if (data.mentions && data.mentions.length > 0) {
-			const allowedIds = [idea.category.ownerId, idea.assignedReviewerId].filter(
-				(id): id is string => Boolean(id),
-			);
+			const roster = await db.query.categoryContributors.findMany({
+				where: eq(categoryContributors.categoryId, idea.categoryId),
+				columns: { userId: true },
+			});
+			const allowedIds = [
+				idea.category.ownerId,
+				idea.assignedReviewerId,
+				...roster.map((r) => r.userId),
+			].filter((id): id is string => Boolean(id));
 			const canReadNotes =
 				allowedIds.length > 0
 					? or(eq(users.role, "admin"), inArray(users.id, allowedIds))
@@ -91,7 +98,7 @@ export const addInternalNote = createServerFn({ method: "POST" })
 			for (const recipient of recipients) {
 				sendMentionAlertEmail({
 					recipientEmail: recipient.email,
-					recipientFirstName: recipient.displayName.split(" ")[0],
+					recipientFirstName: firstName(recipient.displayName),
 					mentionerName: context.user.displayName,
 					submissionId: idea.submissionId,
 					ideaTitle: idea.title,

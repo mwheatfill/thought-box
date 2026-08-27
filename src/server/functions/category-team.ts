@@ -2,12 +2,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { and, count, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { OPEN_STATUSES } from "#/lib/constants";
+import { firstName } from "#/lib/utils";
 import { db } from "#/server/db";
 import { categories, categoryContributors, ideas, users } from "#/server/db/schema";
 import { sendCategoryRoleGrantedEmail } from "#/server/functions/email";
 import { audit } from "#/server/lib/audit";
 import { searchDirectory as searchDirectoryApi } from "#/server/lib/graph";
-import { upsertDirectoryUser } from "#/server/lib/user-upsert";
+import { DirectoryUserSchema, upsertDirectoryUser } from "#/server/lib/user-upsert";
 import { authMiddleware, ownerMiddleware } from "#/server/middleware/auth";
 
 /**
@@ -134,31 +135,17 @@ export const getCategoryTeam = createServerFn()
 /** Inline-create a User from the Entra directory, then add them to the roster. */
 export const addRosterContributorFromDirectory = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
-	.inputValidator(
-		z.object({
-			categoryId: z.string(),
-			entraId: z.string(),
-			displayName: z.string(),
-			email: z.string(),
-			jobTitle: z.string().nullable().optional(),
-			department: z.string().nullable().optional(),
-			officeLocation: z.string().nullable().optional(),
-		}),
-	)
+	.inputValidator(DirectoryUserSchema.extend({ categoryId: z.string() }))
 	.handler(async ({ context, data }) => {
 		const category = await loadManageableCategory(data.categoryId, context.user);
 
-		const { id: userId } = await upsertDirectoryUser(
-			{
-				entraId: data.entraId,
-				displayName: data.displayName,
-				email: data.email,
-				jobTitle: data.jobTitle,
-				department: data.department,
-				officeLocation: data.officeLocation,
-			},
-			context.user.id,
-		);
+		const { categoryId: _categoryId, ...person } = data;
+		const { id: userId, active } = await upsertDirectoryUser(person, context.user.id);
+		if (!active) {
+			throw new Error(
+				`${data.displayName}'s account is deactivated — reactivate them on the Users page first.`,
+			);
+		}
 
 		if (category.ownerId === userId) {
 			throw new Error("The Category Owner is already on the team.");
@@ -172,7 +159,7 @@ export const addRosterContributorFromDirectory = createServerFn({ method: "POST"
 		// Fire-and-forget: tell them they can now be assigned this category's ideas.
 		sendCategoryRoleGrantedEmail({
 			recipientEmail: data.email,
-			recipientFirstName: data.displayName.split(" ")[0],
+			recipientFirstName: firstName(data.displayName),
 			categoryName: category.name,
 			kind: "contributor",
 			grantedByName: context.user.displayName,
@@ -232,31 +219,17 @@ export const removeRosterContributor = createServerFn({ method: "POST" })
  */
 export const transferCategoryOwnership = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
-	.inputValidator(
-		z.object({
-			categoryId: z.string(),
-			entraId: z.string(),
-			displayName: z.string(),
-			email: z.string(),
-			jobTitle: z.string().nullable().optional(),
-			department: z.string().nullable().optional(),
-			officeLocation: z.string().nullable().optional(),
-		}),
-	)
+	.inputValidator(DirectoryUserSchema.extend({ categoryId: z.string() }))
 	.handler(async ({ context, data }) => {
 		const category = await loadManageableCategory(data.categoryId, context.user);
 
-		const { id: newOwnerId } = await upsertDirectoryUser(
-			{
-				entraId: data.entraId,
-				displayName: data.displayName,
-				email: data.email,
-				jobTitle: data.jobTitle,
-				department: data.department,
-				officeLocation: data.officeLocation,
-			},
-			context.user.id,
-		);
+		const { categoryId: _categoryId, ...person } = data;
+		const { id: newOwnerId, active } = await upsertDirectoryUser(person, context.user.id);
+		if (!active) {
+			throw new Error(
+				`${data.displayName}'s account is deactivated — reactivate them on the Users page first.`,
+			);
+		}
 		if (category.ownerId === newOwnerId) {
 			throw new Error("That person already owns this category.");
 		}
@@ -300,7 +273,7 @@ export const transferCategoryOwnership = createServerFn({ method: "POST" })
 			.where(and(eq(ideas.categoryId, data.categoryId), inArray(ideas.status, [...OPEN_STATUSES])));
 		sendCategoryRoleGrantedEmail({
 			recipientEmail: data.email,
-			recipientFirstName: data.displayName.split(" ")[0],
+			recipientFirstName: firstName(data.displayName),
 			categoryName: category.name,
 			kind: "owner",
 			openIdeaCount: Number(openCount?.n ?? 0),

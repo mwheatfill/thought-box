@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { desc, eq } from "drizzle-orm";
+import { REASSIGNMENT_REASONS } from "#/lib/constants";
 import { toCsv } from "#/lib/csv";
 import { db, sql } from "#/server/db";
 import { ideaEvents } from "#/server/db/schema";
@@ -86,7 +87,11 @@ export const getReassignmentReportCsv = createServerFn()
 				e.idea?.title ?? "",
 				e.oldValue ?? "",
 				e.newValue ?? "",
-				e.reason ?? "",
+				// Human label for enum reasons; triage/reopen moves record their why
+				// in the event note instead.
+				e.reason
+					? ((REASSIGNMENT_REASONS as Record<string, string>)[e.reason] ?? e.reason)
+					: (e.note ?? ""),
 				e.actor?.displayName ?? "",
 				e.createdAt.toISOString(),
 				e.idea?.category?.name ?? "",

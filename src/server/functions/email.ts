@@ -14,7 +14,8 @@ import SlaReminder from "#/emails/SlaReminder";
 import StatusChanged from "#/emails/StatusChanged";
 import UserInvite from "#/emails/UserInvite";
 import WatcherAlert from "#/emails/WatcherAlert";
-import WatcherUpdate from "#/emails/WatcherUpdate";
+import WatcherUpdate, { watcherUpdateCopy } from "#/emails/WatcherUpdate";
+import { firstName } from "#/lib/utils";
 import { sendEmail } from "#/server/lib/email";
 import { adminMiddleware } from "#/server/middleware/auth";
 
@@ -230,15 +231,13 @@ export async function sendWatcherUpdateEmail(params: {
 	messagePreview?: string | null;
 	addedByName?: string | null;
 }) {
-	const headline =
-		params.updateKind === "added"
-			? `You've been added as a watcher on idea ${params.submissionId}`
-			: params.updateKind === "status"
-				? `Update on idea ${params.submissionId}: ${params.statusLabel}`
-				: `New activity on idea ${params.submissionId}`;
 	await sendEmail({
 		to: params.watcherEmail,
-		subject: headline,
+		subject: watcherUpdateCopy({
+			updateKind: params.updateKind,
+			submissionId: params.submissionId,
+			statusLabel: params.statusLabel,
+		}).subject,
 		templateName: "WatcherUpdate",
 		template: createElement(WatcherUpdate, {
 			watcherFirstName: params.watcherFirstName,
@@ -398,7 +397,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ template: z.enum(TEST_TEMPLATES) }))
 	.handler(async ({ context, data }) => {
 		const to = context.user.email;
-		const firstName = context.user.displayName.split(" ")[0];
+		const first = firstName(context.user.displayName);
 		const viewUrl = ideaUrl("TB-0000");
 
 		const sample = {
@@ -412,7 +411,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 				idea_submitted: {
 					subject: `[TEST] Your idea has been submitted: ${sample.submissionId}`,
 					template: createElement(IdeaSubmitted, {
-						submitterFirstName: firstName,
+						submitterFirstName: first,
 						submissionId: sample.submissionId,
 						ideaTitle: sample.ideaTitle,
 						categoryName: sample.categoryName,
@@ -423,7 +422,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 				idea_assigned: {
 					subject: `[TEST] New idea assigned to you: ${sample.submissionId}`,
 					template: createElement(IdeaAssigned, {
-						ownerFirstName: firstName,
+						ownerFirstName: first,
 						submissionId: sample.submissionId,
 						ideaTitle: sample.ideaTitle,
 						categoryName: sample.categoryName,
@@ -435,7 +434,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 				status_under_review: {
 					subject: `[TEST] Your idea is being reviewed: ${sample.submissionId}`,
 					template: createElement(StatusChanged, {
-						submitterFirstName: firstName,
+						submitterFirstName: first,
 						submissionId: sample.submissionId,
 						ideaTitle: sample.ideaTitle,
 						newStatus: "under_review",
@@ -448,7 +447,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 				status_accepted: {
 					subject: `[TEST] Great news about your idea: ${sample.submissionId}`,
 					template: createElement(StatusChanged, {
-						submitterFirstName: firstName,
+						submitterFirstName: first,
 						submissionId: sample.submissionId,
 						ideaTitle: sample.ideaTitle,
 						newStatus: "accepted",
@@ -462,7 +461,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 				status_declined: {
 					subject: `[TEST] Update on your idea: ${sample.submissionId}`,
 					template: createElement(StatusChanged, {
-						submitterFirstName: firstName,
+						submitterFirstName: first,
 						submissionId: sample.submissionId,
 						ideaTitle: sample.ideaTitle,
 						newStatus: "declined",
@@ -475,7 +474,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 				idea_reassigned: {
 					subject: `[TEST] Idea reassigned to you: ${sample.submissionId}`,
 					template: createElement(IdeaReassigned, {
-						ownerFirstName: firstName,
+						ownerFirstName: first,
 						submissionId: sample.submissionId,
 						ideaTitle: sample.ideaTitle,
 						categoryName: sample.categoryName,
@@ -487,7 +486,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 				idea_reassigned_submitter: {
 					subject: `[TEST] Your idea ${sample.submissionId} has a new reviewer`,
 					template: createElement(IdeaReassignedSubmitter, {
-						submitterFirstName: firstName,
+						submitterFirstName: first,
 						submissionId: sample.submissionId,
 						ideaTitle: sample.ideaTitle,
 						categoryName: sample.categoryName,
@@ -497,7 +496,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 				message_from_owner: {
 					subject: `[TEST] ${OWNER_COMMENT_SUBJECT}: ${sample.ideaTitle}`,
 					template: createElement(NewMessage, {
-						recipientFirstName: firstName,
+						recipientFirstName: first,
 						senderName: "Michelle Murray",
 						submissionId: sample.submissionId,
 						ideaTitle: sample.ideaTitle,
@@ -510,7 +509,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 				message_from_submitter: {
 					subject: `[TEST] The submitter responded on: ${sample.ideaTitle}`,
 					template: createElement(NewMessage, {
-						recipientFirstName: firstName,
+						recipientFirstName: first,
 						senderName: "Sarah Chen",
 						submissionId: sample.submissionId,
 						ideaTitle: sample.ideaTitle,
@@ -523,11 +522,11 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 				mention_alert: {
 					subject: `[TEST] Nubia Ruiz mentioned you on ${sample.submissionId}`,
 					template: createElement(MentionAlert, {
-						recipientFirstName: firstName,
+						recipientFirstName: first,
 						mentionerName: "Nubia Ruiz",
 						submissionId: sample.submissionId,
 						ideaTitle: sample.ideaTitle,
-						notePreview: `@${firstName} can you check whether the Retail Banking team has this on the roadmap?`,
+						notePreview: `@${first} can you check whether the Retail Banking team has this on the roadmap?`,
 						viewUrl,
 					}),
 				},
@@ -548,7 +547,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 				sla_reminder: {
 					subject: `[TEST] Reminder: ${sample.submissionId} needs your review (5 business days)`,
 					template: createElement(SlaReminder, {
-						ownerFirstName: firstName,
+						ownerFirstName: first,
 						submissionId: sample.submissionId,
 						ideaTitle: sample.ideaTitle,
 						submitterName: "Sarah Chen",
@@ -561,7 +560,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 				user_invite_owner: {
 					subject: "[TEST] You've been invited to ThoughtBox",
 					template: createElement(UserInvite, {
-						recipientFirstName: firstName,
+						recipientFirstName: first,
 						role: "owner",
 						invitedByName: "Nubia Ruiz",
 						dashboardUrl: `${APP_URL}/dashboard`,
@@ -570,7 +569,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 				user_invite_admin: {
 					subject: "[TEST] You've been invited to ThoughtBox",
 					template: createElement(UserInvite, {
-						recipientFirstName: firstName,
+						recipientFirstName: first,
 						role: "admin",
 						invitedByName: "Nubia Ruiz",
 						dashboardUrl: `${APP_URL}/dashboard`,
@@ -589,7 +588,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 				idea_reopened: {
 					subject: `[TEST] Your idea ${sample.submissionId} is back under review`,
 					template: createElement(IdeaReopened, {
-						submitterFirstName: firstName,
+						submitterFirstName: first,
 						submissionId: sample.submissionId,
 						ideaTitle: sample.ideaTitle,
 						viewUrl,
@@ -598,7 +597,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 				watcher_update: {
 					subject: `[TEST] Update on idea ${sample.submissionId}: Under Review`,
 					template: createElement(WatcherUpdate, {
-						watcherFirstName: firstName,
+						watcherFirstName: first,
 						submissionId: sample.submissionId,
 						ideaTitle: sample.ideaTitle,
 						updateKind: "status",
@@ -610,7 +609,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 				category_owner_granted: {
 					subject: `[TEST] You now own the ${sample.categoryName} category`,
 					template: createElement(CategoryRoleGranted, {
-						recipientFirstName: firstName,
+						recipientFirstName: first,
 						categoryName: sample.categoryName,
 						kind: "owner",
 						openIdeaCount: 4,
@@ -621,7 +620,7 @@ export const sendTestEmail = createServerFn({ method: "POST" })
 				category_contributor_granted: {
 					subject: `[TEST] You've joined the ${sample.categoryName} review team`,
 					template: createElement(CategoryRoleGranted, {
-						recipientFirstName: firstName,
+						recipientFirstName: first,
 						categoryName: sample.categoryName,
 						kind: "contributor",
 						openIdeaCount: null,

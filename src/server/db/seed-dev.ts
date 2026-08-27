@@ -2,6 +2,7 @@ import "dotenv/config";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { DEV_PERSONAS } from "../lib/dev-personas";
 import { calculateSlaDueDate } from "../lib/sla";
 import { categories, categoryContributors, ideaEvents, ideas, users } from "./schema";
 
@@ -15,32 +16,13 @@ import { categories, categoryContributors, ideaEvents, ideas, users } from "./sc
  * person — and submitter/owner attribution stays inside the test set.
  */
 
-const PERSONAS = [
-	{
-		entraId: "dev-admin-1",
-		displayName: "Michael",
-		email: "dev@localhost",
-		role: "admin" as const,
-	},
-	{
-		entraId: "dev-owner-1",
-		displayName: "Olive Owner",
-		email: "dev-owner@localhost",
-		role: "submitter" as const,
-	},
-	{
-		entraId: "dev-contributor-1",
-		displayName: "Casey Watcher",
-		email: "dev-contributor@localhost",
-		role: "submitter" as const,
-	},
-	{
-		entraId: "dev-submitter-1",
-		displayName: "Sam Submitter",
-		email: "dev-submitter@localhost",
-		role: "submitter" as const,
-	},
-];
+// Derived from the persona switcher's list — one source of truth for both.
+const PERSONAS = DEV_PERSONAS.map(({ entraId, displayName, email, role }) => ({
+	entraId,
+	displayName,
+	email,
+	role,
+}));
 
 // Persona who owns the demo category + the contributor on its roster.
 const OWNER_PERSONA = "dev-owner-1";

@@ -1,4 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
+import { firstName } from "#/lib/utils";
 import { db } from "#/server/db";
 import { ideaEvents, ideas, settings } from "#/server/db/schema";
 import { sendSlaReminderEmail } from "#/server/functions/email";
@@ -84,7 +85,7 @@ export async function checkSlaReminders(): Promise<{ sent: number; checked: numb
 
 			await sendSlaReminderEmail({
 				ownerEmail: reviewer.email,
-				ownerFirstName: reviewer.displayName.split(" ")[0],
+				ownerFirstName: firstName(reviewer.displayName),
 				submissionId: idea.submissionId,
 				ideaTitle: idea.title,
 				submitterName: idea.submitter.displayName,
