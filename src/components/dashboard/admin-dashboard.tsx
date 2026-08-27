@@ -173,7 +173,7 @@ export const adminIdeaColumns: ColumnDef<AdminIdea, unknown>[] = [
 	},
 	{
 		accessorKey: "assignedOwnerName",
-		header: ({ column }) => <SortableHeader column={column}>Assigned To</SortableHeader>,
+		header: ({ column }) => <SortableHeader column={column}>Owner</SortableHeader>,
 		cell: ({ row }) =>
 			row.original.assignedOwnerId ? (
 				<UserCardPopover userId={row.original.assignedOwnerId}>

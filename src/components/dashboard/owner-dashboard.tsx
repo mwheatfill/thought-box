@@ -115,7 +115,7 @@ const ownerColumns: ColumnDef<OwnerIdea, unknown>[] = [
 	},
 	{
 		accessorKey: "activeReviewerName",
-		header: ({ column }) => <SortableHeader column={column}>Reviewer</SortableHeader>,
+		header: ({ column }) => <SortableHeader column={column}>Owner</SortableHeader>,
 		cell: ({ row }) => {
 			const r = row.original;
 			const inner = (
@@ -325,7 +325,7 @@ export function OwnerDashboard({
 								},
 								{
 									columnId: "activeReviewerName",
-									label: "Reviewer",
+									label: "Owner",
 									options: [...new Set(displayIdeas.map((i) => i.activeReviewerName))]
 										.sort()
 										.map((r) => ({
