@@ -4,6 +4,7 @@ import {
 	businessDaysRemaining,
 	calculateSlaDueDate,
 	isOverdue,
+	summarizeReviewCompliance,
 } from "#/server/lib/sla";
 
 describe("addBusinessDays", () => {
@@ -109,5 +110,72 @@ describe("businessDaysRemaining", () => {
 		pastDate.setDate(pastDate.getDate() - 14); // ~2 weeks ago
 		const result = businessDaysRemaining(pastDate);
 		expect(result).toBeLessThan(0);
+	});
+});
+
+describe("summarizeReviewCompliance", () => {
+	const PAST_DUE = new Date("2020-01-15T00:00:00Z");
+	const FUTURE_DUE = new Date("2099-01-15T00:00:00Z");
+
+	it("counts ideas reviewed before their due date as on time", () => {
+		const r = summarizeReviewCompliance([
+			{
+				status: "under_review",
+				slaDueDate: PAST_DUE,
+				closedAt: null,
+				firstReviewedAt: new Date("2020-01-10T00:00:00Z"),
+			},
+		]);
+		expect(r).toEqual({ onTime: 1, breached: 0, percent: 100 });
+	});
+
+	it("counts ideas reviewed after their due date as breached", () => {
+		const r = summarizeReviewCompliance([
+			{
+				status: "under_review",
+				slaDueDate: PAST_DUE,
+				closedAt: null,
+				firstReviewedAt: new Date("2020-02-01T00:00:00Z"),
+			},
+		]);
+		expect(r).toEqual({ onTime: 0, breached: 1, percent: 0 });
+	});
+
+	it("counts an idea still New past its due date as a breach in progress", () => {
+		const r = summarizeReviewCompliance([
+			{ status: "new", slaDueDate: PAST_DUE, closedAt: null, firstReviewedAt: null },
+			{
+				status: "under_review",
+				slaDueDate: PAST_DUE,
+				closedAt: null,
+				firstReviewedAt: new Date("2020-01-10T00:00:00Z"),
+			},
+		]);
+		expect(r).toEqual({ onTime: 1, breached: 1, percent: 50 });
+	});
+
+	it("excludes ideas still New with time remaining", () => {
+		const r = summarizeReviewCompliance([
+			{ status: "new", slaDueDate: FUTURE_DUE, closedAt: null, firstReviewedAt: null },
+		]);
+		expect(r).toEqual({ onTime: 0, breached: 0, percent: null });
+	});
+
+	it("uses the close date for direct closes that skipped Under Review", () => {
+		const r = summarizeReviewCompliance([
+			{
+				status: "declined",
+				slaDueDate: PAST_DUE,
+				closedAt: new Date("2020-01-12T00:00:00Z"),
+				firstReviewedAt: null,
+			},
+			{
+				status: "declined",
+				slaDueDate: PAST_DUE,
+				closedAt: new Date("2020-03-01T00:00:00Z"),
+				firstReviewedAt: null,
+			},
+		]);
+		expect(r).toEqual({ onTime: 1, breached: 1, percent: 50 });
 	});
 });

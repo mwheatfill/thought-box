@@ -3,7 +3,11 @@ import { and, count, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
 import { OPEN_STATUSES } from "#/lib/constants";
 import { db } from "#/server/db";
 import { categories, categoryContributors, ideaEvents, ideas, users } from "#/server/db/schema";
-import { businessDaysRemaining, calculateSlaStatus } from "#/server/lib/sla";
+import {
+	businessDaysRemaining,
+	calculateSlaStatus,
+	summarizeReviewCompliance,
+} from "#/server/lib/sla";
 import { adminMiddleware, authMiddleware } from "#/server/middleware/auth";
 
 // ── Scope helpers (category-centric, ADR-0001/0002) ───────────────────────
@@ -243,12 +247,28 @@ export const getDashboardStats = createServerFn()
 
 		const allIdeas = await db.query.ideas.findMany({
 			columns: {
+				id: true,
 				status: true,
 				slaDueDate: true,
 				submittedAt: true,
 				closedAt: true,
 			},
 		});
+
+		// First move to Under Review per idea (mirrors idea_report's first_reviewed_at).
+		const firstReviews = await db
+			.select({
+				ideaId: ideaEvents.ideaId,
+				firstReviewedAt: sql<string>`min(${ideaEvents.createdAt})`,
+			})
+			.from(ideaEvents)
+			.where(
+				and(eq(ideaEvents.eventType, "status_changed"), eq(ideaEvents.newValue, "under_review")),
+			)
+			.groupBy(ideaEvents.ideaId);
+		const firstReviewedByIdea = new Map(
+			firstReviews.map((r) => [r.ideaId, new Date(r.firstReviewedAt)]),
+		);
 
 		const thisMonth = allIdeas.filter((i) => i.submittedAt >= startOfMonth);
 		const thisYear = allIdeas.filter((i) => i.submittedAt >= startOfYear);
@@ -260,13 +280,16 @@ export const getDashboardStats = createServerFn()
 			return days !== null && days <= 0;
 		});
 
-		// SLA compliance: % of ideas reviewed within 15 business days
-		const closedOrReviewed = allIdeas.filter((i) => i.status !== "new");
-		const reviewedOnTime = closedOrReviewed.filter((i) => {
-			if (!i.slaDueDate) return true;
-			// If the idea was moved out of "new" before the SLA date, it's on time
-			return true; // Simplified for now — full tracking requires event timestamps
-		});
+		// SLA compliance — real math (R29): reviewed within the review SLA; ideas
+		// still New past their due date count as breaches in progress.
+		const compliance = summarizeReviewCompliance(
+			allIdeas.map((i) => ({
+				status: i.status,
+				slaDueDate: i.slaDueDate,
+				closedAt: i.closedAt,
+				firstReviewedAt: firstReviewedByIdea.get(i.id) ?? null,
+			})),
+		);
 
 		// Avg time to close (days)
 		const closedIdeas = allIdeas.filter((i) => i.closedAt);
@@ -285,10 +308,7 @@ export const getDashboardStats = createServerFn()
 			openCount: openIdeas.length,
 			overdueCount: overdueOpen.length,
 			avgCloseTimeDays: avgCloseTime ? Math.round(avgCloseTime * 10) / 10 : null,
-			slaCompliancePercent:
-				closedOrReviewed.length > 0
-					? Math.round((reviewedOnTime.length / closedOrReviewed.length) * 100)
-					: null,
+			slaCompliancePercent: compliance.percent,
 		};
 	});
 

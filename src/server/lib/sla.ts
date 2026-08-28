@@ -115,3 +115,39 @@ export function businessDaysRemaining(slaDueDate: Date | null): number | null {
 
 	return count;
 }
+
+export interface ReviewComplianceItem {
+	status: string;
+	slaDueDate: Date | null;
+	closedAt: Date | null;
+	/** First time the idea moved to Under Review, if ever (idea_report's first_reviewed_at). */
+	firstReviewedAt: Date | null;
+}
+
+/**
+ * Review-SLA compliance: of the ideas whose review clock has concluded — they
+ * were reviewed, or they are still New past their review due date (a breach in
+ * progress) — the share reviewed on time. Ideas still New with time remaining
+ * are excluded; a direct close from New (no Under Review step) counts its
+ * close as the review.
+ */
+export function summarizeReviewCompliance(items: ReviewComplianceItem[]): {
+	onTime: number;
+	breached: number;
+	percent: number | null;
+} {
+	let onTime = 0;
+	let breached = 0;
+	for (const i of items) {
+		const reviewedAt = i.firstReviewedAt ?? (i.status !== "new" ? i.closedAt : null);
+		if (reviewedAt) {
+			if (!i.slaDueDate || reviewedAt <= i.slaDueDate) onTime++;
+			else breached++;
+		} else if (i.status === "new") {
+			const days = businessDaysRemaining(i.slaDueDate);
+			if (days !== null && days <= 0) breached++;
+		}
+	}
+	const total = onTime + breached;
+	return { onTime, breached, percent: total > 0 ? Math.round((onTime / total) * 100) : null };
+}
