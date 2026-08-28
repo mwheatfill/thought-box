@@ -89,13 +89,13 @@ export function ReviewerControls({
 	return (
 		<Card>
 			<CardHeader className="pb-3">
-				<CardTitle className="text-sm font-medium">Reviewer &amp; routing</CardTitle>
+				<CardTitle className="text-sm font-medium">Assignment</CardTitle>
 			</CardHeader>
 			<CardContent className="space-y-4">
-				{/* Active reviewer + assignment */}
+				{/* Owner + reassignment (#23: client's vocabulary — one "Owner" word) */}
 				<div className="space-y-2">
 					<div className="flex items-center justify-between">
-						<span className="text-sm text-muted-foreground">Active reviewer</span>
+						<span className="text-sm text-muted-foreground">Owner</span>
 						<span className="text-sm font-medium">{assignedReviewerName ?? "Category Owner"}</span>
 					</div>
 					<Popover open={assignOpen} onOpenChange={setAssignOpen}>
@@ -103,7 +103,7 @@ export function ReviewerControls({
 							<Button variant="outline" size="sm" className="w-full justify-between font-normal">
 								<span className="flex items-center gap-2">
 									<UserCog className="size-3.5" />
-									Assign reviewer
+									Reassign
 								</span>
 								<ChevronsUpDown className="size-3.5 opacity-50" />
 							</Button>
@@ -152,10 +152,12 @@ export function ReviewerControls({
 							</div>
 						</PopoverContent>
 					</Popover>
+					<p className="text-xs text-muted-foreground">This option will keep the category as is.</p>
 				</div>
 
 				{/* Category + change */}
 				<div className="space-y-2 border-t pt-3">
+					<p className="text-xs text-muted-foreground">…or reassign by category</p>
 					<div className="flex items-center justify-between">
 						<span className="text-sm text-muted-foreground">Category</span>
 						<span className="text-sm font-medium">{categoryName}</span>
@@ -169,6 +171,9 @@ export function ReviewerControls({
 						<FolderInput className="size-3.5" />
 						Change category
 					</Button>
+					<p className="text-xs text-muted-foreground">
+						This option will go to the category owner and update the category.
+					</p>
 				</div>
 			</CardContent>
 
