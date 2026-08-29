@@ -81,3 +81,21 @@ export async function upsertDirectoryUser(
 
 	return { id: created.id, created: true, active: true };
 }
+
+/**
+ * Upsert a directory person and refuse deactivated accounts — the shared guard
+ * for every inline-create flow (assign, watcher, roster, transfer, default
+ * owner). Only the admin Users page reactivates.
+ */
+export async function upsertActiveDirectoryUser(
+	input: DirectoryUserInput,
+	actorId: string,
+): Promise<{ id: string; created: boolean }> {
+	const result = await upsertDirectoryUser(input, actorId);
+	if (!result.active) {
+		throw new Error(
+			`${input.displayName}'s account is deactivated — reactivate them on the Users page first.`,
+		);
+	}
+	return result;
+}

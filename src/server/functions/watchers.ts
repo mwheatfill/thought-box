@@ -7,7 +7,7 @@ import { ideaWatchers, ideas, users } from "#/server/db/schema";
 import { sendWatcherUpdateEmail } from "#/server/functions/email";
 import { audit } from "#/server/lib/audit";
 import { loadIdeaCapabilities } from "#/server/lib/idea-authz";
-import { DirectoryUserSchema, upsertDirectoryUser } from "#/server/lib/user-upsert";
+import { DirectoryUserSchema, upsertActiveDirectoryUser } from "#/server/lib/user-upsert";
 import { authMiddleware } from "#/server/middleware/auth";
 
 /** Load an idea's authz shape (id columns + Category Owner) or throw. */
@@ -202,13 +202,7 @@ export const addWatcher = createServerFn({ method: "POST" })
 		const canManage = canManageWatchers(context.user, idea);
 		if (!canManage) throw new Error("Forbidden");
 
-		const { ideaId: _ideaId, ...person } = data;
-		const { id: userId, active } = await upsertDirectoryUser(person, context.user.id);
-		if (!active) {
-			throw new Error(
-				`${data.displayName}'s account is deactivated — reactivate them on the Users page first.`,
-			);
-		}
+		const { id: userId } = await upsertActiveDirectoryUser(data, context.user.id);
 
 		// The submitter is already implicitly watching — no row needed.
 		if (userId === idea.submitterId) {

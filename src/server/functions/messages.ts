@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { CLOSED_STATUSES } from "#/lib/constants";
+import { isClosedStatus } from "#/lib/constants";
 import { firstName } from "#/lib/utils";
 import { db } from "#/server/db";
 import { ideaEvents, ideas, users } from "#/server/db/schema";
@@ -44,7 +44,7 @@ export const addMessage = createServerFn({ method: "POST" })
 		});
 
 		// Closed ideas are locked for everyone — Reopen is the only path back.
-		if ((CLOSED_STATUSES as readonly string[]).includes(idea.status)) {
+		if (isClosedStatus(idea.status)) {
 			throw new Error("This idea is closed and locked. Reopen it to continue the conversation.");
 		}
 

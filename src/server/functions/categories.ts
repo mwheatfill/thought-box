@@ -7,7 +7,7 @@ import { db } from "#/server/db";
 import { categories, ideas, users } from "#/server/db/schema";
 import { sendCategoryRoleGrantedEmail } from "#/server/functions/email";
 import { audit } from "#/server/lib/audit";
-import { DirectoryUserSchema, upsertDirectoryUser } from "#/server/lib/user-upsert";
+import { DirectoryUserSchema, upsertActiveDirectoryUser } from "#/server/lib/user-upsert";
 import { adminMiddleware } from "#/server/middleware/auth";
 
 export const getCategories = createServerFn()
@@ -282,11 +282,6 @@ export const ensureUserFromDirectory = createServerFn({ method: "POST" })
 	.middleware([adminMiddleware])
 	.inputValidator(DirectoryUserSchema)
 	.handler(async ({ context, data }) => {
-		const { id, active } = await upsertDirectoryUser(data, context.user.id);
-		if (!active) {
-			throw new Error(
-				`${data.displayName}'s account is deactivated — reactivate them on the Users page first.`,
-			);
-		}
+		const { id } = await upsertActiveDirectoryUser(data, context.user.id);
 		return { id, displayName: data.displayName };
 	});

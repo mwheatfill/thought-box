@@ -8,7 +8,7 @@ import { categories, categoryContributors, ideas, users } from "#/server/db/sche
 import { sendCategoryRoleGrantedEmail } from "#/server/functions/email";
 import { audit } from "#/server/lib/audit";
 import { searchDirectory as searchDirectoryApi } from "#/server/lib/graph";
-import { DirectoryUserSchema, upsertDirectoryUser } from "#/server/lib/user-upsert";
+import { DirectoryUserSchema, upsertActiveDirectoryUser } from "#/server/lib/user-upsert";
 import { authMiddleware, ownerMiddleware } from "#/server/middleware/auth";
 
 /**
@@ -139,13 +139,7 @@ export const addRosterContributorFromDirectory = createServerFn({ method: "POST"
 	.handler(async ({ context, data }) => {
 		const category = await loadManageableCategory(data.categoryId, context.user);
 
-		const { categoryId: _categoryId, ...person } = data;
-		const { id: userId, active } = await upsertDirectoryUser(person, context.user.id);
-		if (!active) {
-			throw new Error(
-				`${data.displayName}'s account is deactivated — reactivate them on the Users page first.`,
-			);
-		}
+		const { id: userId } = await upsertActiveDirectoryUser(data, context.user.id);
 
 		if (category.ownerId === userId) {
 			throw new Error("The Category Owner is already on the team.");
@@ -223,13 +217,7 @@ export const transferCategoryOwnership = createServerFn({ method: "POST" })
 	.handler(async ({ context, data }) => {
 		const category = await loadManageableCategory(data.categoryId, context.user);
 
-		const { categoryId: _categoryId, ...person } = data;
-		const { id: newOwnerId, active } = await upsertDirectoryUser(person, context.user.id);
-		if (!active) {
-			throw new Error(
-				`${data.displayName}'s account is deactivated — reactivate them on the Users page first.`,
-			);
-		}
+		const { id: newOwnerId } = await upsertActiveDirectoryUser(data, context.user.id);
 		if (category.ownerId === newOwnerId) {
 			throw new Error("That person already owns this category.");
 		}

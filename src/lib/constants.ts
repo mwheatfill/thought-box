@@ -57,6 +57,10 @@ export function isOpenStatus(s: string): boolean {
 	return (OPEN_STATUSES as readonly string[]).includes(s);
 }
 
+export function isClosedStatus(s: string): boolean {
+	return (CLOSED_STATUSES as readonly string[]).includes(s);
+}
+
 export function isLockedStatus(s: string): boolean {
 	return (LOCKED_STATUSES as readonly string[]).includes(s);
 }

@@ -255,15 +255,22 @@ export const getDashboardStats = createServerFn()
 			},
 		});
 
-		// First move to Under Review per idea (mirrors idea_report's first_reviewed_at).
+		// First move to Under Review per idea IN THE CURRENT SLA CYCLE (mirrors
+		// idea_report's review_sla_met). Reopen resets slaStartedAt, so a
+		// pre-reopen review must not satisfy the fresh clock.
 		const firstReviews = await db
 			.select({
 				ideaId: ideaEvents.ideaId,
 				firstReviewedAt: sql<string>`min(${ideaEvents.createdAt})`,
 			})
 			.from(ideaEvents)
+			.innerJoin(ideas, eq(ideaEvents.ideaId, ideas.id))
 			.where(
-				and(eq(ideaEvents.eventType, "status_changed"), eq(ideaEvents.newValue, "under_review")),
+				and(
+					eq(ideaEvents.eventType, "status_changed"),
+					eq(ideaEvents.newValue, "under_review"),
+					gte(ideaEvents.createdAt, sql`coalesce(${ideas.slaStartedAt}, ${ideas.submittedAt})`),
+				),
 			)
 			.groupBy(ideaEvents.ideaId);
 		const firstReviewedByIdea = new Map(

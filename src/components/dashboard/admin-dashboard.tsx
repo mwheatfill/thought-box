@@ -504,10 +504,9 @@ export function exportIdeasCsv(ideas: AdminIdea[]) {
 		i.categoryName,
 		STATUS_LABELS[i.status as keyof typeof STATUS_LABELS] ?? i.status,
 		i.slaStatus,
-		// ISO date so Power BI types the column unambiguously.
-		new Date(i.submittedAt)
-			.toISOString()
-			.slice(0, 10),
+		// ISO shape, local day — toISOString would shift evening submissions to
+		// the next UTC day, disagreeing with every in-app surface.
+		new Date(i.submittedAt).toLocaleDateString("en-CA"),
 	]);
 
 	const csv = toCsv([headers, ...rows]);

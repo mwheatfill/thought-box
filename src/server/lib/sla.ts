@@ -120,7 +120,12 @@ export interface ReviewComplianceItem {
 	status: string;
 	slaDueDate: Date | null;
 	closedAt: Date | null;
-	/** First time the idea moved to Under Review, if ever (idea_report's first_reviewed_at). */
+	/**
+	 * First move to Under Review IN THE CURRENT SLA CYCLE (>= slaStartedAt), if
+	 * any. Callers must exclude pre-reopen reviews — a reopened idea's fresh
+	 * clock is only satisfied by a fresh review (idea_report's review_sla_met
+	 * applies the same threshold).
+	 */
 	firstReviewedAt: Date | null;
 }
 

@@ -1,4 +1,4 @@
-import { CLOSED_STATUSES } from "#/lib/constants";
+import { isClosedStatus } from "#/lib/constants";
 
 export interface IdeaCapabilities {
 	/** May open the idea at all (owner, any assigned/roster reviewer, or submitter). */
@@ -53,7 +53,7 @@ export function resolveIdeaCapabilities(params: {
 	isWatcher?: boolean;
 	status: string;
 }): IdeaCapabilities {
-	const closed = (CLOSED_STATUSES as readonly string[]).includes(params.status);
+	const closed = isClosedStatus(params.status);
 	const ownerLike = params.isAdmin || params.isCategoryOwner;
 	// Assignment-gated status actions: owner/admin always, else the assigned reviewer.
 	const assignedActor = ownerLike || params.isAssignedReviewer;

@@ -2,11 +2,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { and, count, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import {
-	CLOSED_STATUSES,
 	REASSIGNMENT_REASONS,
 	REVIEWED_STATUSES,
 	type ReassignmentReason,
 	STATUS_LABELS,
+	isClosedStatus,
 } from "#/lib/constants";
 import { firstName } from "#/lib/utils";
 import { db, sql } from "#/server/db";
@@ -43,7 +43,7 @@ import { resolveIdeaOwnership } from "#/server/lib/ownership";
 import { businessDaysRemaining, calculateSlaDueDate, calculateSlaStatus } from "#/server/lib/sla";
 import { nextSubmissionId } from "#/server/lib/submission-id";
 import { trackEvent } from "#/server/lib/telemetry";
-import { DirectoryUserSchema, upsertDirectoryUser } from "#/server/lib/user-upsert";
+import { DirectoryUserSchema, upsertActiveDirectoryUser } from "#/server/lib/user-upsert";
 import { notifyIdeaWatchers } from "#/server/lib/watcher-notify";
 import { authMiddleware, ownerMiddleware } from "#/server/middleware/auth";
 
@@ -408,8 +408,7 @@ export const getIdeaDetail = createServerFn()
 			// exact gate: the submitter or the review side, never on a closed idea.
 			// A per-idea watcher can read but not send.
 			canMessage:
-				(idea.submitterId === context.user.id &&
-					!(CLOSED_STATUSES as readonly string[]).includes(idea.status)) ||
+				(idea.submitterId === context.user.id && !isClosedStatus(idea.status)) ||
 				caps.canMessageSubmitter,
 			// Who may see the Internal Notes tab (and add notes) — the review side.
 			canReadInternalNotes: canReadInternal,
@@ -455,7 +454,7 @@ export const updateIdea = createServerFn({ method: "POST" })
 
 		// Closed ideas are locked. UI hides the edit form, but enforce server-side
 		// too so direct API calls can't bypass the lock.
-		if ((CLOSED_STATUSES as readonly string[]).includes(idea.status)) {
+		if (isClosedStatus(idea.status)) {
 			throw new Error("This idea is closed and locked. No further edits are allowed.");
 		}
 
@@ -503,7 +502,7 @@ export const updateIdea = createServerFn({ method: "POST" })
 			updates.hasBeenReviewed = true;
 		}
 		// Track closure
-		if (data.status && (CLOSED_STATUSES as readonly string[]).includes(data.status)) {
+		if (data.status && isClosedStatus(data.status)) {
 			updates.closedAt = new Date();
 		}
 
@@ -776,7 +775,7 @@ export const changeIdeaCategory = createServerFn({ method: "POST" })
 
 		// Closed ideas are locked; Reopen (Phase 7) is the only path back and may
 		// recategorize in the same step.
-		if ((CLOSED_STATUSES as readonly string[]).includes(idea.status)) {
+		if (isClosedStatus(idea.status)) {
 			throw new Error("This idea is closed and locked. Reopen it to move it.");
 		}
 
@@ -901,12 +900,16 @@ export const assignReviewer = createServerFn({ method: "POST" })
 	// `isOwnerLike` relationship check below, independent of stored role.
 	.middleware([authMiddleware])
 	.inputValidator(
-		z.object({
-			ideaId: z.string(),
-			reviewerId: z.string().nullable().optional(),
-			/** Assign anyone from the Entra directory (R29) — inline-created on first touch. */
-			directory: DirectoryUserSchema.optional(),
-		}),
+		z
+			.object({
+				ideaId: z.string(),
+				reviewerId: z.string().nullable().optional(),
+				/** Assign anyone from the Entra directory (R29) — inline-created on first touch. */
+				directory: DirectoryUserSchema.optional(),
+			})
+			.refine((d) => !(d.reviewerId != null && d.directory), {
+				message: "Pass either reviewerId or directory, not both.",
+			}),
 	)
 	.handler(async ({ context, data }) => {
 		const idea = await db.query.ideas.findFirst({
@@ -931,7 +934,7 @@ export const assignReviewer = createServerFn({ method: "POST" })
 		const isOwnerLike = context.user.role === "admin" || idea.category.ownerId === context.user.id;
 		if (!isOwnerLike) throw new Error("Forbidden");
 
-		if ((CLOSED_STATUSES as readonly string[]).includes(idea.status)) {
+		if (isClosedStatus(idea.status)) {
 			throw new Error("This idea is closed and locked. Reopen it to assign a reviewer.");
 		}
 
@@ -940,12 +943,7 @@ export const assignReviewer = createServerFn({ method: "POST" })
 		let candidate: { id: string; displayName: string; email: string } | null = null;
 		let resolvedReviewerId: string | null = data.reviewerId ?? null;
 		if (data.directory) {
-			const up = await upsertDirectoryUser(data.directory, context.user.id);
-			if (!up.active) {
-				throw new Error(
-					`${data.directory.displayName}'s account is deactivated — reactivate them on the Users page first.`,
-				);
-			}
+			const up = await upsertActiveDirectoryUser(data.directory, context.user.id);
 			resolvedReviewerId = up.id;
 			candidate = {
 				id: up.id,
