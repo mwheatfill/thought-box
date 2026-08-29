@@ -34,6 +34,7 @@ type Status = "new" | "under_review" | "accepted" | "declined";
 interface IdeaSpec {
 	title: string;
 	description: string;
+	expectedBenefit: string;
 	category: string;
 	impactArea: "cost" | "time" | "safety" | "customer" | "culture";
 	status: Status;
@@ -47,6 +48,8 @@ interface IdeaSpec {
 const IDEA_SPECS: IdeaSpec[] = [
 	{
 		title: "Self-service PTO balance in the mobile app",
+		expectedBenefit:
+			"Fewer HR tickets and no waiting on email — employees see their balance instantly.",
 		description: "Let employees check their PTO balance from the staff app instead of emailing HR.",
 		category: "Employee Experience",
 		impactArea: "time",
@@ -58,6 +61,8 @@ const IDEA_SPECS: IdeaSpec[] = [
 	},
 	{
 		title: "Auto-route fraud alerts to on-call analyst",
+		expectedBenefit:
+			"Cuts fraud response time from hours to minutes and removes the manual triage step.",
 		description:
 			"Fraud alerts currently sit in a shared inbox overnight. Route them to the on-call analyst's phone.",
 		category: "Safety & Security",
@@ -69,6 +74,7 @@ const IDEA_SPECS: IdeaSpec[] = [
 	},
 	{
 		title: "Consolidate the three loan-status spreadsheets",
+		expectedBenefit: "One source of truth — less double entry and fewer version-conflict errors.",
 		description:
 			"Three teams keep overlapping loan-status spreadsheets. One shared source would cut rework.",
 		category: "Process Improvement",
@@ -80,6 +86,7 @@ const IDEA_SPECS: IdeaSpec[] = [
 	},
 	{
 		title: "Branch tablet kiosks for member check-in",
+		expectedBenefit: "Shorter perceived wait times and accurate walk-in data for staffing.",
 		description: "A check-in kiosk would shorten lobby waits during peak hours.",
 		category: "Member Experience",
 		impactArea: "customer",
@@ -89,6 +96,7 @@ const IDEA_SPECS: IdeaSpec[] = [
 	},
 	{
 		title: "Dark mode for the teller terminal",
+		expectedBenefit: "Less eye strain on long shifts, especially in low-light branches.",
 		description: "Tellers on the late shift asked for a dark theme to reduce eye strain.",
 		category: "Technology",
 		impactArea: "culture",
@@ -99,6 +107,7 @@ const IDEA_SPECS: IdeaSpec[] = [
 	},
 	{
 		title: "Negotiate bulk pricing on shred bins",
+		expectedBenefit: "Roughly 20% savings on shredding costs across all branches.",
 		description: "Each branch contracts shredding separately. A single contract should save ~15%.",
 		category: "Cost Savings",
 		impactArea: "cost",
@@ -110,6 +119,7 @@ const IDEA_SPECS: IdeaSpec[] = [
 	},
 	{
 		title: "Standing desks in the contact center",
+		expectedBenefit: "Healthier agents and a morale boost for a team that sits all day.",
 		description: "Contact-center staff requested sit/stand desks for ergonomics.",
 		category: "Employee Experience",
 		impactArea: "culture",
@@ -121,6 +131,7 @@ const IDEA_SPECS: IdeaSpec[] = [
 	},
 	{
 		title: "Reuse paper for internal printing",
+		expectedBenefit: "Cuts paper spend and waste for internal-only drafts.",
 		description: "Set internal printers to draft/duplex by default to cut paper use.",
 		category: "Cost Savings",
 		impactArea: "cost",
@@ -130,6 +141,7 @@ const IDEA_SPECS: IdeaSpec[] = [
 	},
 	{
 		title: "SMS appointment reminders for loan closings",
+		expectedBenefit: "Fewer no-shows, so closings happen on schedule.",
 		description: "No-shows at closings could drop with a same-day SMS reminder.",
 		category: "Member Experience",
 		impactArea: "customer",
@@ -141,6 +153,7 @@ const IDEA_SPECS: IdeaSpec[] = [
 	},
 	{
 		title: "Single sign-on for the training portal",
+		expectedBenefit: "No more forgotten-password tickets and higher training completion.",
 		description: "The training portal needs a separate login. SSO would lift completion rates.",
 		category: "Technology",
 		impactArea: "time",
@@ -151,6 +164,7 @@ const IDEA_SPECS: IdeaSpec[] = [
 	},
 	{
 		title: "Quarterly shred-day for members",
+		expectedBenefit: "Member goodwill and branch foot traffic — a low-cost community event.",
 		description: "A member shred event builds goodwill and foot traffic.",
 		category: "Member Experience",
 		impactArea: "customer",
@@ -160,6 +174,7 @@ const IDEA_SPECS: IdeaSpec[] = [
 	},
 	{
 		title: "Phishing-report button in Outlook",
+		expectedBenefit: "Faster reporting means faster takedowns and fewer compromised accounts.",
 		description: "A one-click report button would speed up phishing triage.",
 		category: "Safety & Security",
 		impactArea: "safety",
@@ -171,6 +186,7 @@ const IDEA_SPECS: IdeaSpec[] = [
 	},
 	{
 		title: "Pre-fill member info on the call screen",
+		expectedBenefit: "Saves 30-60 seconds per call and members repeat themselves less.",
 		description: "Agents retype member info every call. Pre-fill from the CRM.",
 		category: "Technology",
 		impactArea: "time",
@@ -180,6 +196,7 @@ const IDEA_SPECS: IdeaSpec[] = [
 	},
 	{
 		title: "Bilingual signage in high-traffic branches",
+		expectedBenefit: "Spanish-speaking members can self-navigate — a more welcoming experience.",
 		description: "Spanish-language signage would better serve several branch communities.",
 		category: "Member Experience",
 		impactArea: "customer",
@@ -190,6 +207,7 @@ const IDEA_SPECS: IdeaSpec[] = [
 	},
 	{
 		title: "Cross-train tellers on new-account opening",
+		expectedBenefit: "Flexible coverage at peak times without adding headcount.",
 		description: "Cross-training would smooth coverage during call-outs.",
 		category: "Process Improvement",
 		impactArea: "time",
@@ -287,6 +305,7 @@ async function seedDev() {
 				submissionId,
 				title: spec.title,
 				description: spec.description,
+				expectedBenefit: spec.expectedBenefit,
 				categoryId,
 				impactArea: spec.impactArea,
 				status: spec.status,
