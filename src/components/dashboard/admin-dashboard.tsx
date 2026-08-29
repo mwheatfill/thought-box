@@ -485,7 +485,9 @@ function getHealthStatus(stats: DashboardStats): {
 
 export function exportIdeasCsv(ideas: AdminIdea[]) {
 	const headers = [
-		"ID",
+		// Never bare "ID" — a CSV starting with those two bytes is misdetected as
+		// SYLK by Excel/Power BI import paths (client-reported, ledger row 46).
+		"Submission ID",
 		"Title",
 		"Submitter",
 		"Assigned To",
@@ -502,7 +504,10 @@ export function exportIdeasCsv(ideas: AdminIdea[]) {
 		i.categoryName,
 		STATUS_LABELS[i.status as keyof typeof STATUS_LABELS] ?? i.status,
 		i.slaStatus,
-		new Date(i.submittedAt).toLocaleDateString(),
+		// ISO date so Power BI types the column unambiguously.
+		new Date(i.submittedAt)
+			.toISOString()
+			.slice(0, 10),
 	]);
 
 	const csv = toCsv([headers, ...rows]);
