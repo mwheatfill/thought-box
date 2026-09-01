@@ -108,28 +108,33 @@ export const categories = pgTable("categories", {
 	updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const ideas = pgTable("ideas", {
-	id: varchar("id", { length: 128 }).$defaultFn(createId).primaryKey(),
-	submissionId: varchar("submission_id", { length: 20 }).notNull().unique(),
-	title: varchar("title", { length: 500 }).notNull(),
-	description: text("description").notNull(),
-	expectedBenefit: text("expected_benefit"),
-	categoryId: varchar("category_id", { length: 128 }).notNull(),
-	impactArea: impactAreaEnum("impact_area"),
-	status: ideaStatusEnum("status").notNull().default("new"),
-	declineReason: declineReasonEnum("decline_reason"),
-	submitterId: varchar("submitter_id", { length: 128 }).notNull(),
-	assignedReviewerId: varchar("assigned_reviewer_id", { length: 128 }),
-	messageToSubmitter: text("message_to_submitter"),
-	slaDueDate: timestamp("sla_due_date", { withTimezone: true }),
-	closureSlaDueDate: timestamp("closure_sla_due_date", { withTimezone: true }),
-	slaStartedAt: timestamp("sla_started_at", { withTimezone: true }),
-	hasBeenReviewed: boolean("has_been_reviewed").notNull().default(false),
-	closedAt: timestamp("closed_at", { withTimezone: true }),
-	submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-	updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const ideas = pgTable(
+	"ideas",
+	{
+		id: varchar("id", { length: 128 }).$defaultFn(createId).primaryKey(),
+		submissionId: varchar("submission_id", { length: 20 }).notNull().unique(),
+		title: varchar("title", { length: 500 }).notNull(),
+		description: text("description").notNull(),
+		expectedBenefit: text("expected_benefit"),
+		categoryId: varchar("category_id", { length: 128 }).notNull(),
+		impactArea: impactAreaEnum("impact_area"),
+		status: ideaStatusEnum("status").notNull().default("new"),
+		declineReason: declineReasonEnum("decline_reason"),
+		submitterId: varchar("submitter_id", { length: 128 }).notNull(),
+		assignedReviewerId: varchar("assigned_reviewer_id", { length: 128 }),
+		messageToSubmitter: text("message_to_submitter"),
+		slaDueDate: timestamp("sla_due_date", { withTimezone: true }),
+		closureSlaDueDate: timestamp("closure_sla_due_date", { withTimezone: true }),
+		slaStartedAt: timestamp("sla_started_at", { withTimezone: true }),
+		hasBeenReviewed: boolean("has_been_reviewed").notNull().default(false),
+		closedAt: timestamp("closed_at", { withTimezone: true }),
+		submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+		// Role derivation counts a user's assigned ideas on every request (0023).
+	},
+	(t) => [index("ideas_assigned_reviewer_idx").on(t.assignedReviewerId)],
+);
 
 export const ideaEvents = pgTable("idea_events", {
 	id: varchar("id", { length: 128 }).$defaultFn(createId).primaryKey(),

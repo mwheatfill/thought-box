@@ -3,7 +3,7 @@ import { and, count, eq, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
 import { firstName } from "#/lib/utils";
 import { db } from "#/server/db";
-import { categories, categoryContributors, users } from "#/server/db/schema";
+import { categories, categoryContributors, ideas, users } from "#/server/db/schema";
 import { sendUserInviteEmail } from "#/server/functions/email";
 import { audit } from "#/server/lib/audit";
 import { enrichUserProfile } from "#/server/lib/enrichment";
@@ -19,7 +19,7 @@ export const getUsers = createServerFn()
 		// Roles are derived from relationships (ADR-0003): the stored column only
 		// tells us who is an explicit admin. Owner/Contributor come from live
 		// Category ownership and roster membership, counted once and joined in.
-		const [result, ownedCounts, rosterCounts] = await Promise.all([
+		const [result, ownedCounts, rosterCounts, assignedCounts] = await Promise.all([
 			db.query.users.findMany({
 				orderBy: (u, { asc }) => [asc(u.displayName)],
 				columns: {
@@ -46,12 +46,19 @@ export const getUsers = createServerFn()
 				.select({ userId: categoryContributors.userId, n: count() })
 				.from(categoryContributors)
 				.groupBy(categoryContributors.userId),
+			db
+				.select({ userId: ideas.assignedReviewerId, n: count() })
+				.from(ideas)
+				.groupBy(ideas.assignedReviewerId),
 		]);
 
 		const ownedByUser = new Map(
 			ownedCounts.filter((r) => r.ownerId).map((r) => [r.ownerId as string, Number(r.n)]),
 		);
 		const rosterByUser = new Map(rosterCounts.map((r) => [r.userId, Number(r.n)]));
+		const assignedByUser = new Map(
+			assignedCounts.filter((r) => r.userId).map((r) => [r.userId as string, Number(r.n)]),
+		);
 
 		return result.map((u) => ({
 			...u,
@@ -61,6 +68,7 @@ export const getUsers = createServerFn()
 				isAdmin: u.role === "admin",
 				ownedCategoryCount: ownedByUser.get(u.id) ?? 0,
 				rosterMembershipCount: rosterByUser.get(u.id) ?? 0,
+				assignedIdeaCount: assignedByUser.get(u.id) ?? 0,
 			}),
 			firstSeen: u.firstSeen?.toISOString() ?? null,
 			createdAt: u.createdAt.toISOString(),

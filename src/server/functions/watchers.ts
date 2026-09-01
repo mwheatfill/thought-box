@@ -29,12 +29,16 @@ async function loadIdeaForWatch(ideaId: string) {
 	return idea;
 }
 
-/** Whether the user may manage an idea's Watcher list — owner/admin (CONTEXT). */
+/** Whether the user may manage an idea's Watcher list — the idea's active owner (assignee, category owner, or admin). */
 function canManageWatchers(
 	user: { id: string; role: string },
-	idea: { category: { ownerId: string | null } },
+	idea: { assignedReviewerId: string | null; category: { ownerId: string | null } },
 ): boolean {
-	return user.role === "admin" || idea.category.ownerId === user.id;
+	return (
+		user.role === "admin" ||
+		idea.category.ownerId === user.id ||
+		idea.assignedReviewerId === user.id
+	);
 }
 
 /**

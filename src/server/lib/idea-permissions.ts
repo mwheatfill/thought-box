@@ -13,15 +13,15 @@ export interface IdeaCapabilities {
 	canEditOwnerNotes: boolean;
 	/** May message the submitter — owner/admin, the assigned reviewer, or a category Watcher. */
 	canMessageSubmitter: boolean;
-	/** May move New → Under Review — owner/admin, or the assigned reviewer. */
+	/** May move New → Under Review — the idea's active owner (assignee, category owner, or admin). */
 	canAdvanceToUnderReview: boolean;
-	/** May Accept/Decline — the verdict, reserved to owner/admin (ADR-0002). */
+	/** May Accept/Decline — the idea's active owner. Whoever a ticket is assigned to owns it (prod incident, 2026-09-01). */
 	canDecide: boolean;
-	/** May move the idea to a different Category — owner/admin only. */
+	/** May move the idea to a different Category — the idea's active owner. */
 	canChangeCategory: boolean;
-	/** May set the assigned reviewer — owner/admin only. */
+	/** May set the assigned reviewer (hand the ticket off) — the idea's active owner. */
 	canAssignReviewer: boolean;
-	/** May Reopen a closed idea — owner/admin only. */
+	/** May Reopen a closed idea — the idea's active owner. */
 	canReopen: boolean;
 }
 
@@ -55,7 +55,10 @@ export function resolveIdeaCapabilities(params: {
 }): IdeaCapabilities {
 	const closed = isClosedStatus(params.status);
 	const ownerLike = params.isAdmin || params.isCategoryOwner;
-	// Assignment-gated status actions: owner/admin always, else the assigned reviewer.
+	// The idea's active owner: whoever the ticket is assigned to, else the
+	// category owner; admins always. The client model (2026-09-01 prod incident):
+	// assignment confers FULL powers on that ticket — status, verdict, handoff,
+	// category change, reopen. ADR-0002's legwork/verdict split is retired.
 	const assignedActor = ownerLike || params.isAssignedReviewer;
 	// Notes + messaging extend to the whole category Watcher roster (R14).
 	const reviewSide = assignedActor || params.isCategoryContributor;
@@ -73,9 +76,9 @@ export function resolveIdeaCapabilities(params: {
 		canEditOwnerNotes: reviewSide && !closed,
 		canMessageSubmitter: reviewSide && !closed,
 		canAdvanceToUnderReview: assignedActor && params.status === "new",
-		canDecide: ownerLike && !closed,
-		canChangeCategory: ownerLike && !closed,
-		canAssignReviewer: ownerLike && !closed,
-		canReopen: ownerLike && closed,
+		canDecide: assignedActor && !closed,
+		canChangeCategory: assignedActor && !closed,
+		canAssignReviewer: assignedActor && !closed,
+		canReopen: assignedActor && closed,
 	};
 }

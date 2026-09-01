@@ -10,8 +10,9 @@ const NONE = {
 };
 
 /**
- * The Contributor model (ADR-0002): acting is assignment-gated, the verdict is
- * reserved to owner/admin, and closed ideas are locked except for Reopen.
+ * The client's ownership model (2026-09-01): whoever a ticket is assigned to
+ * owns it — full powers, verdict included. Category Watchers get notes and
+ * messages only. Closed ideas are locked except for Reopen.
  */
 describe("resolveIdeaCapabilities", () => {
 	it("gives an owner full rights on an open idea", () => {
@@ -28,15 +29,22 @@ describe("resolveIdeaCapabilities", () => {
 		expect(c.canAdvanceToUnderReview).toBe(true);
 	});
 
-	it("lets an assigned Contributor do legwork but never the verdict", () => {
+	it("gives the assigned person full powers on their ticket — they own it", () => {
 		const c = resolveIdeaCapabilities({ ...NONE, isAssignedReviewer: true, status: "new" });
 		expect(c.canEditOwnerNotes).toBe(true);
 		expect(c.canReadInternalNotes).toBe(true);
 		expect(c.canMessageSubmitter).toBe(true);
 		expect(c.canAdvanceToUnderReview).toBe(true);
+		expect(c.canDecide).toBe(true);
+		expect(c.canChangeCategory).toBe(true);
+		expect(c.canAssignReviewer).toBe(true);
+	});
+
+	it("lets the assigned person Reopen their closed ticket, but nothing else on it", () => {
+		const c = resolveIdeaCapabilities({ ...NONE, isAssignedReviewer: true, status: "declined" });
+		expect(c.canReopen).toBe(true);
 		expect(c.canDecide).toBe(false);
-		expect(c.canChangeCategory).toBe(false);
-		expect(c.canAssignReviewer).toBe(false);
+		expect(c.canEditOwnerNotes).toBe(false);
 	});
 
 	it("gives a category Watcher notes + messaging on any idea in the category, but no status power (R14)", () => {
@@ -109,11 +117,12 @@ describe("resolveIdeaCapabilities", () => {
 		expect(owner.canDecide).toBe(false);
 		expect(owner.canChangeCategory).toBe(false);
 
-		const contributor = resolveIdeaCapabilities({
+		const assignee = resolveIdeaCapabilities({
 			...NONE,
 			isAssignedReviewer: true,
 			status: "declined",
 		});
-		expect(contributor.canReopen).toBe(false);
+		// The assigned person owns the ticket — Reopen included.
+		expect(assignee.canReopen).toBe(true);
 	});
 });

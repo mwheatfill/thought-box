@@ -1,6 +1,6 @@
 import { and, count, eq, isNull } from "drizzle-orm";
 import { db } from "#/server/db";
-import { categories, categoryContributors, users } from "#/server/db/schema";
+import { categories, categoryContributors, ideas, users } from "#/server/db/schema";
 import { personasEnabled } from "#/server/lib/app-env";
 import { DEV_PERSONAS, ensureDevPersonas } from "#/server/lib/dev-personas";
 import { type EffectiveRole, deriveUserRole } from "#/server/lib/roles";
@@ -17,7 +17,7 @@ export async function resolveEffectiveRole(
 	isAdmin: boolean,
 ): Promise<EffectiveRole> {
 	if (isAdmin) return "admin";
-	const [owned, roster] = await Promise.all([
+	const [owned, roster, assigned] = await Promise.all([
 		db
 			.select({ n: count() })
 			.from(categories)
@@ -32,11 +32,17 @@ export async function resolveEffectiveRole(
 			.select({ n: count() })
 			.from(categoryContributors)
 			.where(eq(categoryContributors.userId, userId)),
+		// Holding assigned ideas makes someone an Owner too (client model).
+		db
+			.select({ n: count() })
+			.from(ideas)
+			.where(eq(ideas.assignedReviewerId, userId)),
 	]);
 	return deriveUserRole({
 		isAdmin: false,
 		ownedCategoryCount: Number(owned[0]?.n ?? 0),
 		rosterMembershipCount: Number(roster[0]?.n ?? 0),
+		assignedIdeaCount: Number(assigned[0]?.n ?? 0),
 	});
 }
 

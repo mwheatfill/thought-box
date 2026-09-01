@@ -34,7 +34,7 @@ export const getUserCard = createServerFn()
 	.middleware([authMiddleware])
 	.inputValidator(z.object({ userId: z.string() }))
 	.handler(async ({ data }) => {
-		const [user, userIdeas, owned, roster] = await Promise.all([
+		const [user, userIdeas, owned, roster, assigned] = await Promise.all([
 			db.query.users.findFirst({
 				where: eq(users.id, data.userId),
 				columns: {
@@ -67,6 +67,7 @@ export const getUserCard = createServerFn()
 				.select({ n: count() })
 				.from(categoryContributors)
 				.where(eq(categoryContributors.userId, data.userId)),
+			db.select({ n: count() }).from(ideas).where(eq(ideas.assignedReviewerId, data.userId)),
 		]);
 
 		if (!user) return null;
@@ -80,6 +81,7 @@ export const getUserCard = createServerFn()
 			isAdmin: user.role === "admin",
 			ownedCategoryCount: Number(owned[0]?.n ?? 0),
 			rosterMembershipCount: Number(roster[0]?.n ?? 0),
+			assignedIdeaCount: Number(assigned[0]?.n ?? 0),
 		});
 
 		// Fire-and-forget presence — don't block on it failing

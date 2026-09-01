@@ -758,6 +758,7 @@ export const changeIdeaCategory = createServerFn({ method: "POST" })
 				status: true,
 				categoryId: true,
 				submitterId: true,
+				assignedReviewerId: true,
 			},
 			with: {
 				category: { columns: { name: true, ownerId: true } },
@@ -767,11 +768,13 @@ export const changeIdeaCategory = createServerFn({ method: "POST" })
 
 		if (!idea) throw new Error("Idea not found");
 
-		// Change Category is reserved to owner/admin (ADR-0002 canChangeCategory):
-		// the CURRENT Category's Owner, or an Admin. A delegated Contributor does
-		// the legwork, not the accountability lever.
-		const isOwnerLike = context.user.role === "admin" || idea.category.ownerId === context.user.id;
-		if (!isOwnerLike) throw new Error("Forbidden");
+		// Change Category belongs to the idea's active owner — the assignee, the
+		// current Category's Owner, or an Admin (client model, 2026-09-01).
+		const isActiveOwner =
+			context.user.role === "admin" ||
+			idea.category.ownerId === context.user.id ||
+			idea.assignedReviewerId === context.user.id;
+		if (!isActiveOwner) throw new Error("Forbidden");
 
 		// Closed ideas are locked; Reopen (Phase 7) is the only path back and may
 		// recategorize in the same step.
@@ -930,9 +933,13 @@ export const assignReviewer = createServerFn({ method: "POST" })
 
 		if (!idea) throw new Error("Idea not found");
 
-		// Assignment is reserved to owner/admin (ADR-0002 canAssignReviewer).
-		const isOwnerLike = context.user.role === "admin" || idea.category.ownerId === context.user.id;
-		if (!isOwnerLike) throw new Error("Forbidden");
+		// Assignment (handing the ticket off) belongs to the idea's active owner —
+		// the assignee, the Category Owner, or an Admin (client model, 2026-09-01).
+		const isActiveOwner =
+			context.user.role === "admin" ||
+			idea.category.ownerId === context.user.id ||
+			idea.assignedReviewerId === context.user.id;
+		if (!isActiveOwner) throw new Error("Forbidden");
 
 		if (isClosedStatus(idea.status)) {
 			throw new Error("This idea is closed and locked. Reopen it to assign a reviewer.");
