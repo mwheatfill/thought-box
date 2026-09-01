@@ -10,6 +10,7 @@ describe("deriveUserRole", () => {
 	it("returns submitter when the user owns nothing and is on no roster", () => {
 		expect(
 			deriveUserRole({
+				isStoredOwner: false,
 				isAdmin: false,
 				ownedCategoryCount: 0,
 				rosterMembershipCount: 0,
@@ -21,6 +22,7 @@ describe("deriveUserRole", () => {
 	it("returns contributor when on at least one roster but owning no category", () => {
 		expect(
 			deriveUserRole({
+				isStoredOwner: false,
 				isAdmin: false,
 				ownedCategoryCount: 0,
 				rosterMembershipCount: 1,
@@ -32,6 +34,7 @@ describe("deriveUserRole", () => {
 	it("returns owner when owning at least one category", () => {
 		expect(
 			deriveUserRole({
+				isStoredOwner: false,
 				isAdmin: false,
 				ownedCategoryCount: 1,
 				rosterMembershipCount: 0,
@@ -43,6 +46,7 @@ describe("deriveUserRole", () => {
 	it("prefers owner over contributor when the user both owns and is on a roster", () => {
 		expect(
 			deriveUserRole({
+				isStoredOwner: false,
 				isAdmin: false,
 				ownedCategoryCount: 2,
 				rosterMembershipCount: 3,
@@ -55,6 +59,7 @@ describe("deriveUserRole", () => {
 		expect(
 			deriveUserRole({
 				isAdmin: true,
+				isStoredOwner: false,
 				ownedCategoryCount: 0,
 				rosterMembershipCount: 0,
 				assignedIdeaCount: 0,
@@ -63,6 +68,7 @@ describe("deriveUserRole", () => {
 		expect(
 			deriveUserRole({
 				isAdmin: true,
+				isStoredOwner: false,
 				ownedCategoryCount: 5,
 				rosterMembershipCount: 5,
 				assignedIdeaCount: 0,
@@ -73,6 +79,7 @@ describe("deriveUserRole", () => {
 	it("drops back to submitter when the last category and roster seat are removed", () => {
 		expect(
 			deriveUserRole({
+				isStoredOwner: false,
 				isAdmin: false,
 				ownedCategoryCount: 0,
 				rosterMembershipCount: 0,
@@ -86,6 +93,7 @@ describe("deriveUserRole — assignment confers Owner (client model)", () => {
 	it("makes a user with assigned ideas an owner even with no category or roster", () => {
 		expect(
 			deriveUserRole({
+				isStoredOwner: false,
 				isAdmin: false,
 				ownedCategoryCount: 0,
 				rosterMembershipCount: 0,
@@ -97,11 +105,38 @@ describe("deriveUserRole — assignment confers Owner (client model)", () => {
 	it("assignment outranks roster membership", () => {
 		expect(
 			deriveUserRole({
+				isStoredOwner: false,
 				isAdmin: false,
 				ownedCategoryCount: 0,
 				rosterMembershipCount: 1,
 				assignedIdeaCount: 1,
 			}),
 		).toBe("owner");
+	});
+});
+
+describe("deriveUserRole — explicit owner grant", () => {
+	it("makes a user with no relationships an owner when granted on the Users page", () => {
+		expect(
+			deriveUserRole({
+				isAdmin: false,
+				isStoredOwner: true,
+				ownedCategoryCount: 0,
+				rosterMembershipCount: 0,
+				assignedIdeaCount: 0,
+			}),
+		).toBe("owner");
+	});
+
+	it("admin still outranks an explicit owner grant", () => {
+		expect(
+			deriveUserRole({
+				isAdmin: true,
+				isStoredOwner: true,
+				ownedCategoryCount: 0,
+				rosterMembershipCount: 0,
+				assignedIdeaCount: 0,
+			}),
+		).toBe("admin");
 	});
 });

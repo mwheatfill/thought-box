@@ -14,9 +14,9 @@ import type { AuthUser } from "#/server/middleware/auth";
  */
 export async function resolveEffectiveRole(
 	userId: string,
-	isAdmin: boolean,
+	storedRole: string,
 ): Promise<EffectiveRole> {
-	if (isAdmin) return "admin";
+	if (storedRole === "admin") return "admin";
 	const [owned, roster, assigned] = await Promise.all([
 		db
 			.select({ n: count() })
@@ -40,6 +40,7 @@ export async function resolveEffectiveRole(
 	]);
 	return deriveUserRole({
 		isAdmin: false,
+		isStoredOwner: storedRole === "owner",
 		ownedCategoryCount: Number(owned[0]?.n ?? 0),
 		rosterMembershipCount: Number(roster[0]?.n ?? 0),
 		assignedIdeaCount: Number(assigned[0]?.n ?? 0),
@@ -84,7 +85,7 @@ export async function resolvePersonaOverride(
 	const persona = await db.query.users.findFirst({ where: eq(users.entraId, entraId) });
 	if (!persona || !persona.active) return null;
 
-	const role = await resolveEffectiveRole(persona.id, persona.role === "admin");
+	const role = await resolveEffectiveRole(persona.id, persona.role);
 	return {
 		id: persona.id,
 		entraId: persona.entraId,

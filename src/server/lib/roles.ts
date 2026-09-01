@@ -4,8 +4,10 @@ export type EffectiveRole = "submitter" | "contributor" | "owner" | "admin";
  * Derive a user's effective role from their relationships rather than a stored
  * field (ADR-0003).
  *
- * `admin` is the only explicitly-granted role. Owning at least one Category OR
- * holding at least one assigned idea — open OR closed — makes someone an Owner
+ * `admin` and `owner` can be granted explicitly on the Users page (the client
+ * staffs role-first: "make Sam an owner, then give Sam tickets"). Otherwise,
+ * owning at least one Category OR holding at least one assigned idea — open OR
+ * closed — makes someone an Owner
  * (ADR-0004: whoever a ticket is assigned to owns it; assignment is the
  * promotion, and a past assignee deliberately keeps their history and Owner
  * standing). Sitting on at least one Watcher roster makes them a Contributor;
@@ -17,12 +19,16 @@ export type EffectiveRole = "submitter" | "contributor" | "owner" | "admin";
  */
 export function deriveUserRole(params: {
 	isAdmin: boolean;
+	/** Explicit "Make owner" grant on the Users page (stored role = owner). */
+	isStoredOwner: boolean;
 	ownedCategoryCount: number;
 	rosterMembershipCount: number;
 	assignedIdeaCount: number;
 }): EffectiveRole {
 	if (params.isAdmin) return "admin";
-	if (params.ownedCategoryCount > 0 || params.assignedIdeaCount > 0) return "owner";
+	if (params.isStoredOwner || params.ownedCategoryCount > 0 || params.assignedIdeaCount > 0) {
+		return "owner";
+	}
 	if (params.rosterMembershipCount > 0) return "contributor";
 	return "submitter";
 }

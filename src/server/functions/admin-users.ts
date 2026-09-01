@@ -67,6 +67,7 @@ export const getUsers = createServerFn()
 			storedRole: u.role,
 			role: deriveUserRole({
 				isAdmin: u.role === "admin",
+				isStoredOwner: u.role === "owner",
 				ownedCategoryCount: ownedByUser.get(u.id) ?? 0,
 				rosterMembershipCount: rosterByUser.get(u.id) ?? 0,
 				assignedIdeaCount: assignedByUser.get(u.id) ?? 0,
@@ -151,13 +152,13 @@ export const updateUserRole = createServerFn({ method: "POST" })
 			.set({ role: data.role, updatedAt: new Date() })
 			.where(eq(users.id, data.userId));
 
-		// Fire-and-forget: granting admin auto-notifies them (replaces the old manual
-		// invite). Owner/Contributor grants are emailed by the category/roster flows.
-		if (data.role === "admin" && target && target.role !== "admin") {
+		// Fire-and-forget: an explicit admin or owner grant notifies them (category
+		// and roster grants are emailed by their own flows).
+		if ((data.role === "admin" || data.role === "owner") && target && target.role !== data.role) {
 			sendUserInviteEmail({
 				recipientEmail: target.email,
 				recipientFirstName: firstName(target.displayName),
-				role: "admin",
+				role: data.role,
 				invitedByName: context.user.displayName,
 			}).catch(() => {});
 		}

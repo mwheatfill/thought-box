@@ -68,6 +68,8 @@ interface UserRow {
 	photoUrl: string | null;
 	managerDisplayName: string | null;
 	role: string;
+	/** The stored column — only the explicit admin/owner grants live here. */
+	storedRole: string;
 	active: boolean;
 	firstSeen: string | null;
 	createdAt: string;
@@ -156,13 +158,31 @@ function UsersPage() {
 			cell: ({ row }) => {
 				const u = row.original;
 				const isAdmin = u.role === "admin";
-				// Roles are derived (ADR-0003): Owner = owns a category, Contributor =
-				// on a roster. The only manual control is the explicit admin grant.
+				const isStoredOwner = u.storedRole === "owner";
+				// Roles are derived from relationships (ADR-0003/0004) — owning a
+				// category or holding tickets — plus two explicit grants: admin, and
+				// "Make owner" so a person can be staffed before they have work.
 				return (
 					<div className="flex items-center gap-2">
 						<Badge variant="outline" className={ROLE_BADGE_CLASS[u.role] ?? ""}>
 							{ROLE_LABELS[u.role as keyof typeof ROLE_LABELS] ?? u.role}
 						</Badge>
+						{!isAdmin && (
+							<Button
+								variant="ghost"
+								size="sm"
+								className="h-7 text-xs text-muted-foreground"
+								onClick={(e) => {
+									e.stopPropagation();
+									roleMutation.mutate({
+										userId: u.id,
+										role: isStoredOwner ? "submitter" : "owner",
+									});
+								}}
+							>
+								{isStoredOwner ? "Remove owner" : "Make owner"}
+							</Button>
+						)}
 						<Button
 							variant="ghost"
 							size="sm"
@@ -291,8 +311,8 @@ function UsersPage() {
 						<DialogTitle>Make administrator</DialogTitle>
 						<DialogDescription>
 							{pendingPromotion?.displayName} will become a ThoughtBox administrator with full
-							access, and we'll email them to let them know. (Owner and Watcher roles are granted by
-							assigning a category or adding someone to a roster — not here.)
+							access, and we'll email them to let them know. (Use "Make owner" for the Owner role;
+							Watchers are added from a category's team page.)
 						</DialogDescription>
 					</DialogHeader>
 					<div className="flex justify-end gap-2">

@@ -79,6 +79,7 @@ export const getUserCard = createServerFn()
 		// Show the effective (derived) role so the card agrees with the Users table.
 		const role = deriveUserRole({
 			isAdmin: user.role === "admin",
+			isStoredOwner: user.role === "owner",
 			ownedCategoryCount: Number(owned[0]?.n ?? 0),
 			rosterMembershipCount: Number(roster[0]?.n ?? 0),
 			assignedIdeaCount: Number(assigned[0]?.n ?? 0),

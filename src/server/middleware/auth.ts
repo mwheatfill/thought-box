@@ -152,7 +152,7 @@ export const authMiddleware = createMiddleware().server(async ({ next, request }
 
 	// Effective role is derived from relationships, not the stored column — so
 	// granting a Category or roster seat is what makes someone an Owner/Contributor.
-	const effectiveRole = await resolveEffectiveRole(user.id, user.role === "admin");
+	const effectiveRole = await resolveEffectiveRole(user.id, user.role);
 
 	const authUser: AuthUser = {
 		id: user.id,

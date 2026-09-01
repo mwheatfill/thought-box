@@ -26,7 +26,7 @@ export async function resolveAuthUser(request: Request): Promise<AuthUser | null
 	// AuthUser.role is the relationship-derived effective role (ADR-0003), not the
 	// stored column — match the TanStack middleware so the two auth entry points
 	// agree (a Category Owner stored as `submitter` must read as `owner` here too).
-	const role = await resolveEffectiveRole(user.id, user.role === "admin");
+	const role = await resolveEffectiveRole(user.id, user.role);
 	const realUser: AuthUser = {
 		id: user.id,
 		entraId: user.entraId,
