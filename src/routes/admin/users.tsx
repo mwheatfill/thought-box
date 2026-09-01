@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Building2, Loader2, Plus, Power, Search, UserPlus } from "lucide-react";
+import { Building2, ChevronDown, Loader2, Plus, Power, Search, UserPlus } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
@@ -17,6 +17,12 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "#/components/ui/dialog";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "#/components/ui/dropdown-menu";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
 import { RouteError } from "#/components/ui/route-error";
@@ -162,42 +168,56 @@ function UsersPage() {
 				// Roles are derived from relationships (ADR-0003/0004) — owning a
 				// category or holding tickets — plus two explicit grants: admin, and
 				// "Make owner" so a person can be staffed before they have work.
+				// One compact menu of the actions that apply — the badge shows the
+				// effective role, which may come from a category or tickets rather
+				// than a grant, so a value picker would promise flips it can't make.
 				return (
 					<div className="flex items-center gap-2">
 						<Badge variant="outline" className={ROLE_BADGE_CLASS[u.role] ?? ""}>
 							{ROLE_LABELS[u.role as keyof typeof ROLE_LABELS] ?? u.role}
 						</Badge>
-						{!isAdmin && (
-							<Button
-								variant="ghost"
-								size="sm"
-								className="h-7 text-xs text-muted-foreground"
-								onClick={(e) => {
-									e.stopPropagation();
-									roleMutation.mutate({
-										userId: u.id,
-										role: isStoredOwner ? "submitter" : "owner",
-									});
-								}}
-							>
-								{isStoredOwner ? "Remove owner" : "Make owner"}
-							</Button>
-						)}
-						<Button
-							variant="ghost"
-							size="sm"
-							className="h-7 text-xs text-muted-foreground"
-							onClick={(e) => {
-								e.stopPropagation();
-								if (isAdmin) {
-									roleMutation.mutate({ userId: u.id, role: "submitter" });
-								} else {
-									setPendingPromotion({ userId: u.id, role: "admin", displayName: u.displayName });
-								}
-							}}
-						>
-							{isAdmin ? "Remove admin" : "Make admin"}
-						</Button>
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button
+									variant="ghost"
+									size="sm"
+									className="h-7 gap-1 text-xs text-muted-foreground"
+									onClick={(e) => e.stopPropagation()}
+								>
+									Change role
+									<ChevronDown className="size-3" />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+								{!isAdmin && (
+									<DropdownMenuItem
+										onSelect={() =>
+											roleMutation.mutate({
+												userId: u.id,
+												role: isStoredOwner ? "submitter" : "owner",
+											})
+										}
+									>
+										{isStoredOwner ? "Remove owner" : "Make owner"}
+									</DropdownMenuItem>
+								)}
+								<DropdownMenuItem
+									onSelect={() => {
+										if (isAdmin) {
+											roleMutation.mutate({ userId: u.id, role: "submitter" });
+										} else {
+											setPendingPromotion({
+												userId: u.id,
+												role: "admin",
+												displayName: u.displayName,
+											});
+										}
+									}}
+								>
+									{isAdmin ? "Remove admin" : "Make admin"}
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
 					</div>
 				);
 			},
