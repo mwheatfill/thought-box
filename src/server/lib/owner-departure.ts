@@ -16,12 +16,24 @@ export interface DeactivationDecision {
  * out-of-band in Entra can still leave a Category unowned; that case is detected
  * and surfaced to admins separately, not prevented here.
  */
-export function resolveDeactivation(params: { ownedCategoryCount: number }): DeactivationDecision {
+export function resolveDeactivation(params: {
+	ownedCategoryCount: number;
+	/** Open ideas assigned to the user — they'd be left with an inactive active owner. */
+	openAssignedIdeaCount?: number;
+}): DeactivationDecision {
 	if (params.ownedCategoryCount > 0) {
 		const plural = params.ownedCategoryCount === 1 ? "Category" : "Categories";
 		return {
 			canDeactivate: false,
 			reason: `Still owns ${params.ownedCategoryCount} ${plural}. Transfer ownership before deactivating.`,
+		};
+	}
+	const open = params.openAssignedIdeaCount ?? 0;
+	if (open > 0) {
+		const plural = open === 1 ? "idea" : "ideas";
+		return {
+			canDeactivate: false,
+			reason: `Still assigned ${open} open ${plural}. Reassign them before deactivating.`,
 		};
 	}
 	return { canDeactivate: true };

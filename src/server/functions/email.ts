@@ -14,7 +14,7 @@ import SlaReminder from "#/emails/SlaReminder";
 import StatusChanged from "#/emails/StatusChanged";
 import UserInvite from "#/emails/UserInvite";
 import WatcherAlert from "#/emails/WatcherAlert";
-import WatcherUpdate, { watcherUpdateCopy } from "#/emails/WatcherUpdate";
+import WatcherUpdate, { type WatcherUpdateKind, watcherUpdateCopy } from "#/emails/WatcherUpdate";
 import { firstName } from "#/lib/utils";
 import { sendEmail } from "#/server/lib/email";
 import { adminMiddleware } from "#/server/middleware/auth";
@@ -226,10 +226,12 @@ export async function sendWatcherUpdateEmail(params: {
 	watcherFirstName: string;
 	submissionId: string;
 	ideaTitle: string;
-	updateKind: "status" | "message" | "added";
+	updateKind: WatcherUpdateKind;
 	statusLabel?: string | null;
 	messagePreview?: string | null;
 	addedByName?: string | null;
+	detail?: string | null;
+	actorName?: string | null;
 }) {
 	await sendEmail({
 		to: params.watcherEmail,
@@ -237,6 +239,7 @@ export async function sendWatcherUpdateEmail(params: {
 			updateKind: params.updateKind,
 			submissionId: params.submissionId,
 			statusLabel: params.statusLabel,
+			detail: params.detail,
 		}).subject,
 		templateName: "WatcherUpdate",
 		template: createElement(WatcherUpdate, {
@@ -247,6 +250,8 @@ export async function sendWatcherUpdateEmail(params: {
 			statusLabel: params.statusLabel ?? null,
 			messagePreview: params.messagePreview ?? null,
 			addedByName: params.addedByName ?? null,
+			detail: params.detail ?? null,
+			actorName: params.actorName ?? null,
 			viewUrl: ideaUrl(params.submissionId),
 		}),
 	});

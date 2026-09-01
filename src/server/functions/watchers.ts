@@ -29,16 +29,20 @@ async function loadIdeaForWatch(ideaId: string) {
 	return idea;
 }
 
-/** Whether the user may manage an idea's Watcher list — the idea's active owner (assignee, category owner, or admin). */
-function canManageWatchers(
+/** The idea's active owner may manage its Watchers — one gate, from the permissions module. */
+async function canManageWatchersOn(
 	user: { id: string; role: string },
-	idea: { assignedReviewerId: string | null; category: { ownerId: string | null } },
-): boolean {
-	return (
-		user.role === "admin" ||
-		idea.category.ownerId === user.id ||
-		idea.assignedReviewerId === user.id
-	);
+	idea: Awaited<ReturnType<typeof loadIdeaForWatch>>,
+): Promise<boolean> {
+	const caps = await loadIdeaCapabilities(user, {
+		id: idea.id,
+		status: idea.status,
+		submitterId: idea.submitterId,
+		assignedReviewerId: idea.assignedReviewerId,
+		categoryId: idea.categoryId,
+		categoryOwnerId: idea.category.ownerId,
+	});
+	return caps.canManageWatchers;
 }
 
 /**
@@ -67,7 +71,7 @@ export const getIdeaWatchers = createServerFn()
 		const activeReviewerId = idea.assignedReviewerId ?? idea.category.ownerId;
 		const isSubmitter = idea.submitterId === me;
 		const isActiveReviewer = activeReviewerId === me;
-		const canManage = canManageWatchers(context.user, idea);
+		const canManage = caps.canManageWatchers;
 
 		// Explicit subscriptions only (legacy `assignment` rows are ignored).
 		const rows = await db.query.ideaWatchers.findMany({
@@ -203,8 +207,7 @@ export const addWatcher = createServerFn({ method: "POST" })
 	.inputValidator(DirectoryUserSchema.extend({ ideaId: z.string() }))
 	.handler(async ({ context, data }) => {
 		const idea = await loadIdeaForWatch(data.ideaId);
-		const canManage = canManageWatchers(context.user, idea);
-		if (!canManage) throw new Error("Forbidden");
+		if (!(await canManageWatchersOn(context.user, idea))) throw new Error("Forbidden");
 
 		const { id: userId } = await upsertActiveDirectoryUser(data, context.user.id);
 
@@ -249,8 +252,7 @@ export const removeWatcher = createServerFn({ method: "POST" })
 	.inputValidator(z.object({ ideaId: z.string(), userId: z.string() }))
 	.handler(async ({ context, data }) => {
 		const idea = await loadIdeaForWatch(data.ideaId);
-		const canManage = canManageWatchers(context.user, idea);
-		if (!canManage) throw new Error("Forbidden");
+		if (!(await canManageWatchersOn(context.user, idea))) throw new Error("Forbidden");
 
 		const removedUser = await db.query.users.findFirst({
 			where: eq(users.id, data.userId),

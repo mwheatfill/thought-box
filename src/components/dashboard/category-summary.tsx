@@ -53,7 +53,8 @@ export function CategorySummary({ data }: { data: CategorySummaryData }) {
 							<Layers className="size-8 text-muted-foreground" />
 							<p className="text-sm font-medium">No categories yet</p>
 							<p className="max-w-sm text-sm text-muted-foreground">
-								Once you own a category or join a review team, your ideas show up here.
+								Ideas assigned to you are in My Queue. Once you own a category or join a review
+								team, its ideas show up here too.
 							</p>
 						</CardContent>
 					</Card>

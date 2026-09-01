@@ -5,13 +5,13 @@ export type EffectiveRole = "submitter" | "contributor" | "owner" | "admin";
  * field (ADR-0003).
  *
  * `admin` is the only explicitly-granted role. Owning at least one Category OR
- * holding at least one assigned idea makes someone an Owner (the client model:
- * whoever a ticket is assigned to owns it — assignment is the promotion,
- * 2026-09-01 prod incident); sitting on at least one Watcher roster makes them
- * a Contributor; everyone else is a Submitter. Because the role is computed
- * from relationships, it can never drift from reality — losing your last
- * Category or ticket drops you back to whatever your remaining relationships
- * say.
+ * holding at least one assigned idea — open OR closed — makes someone an Owner
+ * (ADR-0004: whoever a ticket is assigned to owns it; assignment is the
+ * promotion, and a past assignee deliberately keeps their history and Owner
+ * standing). Sitting on at least one Watcher roster makes them a Contributor;
+ * everyone else is a Submitter. Because the role is computed from
+ * relationships, it can never drift from reality — losing your last Category
+ * drops you back to whatever your remaining relationships say.
  *
  * The hierarchy is a strict precedence: admin > owner > contributor > submitter.
  */

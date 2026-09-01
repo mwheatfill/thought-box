@@ -40,11 +40,22 @@ describe("resolveIdeaCapabilities", () => {
 		expect(c.canAssignReviewer).toBe(true);
 	});
 
-	it("lets the assigned person Reopen their closed ticket, but nothing else on it", () => {
+	it("lets the assigned person Reopen their closed ticket and manage its watchers, but nothing else", () => {
 		const c = resolveIdeaCapabilities({ ...NONE, isAssignedReviewer: true, status: "declined" });
 		expect(c.canReopen).toBe(true);
+		expect(c.canManageWatchers).toBe(true);
 		expect(c.canDecide).toBe(false);
 		expect(c.canEditOwnerNotes).toBe(false);
+	});
+
+	it("never lets a category Watcher or per-idea watcher manage watchers", () => {
+		expect(
+			resolveIdeaCapabilities({ ...NONE, isCategoryContributor: true, status: "new" })
+				.canManageWatchers,
+		).toBe(false);
+		expect(
+			resolveIdeaCapabilities({ ...NONE, isWatcher: true, status: "new" }).canManageWatchers,
+		).toBe(false);
 	});
 
 	it("gives a category Watcher notes + messaging on any idea in the category, but no status power (R14)", () => {

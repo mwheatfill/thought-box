@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, count, eq, inArray } from "drizzle-orm";
+import { and, count, sql as dsql, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import {
 	REASSIGNMENT_REASONS,
@@ -44,7 +44,7 @@ import { businessDaysRemaining, calculateSlaDueDate, calculateSlaStatus } from "
 import { nextSubmissionId } from "#/server/lib/submission-id";
 import { trackEvent } from "#/server/lib/telemetry";
 import { DirectoryUserSchema, upsertActiveDirectoryUser } from "#/server/lib/user-upsert";
-import { notifyIdeaWatchers } from "#/server/lib/watcher-notify";
+import { notifyIdeaStakeholders, notifyIdeaWatchers } from "#/server/lib/watcher-notify";
 import { authMiddleware, ownerMiddleware } from "#/server/middleware/auth";
 
 const CreateIdeaSchema = z.object({
@@ -551,7 +551,7 @@ export const updateIdea = createServerFn({ method: "POST" })
 				eventType: "status_changed",
 				actorId: context.user.id,
 				submitterId: idea.submitterId,
-				alsoNotifyId: idea.assignedReviewerId ?? idea.category.ownerId,
+				alsoNotifyIds: [idea.assignedReviewerId, idea.category.ownerId],
 				update: { kind: "status", statusLabel: STATUS_LABELS[data.status] ?? data.status },
 			});
 		}
@@ -650,7 +650,7 @@ export const bulkUpdateStatus = createServerFn({ method: "POST" })
 				eventType: "status_changed",
 				actorId: context.user.id,
 				submitterId: t.submitterId,
-				alsoNotifyId: t.assignedReviewerId ?? t.category.ownerId,
+				alsoNotifyIds: [t.assignedReviewerId, t.category.ownerId],
 				update: { kind: "status", statusLabel: STATUS_LABELS[data.status] ?? data.status },
 			});
 		}
@@ -687,9 +687,31 @@ const REASSIGN_REASON_KEYS = Object.keys(REASSIGNMENT_REASONS) as [
 export const getActiveOwnersAndAdmins = createServerFn()
 	.middleware([ownerMiddleware])
 	.handler(async () => {
+		// Owner is a DERIVED role (ADR-0003/0004): admins, category owners, roster
+		// watchers, and anyone holding an assigned idea — never the stored column.
 		return db.query.users.findMany({
-			where: (u, { or, eq: e, and }) =>
-				and(or(e(u.role, "owner"), e(u.role, "admin")), e(u.active, true)),
+			where: (u, { or, eq: e, and, inArray: inArr, isNotNull }) =>
+				and(
+					e(u.active, true),
+					or(
+						e(u.role, "admin"),
+						inArr(
+							u.id,
+							db
+								.select({ id: dsql<string>`${categories.ownerId}` })
+								.from(categories)
+								.where(and(isNotNull(categories.ownerId), e(categories.active, true))),
+						),
+						inArr(u.id, db.select({ id: categoryContributors.userId }).from(categoryContributors)),
+						inArr(
+							u.id,
+							db
+								.select({ id: dsql<string>`${ideas.assignedReviewerId}` })
+								.from(ideas)
+								.where(isNotNull(ideas.assignedReviewerId)),
+						),
+					),
+				),
 			columns: {
 				id: true,
 				displayName: true,
@@ -702,6 +724,25 @@ export const getActiveOwnersAndAdmins = createServerFn()
 			orderBy: (u, { asc }) => [asc(u.displayName)],
 		});
 	});
+
+/**
+ * When the assignee themselves moves, reopens, or triages an idea, the write
+ * clears their assignment — often their only link to it. Keep them following
+ * it as a Watcher so the page they're on doesn't vanish from under them.
+ */
+async function keepActorFollowing(
+	tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+	ideaId: string,
+	actorId: string,
+) {
+	await tx
+		.insert(ideaWatchers)
+		.values({ ideaId, userId: actorId, source: "self" })
+		.onConflictDoNothing();
+}
+
+const KEEP_FOLLOWING = (idea: { assignedReviewerId: string | null }, actorId: string) =>
+	idea.assignedReviewerId === actorId;
 
 // ── Change Category (the accountability lever, ADR-0001) ──────────────────
 
@@ -768,19 +809,23 @@ export const changeIdeaCategory = createServerFn({ method: "POST" })
 
 		if (!idea) throw new Error("Idea not found");
 
-		// Change Category belongs to the idea's active owner — the assignee, the
-		// current Category's Owner, or an Admin (client model, 2026-09-01).
-		const isActiveOwner =
-			context.user.role === "admin" ||
-			idea.category.ownerId === context.user.id ||
-			idea.assignedReviewerId === context.user.id;
-		if (!isActiveOwner) throw new Error("Forbidden");
-
 		// Closed ideas are locked; Reopen (Phase 7) is the only path back and may
-		// recategorize in the same step.
+		// recategorize in the same step. Checked first for the clearer message.
 		if (isClosedStatus(idea.status)) {
 			throw new Error("This idea is closed and locked. Reopen it to move it.");
 		}
+
+		// Change Category belongs to the idea's active owner — one gate, from the
+		// permissions module (ADR-0004).
+		const caps = await loadIdeaCapabilities(context.user, {
+			id: idea.id,
+			status: idea.status,
+			submitterId: idea.submitterId,
+			assignedReviewerId: idea.assignedReviewerId,
+			categoryId: idea.categoryId,
+			categoryOwnerId: idea.category.ownerId,
+		});
+		if (!caps.canChangeCategory) throw new Error("Forbidden");
 
 		if (data.newCategoryId === idea.categoryId) {
 			throw new Error("This idea is already in that category.");
@@ -812,6 +857,9 @@ export const changeIdeaCategory = createServerFn({ method: "POST" })
 					...(statusResets ? { status: "new" as const } : {}),
 				})
 				.where(eq(ideas.id, data.ideaId));
+			if (KEEP_FOLLOWING(idea, context.user.id)) {
+				await keepActorFollowing(tx, data.ideaId, context.user.id);
+			}
 
 			// Drop pending reminders so the fresh SLA clock starts clean.
 			await tx
@@ -857,6 +905,18 @@ export const changeIdeaCategory = createServerFn({ method: "POST" })
 				note: null,
 			});
 		}
+
+		// Fire-and-forget: the displaced owner/assignee learn it left their hands.
+		notifyIdeaStakeholders({
+			userIds: [idea.category.ownerId, idea.assignedReviewerId],
+			exclude: [newCategory.ownerId],
+			actorId: context.user.id,
+			actorName: context.user.displayName,
+			submissionId: idea.submissionId,
+			ideaTitle: idea.title,
+			kind: "moved",
+			detail: newCategory.name,
+		});
 
 		trackEvent("IdeaCategoryChanged", {
 			ideaId: data.ideaId,
@@ -922,6 +982,7 @@ export const assignReviewer = createServerFn({ method: "POST" })
 				submissionId: true,
 				title: true,
 				status: true,
+				categoryId: true,
 				assignedReviewerId: true,
 				submitterId: true,
 			},
@@ -933,17 +994,21 @@ export const assignReviewer = createServerFn({ method: "POST" })
 
 		if (!idea) throw new Error("Idea not found");
 
-		// Assignment (handing the ticket off) belongs to the idea's active owner —
-		// the assignee, the Category Owner, or an Admin (client model, 2026-09-01).
-		const isActiveOwner =
-			context.user.role === "admin" ||
-			idea.category.ownerId === context.user.id ||
-			idea.assignedReviewerId === context.user.id;
-		if (!isActiveOwner) throw new Error("Forbidden");
-
 		if (isClosedStatus(idea.status)) {
 			throw new Error("This idea is closed and locked. Reopen it to assign a reviewer.");
 		}
+
+		// Assignment (handing the ticket off) belongs to the idea's active owner —
+		// one gate, from the permissions module (ADR-0004).
+		const caps = await loadIdeaCapabilities(context.user, {
+			id: idea.id,
+			status: idea.status,
+			submitterId: idea.submitterId,
+			assignedReviewerId: idea.assignedReviewerId,
+			categoryId: idea.categoryId,
+			categoryOwnerId: idea.category.ownerId,
+		});
+		if (!caps.canAssignReviewer) throw new Error("Forbidden");
 
 		// Resolve the candidate: an existing user, or anyone from the Entra
 		// directory (R29 — open assignment), inline-created on first touch.
@@ -1020,6 +1085,19 @@ export const assignReviewer = createServerFn({ method: "POST" })
 				submitterDepartment: idea.submitter.department,
 			});
 		}
+
+		// Fire-and-forget: the category owner and the prior assignee learn of the
+		// hand-off (the new assignee gets their own email above).
+		notifyIdeaStakeholders({
+			userIds: [idea.category.ownerId, idea.assignedReviewerId],
+			exclude: [candidate?.id],
+			actorId: context.user.id,
+			actorName: context.user.displayName,
+			submissionId: idea.submissionId,
+			ideaTitle: idea.title,
+			kind: "handoff",
+			detail: candidate?.displayName ?? "the category owner",
+		});
 
 		trackEvent("IdeaAssigned", {
 			ideaId: data.ideaId,
@@ -1171,6 +1249,10 @@ export const reopenIdea = createServerFn({ method: "POST" })
 				})
 				.where(eq(ideas.id, data.ideaId));
 
+			if (KEEP_FOLLOWING(idea, context.user.id)) {
+				await keepActorFollowing(tx, data.ideaId, context.user.id);
+			}
+
 			// Clear pending reminders so the fresh SLA starts clean.
 			await tx
 				.delete(ideaEvents)
@@ -1238,6 +1320,18 @@ export const reopenIdea = createServerFn({ method: "POST" })
 				});
 			}
 		}
+
+		// Fire-and-forget: the accountable owner/assignee learn their verdict was
+		// reopened by someone else (a new owner, if moved, is emailed above).
+		notifyIdeaStakeholders({
+			userIds: [idea.category.ownerId, idea.assignedReviewerId],
+			exclude: [target?.ownerId],
+			actorId: context.user.id,
+			actorName: context.user.displayName,
+			submissionId: idea.submissionId,
+			ideaTitle: idea.title,
+			kind: "reopened",
+		});
 
 		trackEvent("IdeaReopened", {
 			ideaId: data.ideaId,
@@ -1328,6 +1422,9 @@ export const requestTriage = createServerFn({ method: "POST" })
 					...(statusResets ? { status: "new" as const } : {}),
 				})
 				.where(eq(ideas.id, data.ideaId));
+			if (KEEP_FOLLOWING(idea, context.user.id)) {
+				await keepActorFollowing(tx, data.ideaId, context.user.id);
+			}
 
 			await tx
 				.delete(ideaEvents)
@@ -1350,6 +1447,17 @@ export const requestTriage = createServerFn({ method: "POST" })
 					newValue: "new",
 				});
 			}
+		});
+
+		// Fire-and-forget: the category owner learns the idea left for triage.
+		notifyIdeaStakeholders({
+			userIds: [idea.category.ownerId, idea.assignedReviewerId],
+			actorId: context.user.id,
+			actorName: context.user.displayName,
+			submissionId: idea.submissionId,
+			ideaTitle: idea.title,
+			kind: "moved",
+			detail: triage.name,
 		});
 
 		// Fire-and-forget: alert every active admin to recategorize it.

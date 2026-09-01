@@ -20,4 +20,16 @@ describe("resolveDeactivation", () => {
 		const decision = resolveDeactivation({ ownedCategoryCount: 1 });
 		expect(decision.reason).toContain("1 Category.");
 	});
+
+	it("blocks deactivation while the user holds open assigned ideas (assignment confers ownership)", () => {
+		const decision = resolveDeactivation({ ownedCategoryCount: 0, openAssignedIdeaCount: 2 });
+		expect(decision.canDeactivate).toBe(false);
+		expect(decision.reason).toContain("2 open ideas");
+	});
+
+	it("ignores closed assignments", () => {
+		expect(resolveDeactivation({ ownedCategoryCount: 0, openAssignedIdeaCount: 0 })).toEqual({
+			canDeactivate: true,
+		});
+	});
 });

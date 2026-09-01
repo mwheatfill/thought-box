@@ -23,22 +23,25 @@ export interface IdeaCapabilities {
 	canAssignReviewer: boolean;
 	/** May Reopen a closed idea — the idea's active owner. */
 	canReopen: boolean;
+	/** May add/remove Watchers on the idea — the idea's active owner, open or closed. */
+	canManageWatchers: boolean;
 }
 
 /**
  * Resolve what a user may do on a specific idea, from their relationship to it
- * and the idea's status. Encodes the category-Watcher model (client-confirmed
- * R14, superseding ADR-0002's assignment gate):
+ * and the idea's status. Encodes the client's ownership model (ADR-0004):
  *
  * - View is the widest gate: owner, any assigned reviewer, any category
  *   Watcher (roster), per-idea watchers, and the submitter.
  * - Owner Notes and messaging the submitter are **category-scoped**: an
  *   owner/admin, the assigned reviewer, or anyone on the category's Watcher
  *   roster.
- * - Status changes stay reserved: Under Review for the assigned actor, the
- *   verdict (Accept/Decline), Change Category, Assignment, and Reopen for
- *   owner/admin. A Watcher contributes notes and messages, not decisions.
- * - Closed ideas are locked except for Reopen.
+ * - The idea's **active owner** — the assignee, else the category owner;
+ *   admins always — holds every status power: Under Review, the verdict
+ *   (Accept/Decline), Change Category, Assignment (hand-off), Reopen, and
+ *   Watcher management. A Watcher contributes notes and messages, not
+ *   decisions.
+ * - Closed ideas are locked except for Reopen and Watcher management.
  *
  * Inputs are plain relationship booleans so this stays pure and exhaustively
  * testable, independent of how the relationships are looked up.
@@ -80,5 +83,6 @@ export function resolveIdeaCapabilities(params: {
 		canChangeCategory: assignedActor && !closed,
 		canAssignReviewer: assignedActor && !closed,
 		canReopen: assignedActor && closed,
+		canManageWatchers: assignedActor,
 	};
 }

@@ -1,12 +1,12 @@
 # Contributor Model: roster-granted, assignment-gated, single per Idea
 
-> **Superseded in part (2026-08-27, client-confirmed R14/R29).** The assignment
+> **Superseded (2026-08-27 R14/R29; 2026-09-01 ADR-0004).** The assignment
 > gate is removed: roster membership (UI label now **"Watcher"**) grants Owner
 > Notes editing and submitter messaging on **all** Ideas in the Category, plus
-> category-wide alert emails — and assignment is open to the whole directory,
-> not just people scoped to the Category. Still standing: roster-granted role,
-> one assigned reviewer per Idea, and verdict reserved to Owner/Admin. See
-> CONTEXT.md for the current model.
+> category-wide alert emails — and assignment is open to the whole directory.
+> The "legwork, not verdict" rule is retired too: **whoever an Idea is assigned
+> to owns it**, verdict included (ADR-0004). Still standing: roster-granted
+> Watcher role and one assignee per Idea. See CONTEXT.md for the current model.
 
 ## Context
 

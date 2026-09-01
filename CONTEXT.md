@@ -28,11 +28,11 @@ An Owner's self-serve view (off My Queue) of a Category they own. Read-only on t
 A user subscribed to notifications for a single **Idea** — a subscription, not a role (self opt-in, or looped in by an Owner/Admin, which also grants view access to that one Idea). Receives the submitter-facing events — status changes (incl. Reopen) and public owner↔submitter messages — but never internal notes, SLA reminders, or administrative events (Change Category / Assignment). NOTE: the UI word "Watcher" now covers BOTH this per-Idea subscription AND the category Watcher role above — the client insisted on one word (R14). Disambiguate in code and docs via `ideaWatchers` (subscription) vs `categoryContributors` (role).
 
 **Reopen**:
-An explicit, audited Owner/Admin action that returns a closed Idea (Accepted or Declined) to New and resets the SLA. Closed Ideas are otherwise locked; Reopen is the only path back, and may recategorize in the same step.
+An explicit, audited action by the Idea's active owner (assignee, Category Owner, or Admin) that returns a closed Idea (Accepted or Declined) to New and resets the SLA. Closed Ideas are otherwise locked; Reopen is the only path back, and may recategorize in the same step. The accountable Category Owner is notified when someone else reopens.
 _Avoid_: treating a Change Category on a closed Idea as an implicit reopen — reopening is always deliberate.
 
-**Active reviewer** (assigned reviewer):
-The single person currently working an Idea. **Anyone in the Entra directory can be assigned** (client-confirmed R29, 2026-08-27) — inline-created as a User on first assignment; deactivated accounts are refused. Defaults to the Owner. This is who is *assigned*, distinct from who is *accountable* (always the Owner). Being the assigned reviewer grants the review-side rights on that Idea (notes, messaging, advance to Under Review).
+**Active owner** (a.k.a. active reviewer / assignee):
+The single person currently working an Idea: the assignee if one is set, else the Category Owner. **Anyone in the Entra directory can be assigned** (R29) — inline-created as a User on first assignment; deactivated accounts are refused. **Whoever a ticket is assigned to owns it** (ADR-0004, 2026-09-01): the active owner holds every power on that Idea — notes, messaging, Under Review, Accept/Decline, hand-off (Assignment), Change Category, Reopen, Watcher management. The Category Owner keeps the *category-level* powers (roster, transfer, definitions) and is notified whenever someone else moves, hands off, or reopens one of their category's Ideas.
 
 **Needs Triage** (Category):
 An admin-owned catch-all Category (none seeded today — created when this ships). A reviewer who can't place an Idea uses "need admin assistance" to move it here, which notifies ThoughtBox admins to recategorize it. The reviewer is also offered an **AI suggestion** (reusing the embedded classifier) before falling back to triage.
@@ -40,8 +40,8 @@ An admin-owned catch-all Category (none seeded today — created when this ships
 **Change Category** (a.k.a. Reassignment):
 Moving an Idea to a different Category, which changes its derived Owner. The accountability lever — captures a reason (Internal Department Reassignment / Improperly Assigned), resets the SLA, clears any assigned Contributor (so the Active reviewer falls back to the new Category's derived Owner), and rolls the status back to New so the Idea lands fresh in the new Owner's queue. The target must be a live destination (active, ThoughtBox-routing, owned). It is an **administrative** move: only the new Owner is notified — the submitter is **not** pinged (consistent with the Watcher event filter, which excludes administrative events). Not a person-to-person handoff.
 
-**Assignment**:
-Setting an Idea's single Active reviewer — the category team quick-picks plus an open Entra directory search (R29). An Owner/Admin action; defaults to the Owner and resets to the Owner on Change Category. Does not change ownership and does not reset the SLA.
+**Assignment** (hand-off):
+Setting an Idea's active owner — the category team quick-picks plus an open Entra directory search (R29). Any current active owner (assignee, Category Owner, or Admin) may hand the Idea off; defaults to the Category Owner and resets to them on Change Category. Assignment **is the promotion**: holding an assigned Idea makes someone an Owner in the app (ADR-0004). It never resets the SLA. The Category Owner and the prior assignee are notified of a hand-off they didn't make.
 
 ## Relationships
 
@@ -53,7 +53,7 @@ Setting an Idea's single Active reviewer — the category team quick-picks plus 
 - A user's effective **category Watcher** role is *granted by roster membership* (on ≥1 Watcher roster), not set directly by an admin; any Owner can add any active user to their Category's roster
 - Add-people pickers (Owner, Contributor, Watcher) default to existing Users and extend to an Entra directory search, **inline-creating** the User if they don't exist yet (reusing `searchDirectory` + `upsertUser`). Owners — not just admins — may do this inline-create when adding a Contributor/Watcher; the created User defaults to role `submitter` (roster membership is what grants Contributor capability). This deliberately widens the current admin-only gate
 - A user becomes a **Watcher** three ways: self opt-in (any user with view access to the Idea), added by an Owner/Admin (which grants that user view access to that one Idea), or automatically when assigned as the Idea's reviewer. The submitter is always notified implicitly and is **not** a Watcher row (cannot be unwatched off their own Idea)
-- **Roles** form a hierarchy: `submitter → contributor → owner → admin`, and are **derived from relationships** (ADR-0003): `admin` is the only explicitly-granted role; `owner` = owns ≥1 Category; `contributor` = on ≥1 roster; `submitter` = default. No manual owner/contributor setter
+- **Roles** form a hierarchy: `submitter → contributor → owner → admin`, and are **derived from relationships** (ADR-0003, amended by ADR-0004): `admin` is the only explicitly-granted role; `owner` = owns ≥1 Category **or holds ≥1 assigned Idea (open or closed — a past assignee keeps their history and Owner standing)**; `contributor` (UI: Watcher) = on ≥1 roster; `submitter` = default. No manual owner/contributor setter — assigning someone a ticket or a category is the promotion
 
 ## Flagged ambiguities
 

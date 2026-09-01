@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, count, eq, isNull, ne } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
+import { OPEN_STATUSES } from "#/lib/constants";
 import { firstName } from "#/lib/utils";
 import { db } from "#/server/db";
 import { categories, categoryContributors, ideas, users } from "#/server/db/schema";
@@ -82,17 +83,28 @@ export const getUsers = createServerFn()
  * Categories.
  */
 async function ensureNoOwnedCategories(userId: string) {
-	const [{ n }] = await db
-		.select({ n: count() })
-		.from(categories)
-		.where(
-			and(
-				eq(categories.ownerId, userId),
-				eq(categories.active, true),
-				isNull(categories.deletedAt),
+	const [[{ n }], [{ n: openAssigned }]] = await Promise.all([
+		db
+			.select({ n: count() })
+			.from(categories)
+			.where(
+				and(
+					eq(categories.ownerId, userId),
+					eq(categories.active, true),
+					isNull(categories.deletedAt),
+				),
 			),
-		);
-	const decision = resolveDeactivation({ ownedCategoryCount: Number(n) });
+		// Assignment confers ownership too — open ideas can't be left with an
+		// inactive active owner.
+		db
+			.select({ n: count() })
+			.from(ideas)
+			.where(and(eq(ideas.assignedReviewerId, userId), inArray(ideas.status, [...OPEN_STATUSES]))),
+	]);
+	const decision = resolveDeactivation({
+		ownedCategoryCount: Number(n),
+		openAssignedIdeaCount: Number(openAssigned),
+	});
 	if (!decision.canDeactivate) {
 		throw new Error(decision.reason ?? "Transfer category ownership first.");
 	}

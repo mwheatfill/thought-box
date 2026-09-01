@@ -40,13 +40,16 @@ const rosterCategoryIds = (userId: string) =>
 		);
 
 /**
- * Every idea in the user's categories — those they own OR contribute to. The
+ * Every idea in the user's categories — those they own OR contribute to — plus
+ * ideas assigned to them directly (assignment confers ownership, so an
+ * assignment-only Owner's Dashboard and All Ideas must show their work). The
  * "accountability scope" behind the Dashboard summary and the All Ideas table.
  */
 function inMyCategories(userId: string) {
 	return or(
 		inArray(ideas.categoryId, ownedCategoryIds(userId)),
 		inArray(ideas.categoryId, rosterCategoryIds(userId)),
+		eq(ideas.assignedReviewerId, userId),
 	);
 }
 

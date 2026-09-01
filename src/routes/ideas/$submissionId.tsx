@@ -423,7 +423,7 @@ function IdeaDetailPage() {
 										<AttachmentsPanel
 											ideaId={idea.id}
 											currentUserId={user.id}
-											currentUserRole={user.role}
+											currentUserRole={idea.canReadInternalNotes ? "owner" : "submitter"}
 											attachments={ideaAttachments}
 											readOnly={isLocked}
 											onChange={() => {
